@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Request Interceptor</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      margin: 0;
+      padding: 0;
+      width: 400px;
+      height: 550px;
+      overflow: hidden;
+      color: #333;
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    
+    .header {
+      background-color: #4285f4;
+      color: white;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 500;
+    }
+    
+    .toggle-container {
+      display: flex;
+      align-items: center;
+    }
+    
+    .toggle {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+    }
+    
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 20px;
+    }
+    
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+      background-color: #34a853;
+    }
+    
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+    
+    .status {
+      font-size: 12px;
+      margin-right: 8px;
+    }
+    
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+    }
+    
+    .tab.active {
+      border-bottom-color: #4285f4;
+      color: #4285f4;
+      font-weight: 500;
+    }
+    
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    
+    input, select, textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    
+    textarea {
+      height: 120px;
+      font-family: monospace;
+      resize: vertical;
+    }
+    
+    button {
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    
+    button:hover {
+      background-color: #3367d6;
+    }
+    
+    button.secondary {
+      background-color: #f1f3f4;
+      color: #202124;
+    }
+    
+    button.secondary:hover {
+      background-color: #e8eaed;
+    }
+    
+    button.danger {
+      background-color: #ea4335;
+    }
+    
+    button.danger:hover {
+      background-color: #d93025;
+    }
+    
+    .route-list {
+      margin-top: 8px;
+    }
+    
+    .route-item {
+      background-color: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+    
+    .route-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    
+    .method-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-right: 8px;
+    }
+    
+    .method-get {
+      background-color: #e8f0fe;
+      color: #1a73e8;
+    }
+    
+    .method-post {
+      background-color: #e6f4ea;
+      color: #137333;
+    }
+    
+    .method-put {
+      background-color: #fef7e0;
+      color: #ea8600;
+    }
+    
+    .method-delete {
+      background-color: #fce8e6;
+      color: #c5221f;
+    }
+    
+    .route-url {
+      font-family: monospace;
+      font-size: 13px;
+      word-break: break-all;
+    }
+    
+    .route-details {
+      font-size: 12px;
+      color: #5f6368;
+    }
+    
+    .route-actions {
+      margin-top: 8px;
+      display: flex;
+      justify-content: flex-end;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: #5f6368;
+    }
+    
+    .empty-state p {
+      margin-bottom: 16px;
+    }
+    
+    .logs-container {
+      height: 100%;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+      background-color: #202124;
+      color: #e8eaed;
+      border-radius: 4px;
+      padding: 8px;
+    }
+    
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid #3c4043;
+    }
+    
+    .log-time {
+      color: #9aa0a6;
+      margin-right: 8px;
+    }
+    
+    .info-panel {
+      padding: 16px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
+    
+    .info-panel h3 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+    
+    .info-panel p {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Request Interceptor</h1>
+      <div class="toggle-container">
+        <span class="status" id="status-text">Disabled</span>
+        <label class="toggle">
+          <input type="checkbox" id="enableToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+    
+    <div class="tabs">
+      <div class="tab active" data-tab="routes">Routes</div>
+      <div class="tab" data-tab="add">Add Route</div>
+      <div class="tab" data-tab="logs">Logs</div>
+      <div class="tab" data-tab="help">Help</div>
+    </div>
+    
+    <div class="tab-content active" id="routes-tab">
+      <div class="route-actions" style="margin-bottom: 16px;">
+        <button class="danger" id="clear-routes-btn">Clear All Routes</button>
+      </div>
+      
+      <div id="route-list" class="route-list">
+        <!-- Routes will be inserted here dynamically -->
+        <div class="empty-state">
+          <p>No routes configured yet.</p>
+          <button class="tab-link" data-tab="add">Add Your First Route</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="tab-content" id="add-tab">
+      <form id="add-route-form">
+        <div class="form-group">
+          <label for="url">URL to Intercept:</label>
+          <input type="text" id="url" placeholder="e.g. /api/users or https://example.com/api/data" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="method">HTTP Method:</label>
+          <select id="method">
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="DELETE">DELETE</option>
+            <option value="PATCH">PATCH</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="status">Status Code:</label>
+          <input type="number" id="status" value="200" min="100" max="599">
+        </div>
+        
+        <div class="form-group">
+          <label for="delay">Response Delay (ms):</label>
+          <input type="number" id="delay" value="0" min="0">
+        </div>
+        
+        <div class="form-group">
+          <label for="contentType">Content Type:</label>
+          <select id="contentType">
+            <option value="application/json">application/json</option>
+            <option value="text/plain">text/plain</option>
+            <option value="text/html">text/html</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="responseBody">Response Body:</label>
+          <textarea id="responseBody" placeholder='{"status": "success", "data": [{"id": 1, "name": "Example"}]}'>{"status": "success", "data": [{"id": 1, "name": "Example"}]}</textarea>
+        </div>
+        
+        <button type="submit">Add Interception</button>
+      </form>
+    </div>
+    
+    <div class="tab-content" id="logs-tab">
+      <div class="logs-container" id="logs-container">
+        <div class="log-entry">
+          <span class="log-time">[12:34:56]</span>
+          No logs available yet. Enable the interceptor and make some requests.
+        </div>
+      </div>
+    </div>
+    
+    <div class="tab-content" id="help-tab">
+      <div class="info-panel">
+        <h3>About Request Interceptor</h3>
+        <p>This extension allows you to intercept and modify API requests for UI testing purposes.</p>
+        <p>Use it to test different response scenarios without changing your backend code.</p>
+      </div>
+      
+      <h3>Quick Tips</h3>
+      <ul>
+        <li>Enable the interceptor using the toggle in the header.</li>
+        <li>Add routes to intercept specific API endpoints.</li>
+        <li>Use the floating button on the page to quickly access the interceptor.</li>
+        <li>View logs to see which requests are being intercepted.</li>
+      </ul>
+      
+      <h3>Advanced Usage</h3>
+      <p>You can use patterns in your URLs:</p>
+      <ul>
+        <li>Use <code>*</code> as a wildcard: <code>/api/users/*</code></li>
+        <li>Include query parameters: <code>/api/users?role=admin</code></li>
+      </ul>
+      
+      <p>For response bodies, you can use:</p>
+      <ul>
+        <li>JSON for API responses</li>
+        <li>Plain text for simple responses</li>
+        <li>HTML for rendered content</li>
+      </ul>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
