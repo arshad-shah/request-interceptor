@@ -349,97 +349,248 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 3000);
   }
   
-  // Update routes list in UI
-  function updateRoutesList() {
-    // Clear current list
-    elements.routeList.innerHTML = '';
-    
-    const routeEntries = Object.entries(currentState.routes);
-    
-    if (routeEntries.length === 0) {
-      // Show empty state
-      elements.routeList.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">
-            <i class="fas fa-route"></i>
-          </div>
-          <p>No routes configured yet. Add your first route to start intercepting API requests.</p>
-          <button class="btn" id="add-first-route">
-            <i class="fas fa-plus-circle"></i> Add Your First Route
-          </button>
+  // This is a snippet showing how to update the route item creation function in sidepanel.js
+
+// Update routes list in UI
+function updateRoutesList() {
+  // Clear current list
+  elements.routeList.innerHTML = '';
+  
+  const routeEntries = Object.entries(currentState.routes);
+  
+  if (routeEntries.length === 0) {
+    // Show empty state
+    elements.routeList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">
+          <i class="fas fa-route"></i>
         </div>
-      `;
-      
-      // Attach event listener to the button
-      document.getElementById('add-first-route').addEventListener('click', () => {
-        selectTab('add');
-      });
-      
-      return;
-    }
+        <h3>No routes configured yet</h3>
+        <p>Add your first route to start intercepting API requests and mocking responses.</p>
+        <button class="btn" id="add-first-route">
+          <i class="fas fa-plus-circle"></i>
+          <span>Add Your First Route</span>
+        </button>
+      </div>
+    `;
     
-    // Add each route
-    routeEntries.forEach(([key, config]) => {
-      const [method, ...urlParts] = key.split(':');
-      const url = urlParts.join(':');
-      
-      const routeElement = document.createElement('div');
-      routeElement.className = 'route-item';
-      
-      // Format response for display
-      const responsePreview = formatResponsePreview(config.response);
-      
-      routeElement.innerHTML = `
-        <div class="route-header">
-          <div class="route-title">
-            <span class="method-badge method-${method}">${method}</span>
+    // Attach event listener to the button
+    document.getElementById('add-first-route').addEventListener('click', () => {
+      selectTab('add');
+    });
+    
+    return;
+  }
+  
+  // Update the stats
+  document.getElementById('routes-count').textContent = routeEntries.length;
+  document.getElementById('enabled-status').textContent = currentState.enabled ? 'Yes' : 'No';
+  
+  // Add each route
+  routeEntries.forEach(([key, config]) => {
+    const [method, ...urlParts] = key.split(':');
+    const url = urlParts.join(':');
+    
+    // Get a description based on the URL and method
+    const description = getRouteDescription(method, url);
+    
+    // Format timestamp (assuming config has a timestamp property)
+    const timestamp = config.timestamp ? new Date(config.timestamp).toLocaleDateString() : 'N/A';
+    
+    // Get content type display name
+    const contentTypeName = getContentTypeDisplayName(config.contentType);
+    
+    const routeElement = document.createElement('div');
+    routeElement.className = `route-item method-${method}`;
+    
+    // Format response for display
+    const responsePreview = formatResponsePreview(config.response);
+    
+    routeElement.innerHTML = `
+      <div class="route-item-header">
+        <div class="route-item-title">
+          <span class="method-badge method-${method}">${method}</span>
+          <div class="route-url-wrapper">
             <span class="route-url">${escapeHtml(url)}</span>
+            <span class="route-description">${description}</span>
           </div>
         </div>
+      </div>
+      <div class="route-item-body">
         <div class="route-details">
           <div class="detail-item">
-            <i class="fas fa-code"></i> Status: ${config.status}
+            <i class="fas fa-code"></i>
+            <span>Status: ${config.status}</span>
           </div>
           <div class="detail-item">
-            <i class="fas fa-clock"></i> Delay: ${config.delay}ms
+            <i class="fas fa-clock"></i>
+            <span>Delay: ${config.delay}ms</span>
           </div>
           <div class="detail-item">
-            <i class="fas fa-file-code"></i> ${config.contentType.split('/')[1]}
+            <i class="fas fa-file-code"></i>
+            <span>${contentTypeName}</span>
+          </div>
+          <div class="detail-item">
+            <i class="fas fa-calendar"></i>
+            <span>Added: ${timestamp}</span>
           </div>
         </div>
+        
+        <div class="route-response-header">
+          <div class="response-title">
+            <i class="fas fa-exchange-alt"></i>
+            <span>Response Body</span>
+          </div>
+        </div>
+        
         <div class="route-response">
           <pre><code class="language-json">${responsePreview}</code></pre>
         </div>
-        <div class="route-actions">
-          <button class="btn btn-sm btn-secondary edit-route" data-route="${escapeHtml(key)}">
-            <i class="fas fa-edit"></i> Edit
+        
+        <div class="route-actions-buttons">
+          <button class="action-btn action-btn-edit" data-route="${escapeHtml(key)}">
+            <i class="fas fa-edit"></i>
+            <span>Edit</span>
           </button>
-          <button class="btn btn-sm btn-danger remove-route" data-route="${escapeHtml(key)}">
-            <i class="fas fa-trash-alt"></i> Remove
+          <button class="action-btn action-btn-remove" data-route="${escapeHtml(key)}">
+            <i class="fas fa-trash-alt"></i>
+            <span>Remove</span>
           </button>
         </div>
-      `;
-      
-      elements.routeList.appendChild(routeElement);
-      
-      // Add click handler for remove button
-      routeElement.querySelector('.remove-route').addEventListener('click', function() {
-        const routeKey = this.getAttribute('data-route');
-        if (confirm('Are you sure you want to remove this route?')) {
-          removeRoute(routeKey);
-        }
-      });
-      
-      // Add click handler for edit button
-      routeElement.querySelector('.edit-route').addEventListener('click', function() {
-        const routeKey = this.getAttribute('data-route');
-        editRoute(routeKey);
-      });
+      </div>
+    `;
+    
+    elements.routeList.appendChild(routeElement);
+    
+    // Add click handler for remove button
+    routeElement.querySelector('.action-btn-remove').addEventListener('click', function() {
+      const routeKey = this.getAttribute('data-route');
+      showConfirmationDialog(
+        'Delete Route',
+        `Are you sure you want to delete the ${method} route for "${url}"?`,
+        () => removeRoute(routeKey)
+      );
     });
     
-    // Apply syntax highlighting if Prism is available
-    if (window.Prism) {
-      Prism.highlightAll();
-    }
+    // Add click handler for edit button
+    routeElement.querySelector('.action-btn-edit').addEventListener('click', function() {
+      const routeKey = this.getAttribute('data-route');
+      editRoute(routeKey);
+    });
+  });
+  
+  // Apply syntax highlighting if Prism is available
+  if (window.Prism) {
+    Prism.highlightAll();
   }
+}
+
+// Helper function to get route description
+function getRouteDescription(method, url) {
+  // Create descriptions based on method and URL patterns
+  const urlLower = url.toLowerCase();
+  
+  if (method === 'GET') {
+    if (urlLower.includes('user') && !urlLower.includes('/')) {
+      return 'Returns list of users';
+    }
+    if (urlLower.includes('user') && urlLower.includes('/')) {
+      return 'Returns user details';
+    }
+    if (urlLower.includes('product')) {
+      return 'Returns product information';
+    }
+    if (urlLower.includes('auth') || urlLower.includes('login')) {
+      return 'Returns authentication status';
+    }
+    return 'Returns requested resource';
+  }
+  
+  if (method === 'POST') {
+    if (urlLower.includes('user') || urlLower.includes('register')) {
+      return 'Creates a new user';
+    }
+    if (urlLower.includes('login') || urlLower.includes('auth')) {
+      return 'Authenticates a user';
+    }
+    if (urlLower.includes('product')) {
+      return 'Creates a new product';
+    }
+    return 'Creates a new resource';
+  }
+  
+  if (method === 'PUT') {
+    return 'Updates an existing resource';
+  }
+  
+  if (method === 'DELETE') {
+    return 'Deletes a resource';
+  }
+  
+  if (method === 'PATCH') {
+    return 'Partially updates a resource';
+  }
+  
+  return 'Intercepts API requests';
+}
+
+// Helper function to get a friendly content type name
+function getContentTypeDisplayName(contentType) {
+  if (!contentType) return 'JSON';
+  
+  const typeMap = {
+    'application/json': 'JSON',
+    'text/plain': 'Text',
+    'text/html': 'HTML',
+    'application/xml': 'XML'
+  };
+  
+  return typeMap[contentType] || contentType.split('/')[1] || 'Unknown';
+}
+
+// Show a confirmation dialog
+function showConfirmationDialog(title, message, onConfirm) {
+  const dialog = document.createElement('div');
+  dialog.className = 'confirmation-dialog';
+  dialog.innerHTML = `
+    <div class="confirmation-dialog-content">
+      <div class="confirmation-dialog-header">
+        <h3>${title}</h3>
+        <button class="confirmation-close-btn">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="confirmation-dialog-body">
+        <p>${message}</p>
+      </div>
+      <div class="confirmation-dialog-footer">
+        <button class="btn btn-secondary cancel-btn">Cancel</button>
+        <button class="btn btn-danger confirm-btn">Delete</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(dialog);
+  
+  // Add event listeners
+  dialog.querySelector('.confirmation-close-btn').addEventListener('click', () => {
+    document.body.removeChild(dialog);
+  });
+  
+  dialog.querySelector('.cancel-btn').addEventListener('click', () => {
+    document.body.removeChild(dialog);
+  });
+  
+  dialog.querySelector('.confirm-btn').addEventListener('click', () => {
+    document.body.removeChild(dialog);
+    onConfirm();
+  });
+  
+  // Close dialog when clicking outside
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog) {
+      document.body.removeChild(dialog);
+    }
+  });
+}
 });
