@@ -7,12 +7,22 @@ document.addEventListener('DOMContentLoaded', function() {
   const routesCount = document.getElementById('routes-count');
   const openSidePanelBtn = document.getElementById('open-side-panel');
   
+  // Track state locally
+  let currentState = {
+    enabled: false,
+    routes: {}
+  };
+  
   // Get current state from background script
   chrome.runtime.sendMessage({ action: 'getState' }, function(response) {
     if (response) {
+      // Update local state
+      currentState.enabled = response.enabled || false;
+      currentState.routes = response.routes || {};
+      
       // Update UI based on current state
-      updateEnabledState(response.enabled);
-      updateRouteCount(response.routes || {});
+      updateEnabledState(currentState.enabled);
+      updateRouteCount(currentState.routes);
     }
   });
   
@@ -24,10 +34,13 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.runtime.sendMessage({ 
       action: 'toggleEnabled', 
       enabled: isEnabled 
+    }, function(response) {
+      if (response && response.success) {
+        // Update local state
+        currentState.enabled = isEnabled;
+        updateEnabledState(isEnabled);
+      }
     });
-    
-    // Update UI
-    updateEnabledState(isEnabled);
   });
   
   // Open side panel button
@@ -47,10 +60,26 @@ document.addEventListener('DOMContentLoaded', function() {
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
     if (message.action === 'stateChanged') {
+      // Update enabled state
+      currentState.enabled = message.enabled;
       updateEnabledState(message.enabled);
+      
+      // Update routes if they're included in the message
+      if (message.routes) {
+        currentState.routes = message.routes;
+        updateRouteCount(message.routes);
+      }
     } 
     else if (message.action === 'routesChanged') {
+      // Update routes
+      currentState.routes = message.routes || {};
       updateRouteCount(message.routes || {});
+      
+      // Update enabled state if it's included in the message
+      if (message.hasOwnProperty('enabled')) {
+        currentState.enabled = message.enabled;
+        updateEnabledState(message.enabled);
+      }
     }
     
     return true;

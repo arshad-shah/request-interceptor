@@ -65,7 +65,8 @@ class StateManager {
         this.updateIcon();
         this.notifyAllTabs({ 
           action: 'stateChanged', 
-          enabled: this.state.enabled 
+          enabled: this.state.enabled,
+          routes: this.state.routes // Include routes to ensure full state sync
         });
         sendResponse({ success: true });
       } 
@@ -75,7 +76,8 @@ class StateManager {
         this.saveState();
         this.notifyAllTabs({ 
           action: 'routesChanged', 
-          routes: this.state.routes 
+          routes: this.state.routes,
+          enabled: this.state.enabled // Include enabled state to ensure full state sync
         });
         sendResponse({ success: true });
       } 
@@ -86,7 +88,8 @@ class StateManager {
           this.saveState();
           this.notifyAllTabs({ 
             action: 'routesChanged', 
-            routes: this.state.routes 
+            routes: this.state.routes,
+            enabled: this.state.enabled // Include enabled state to ensure full state sync
           });
           sendResponse({ success: true });
         } else {
@@ -98,7 +101,8 @@ class StateManager {
         this.saveState();
         this.notifyAllTabs({ 
           action: 'routesChanged', 
-          routes: {} 
+          routes: {},
+          enabled: this.state.enabled // Include enabled state to ensure full state sync
         });
         sendResponse({ success: true });
       }

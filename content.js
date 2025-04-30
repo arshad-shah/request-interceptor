@@ -29,14 +29,32 @@ if (!document.getElementById(scriptId)) {
     if (message.action === 'stateChanged') {
       isEnabled = message.enabled;
       
+      // Update routes if they're included in the message
+      if (message.routes) {
+        interceptedRoutes = message.routes;
+      }
+      
       if (isEnabled) {
-        injectInterceptor();
+        // Check if the interceptor is already injected
+        if (document.getElementById(scriptId)) {
+          // Update routes in the injected script
+          window.postMessage({
+            type: 'REQUEST_INTERCEPTOR_COMMAND',
+            command: 'updateRoutes',
+            routes: interceptedRoutes
+          }, '*');
+        } else {
+          // Inject the interceptor
+          injectInterceptor();
+        }
       } else {
-        // Disable the interceptor
-        window.postMessage({
-          type: 'REQUEST_INTERCEPTOR_COMMAND',
-          command: 'disable'
-        }, '*');
+        // Disable the interceptor if it's injected
+        if (document.getElementById(scriptId)) {
+          window.postMessage({
+            type: 'REQUEST_INTERCEPTOR_COMMAND',
+            command: 'disable'
+          }, '*');
+        }
       }
       
       sendResponse({ success: true });
@@ -44,12 +62,28 @@ if (!document.getElementById(scriptId)) {
     else if (message.action === 'routesChanged') {
       interceptedRoutes = message.routes || {};
       
-      // Update the routes in the injected script
-      window.postMessage({
-        type: 'REQUEST_INTERCEPTOR_COMMAND',
-        command: 'updateRoutes',
-        routes: interceptedRoutes
-      }, '*');
+      // Update enabled state if it's included in the message
+      if (message.hasOwnProperty('enabled')) {
+        isEnabled = message.enabled;
+      }
+      
+      // Update the routes in the injected script if it exists
+      if (document.getElementById(scriptId)) {
+        window.postMessage({
+          type: 'REQUEST_INTERCEPTOR_COMMAND',
+          command: 'updateRoutes',
+          routes: interceptedRoutes
+        }, '*');
+        
+        // Ensure interceptor is enabled/disabled correctly
+        window.postMessage({
+          type: 'REQUEST_INTERCEPTOR_COMMAND',
+          command: isEnabled ? 'enable' : 'disable'
+        }, '*');
+      } else if (isEnabled) {
+        // If script not injected but should be enabled, inject it
+        injectInterceptor();
+      }
       
       sendResponse({ success: true });
     }
@@ -67,6 +101,17 @@ if (!document.getElementById(scriptId)) {
   
   // Function to inject the interceptor script into the page
   function injectInterceptor() {
+    // Check if script is already injected
+    if (document.getElementById(scriptId)) {
+      // Just update the routes
+      window.postMessage({
+        type: 'REQUEST_INTERCEPTOR_COMMAND',
+        command: 'updateRoutes',
+        routes: interceptedRoutes
+      }, '*');
+      return;
+    }
+    
     const script = document.createElement('script');
     script.id = scriptId;
     script.src = chrome.runtime.getURL('interceptor.js');

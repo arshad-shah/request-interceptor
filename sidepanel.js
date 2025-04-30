@@ -94,10 +94,19 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
       if (message.action === 'stateChanged') {
         updateEnabledState(message.enabled);
+        // Update routes if they're included in the message
+        if (message.routes) {
+          currentState.routes = message.routes;
+          updateRoutesList();
+        }
       } 
       else if (message.action === 'routesChanged') {
         currentState.routes = message.routes || {};
         updateRoutesList();
+        // Update enabled state if it's included in the message
+        if (message.hasOwnProperty('enabled')) {
+          updateEnabledState(message.enabled);
+        }
       }
       
       return true;
@@ -181,6 +190,10 @@ document.addEventListener('DOMContentLoaded', function() {
       config: routeConfig
     }, function(response) {
       if (response && response.success) {
+        // Update local state to reflect changes immediately
+        currentState.routes[routeKey] = routeConfig;
+        updateRoutesList();
+        
         if (currentState.editingRouteKey) {
           showNotification('Route updated successfully');
           currentState.editingRouteKey = null;
@@ -204,6 +217,9 @@ document.addEventListener('DOMContentLoaded', function() {
       route: routeKey
     }, function(response) {
       if (response && response.success) {
+        // Update local state immediately
+        delete currentState.routes[routeKey];
+        updateRoutesList();
         showNotification('Route removed successfully');
       }
     });
@@ -213,6 +229,9 @@ document.addEventListener('DOMContentLoaded', function() {
   function clearRoutes() {
     chrome.runtime.sendMessage({ action: 'clearRoutes' }, function(response) {
       if (response && response.success) {
+        // Update local state immediately
+        currentState.routes = {};
+        updateRoutesList();
         showNotification('All routes cleared');
       }
     });
