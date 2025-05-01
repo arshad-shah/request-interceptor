@@ -382,9 +382,6 @@ function updateRoutesList() {
     return;
   }
   
-  // Update the stats
-  document.getElementById('routes-count').textContent = routeEntries.length;
-  document.getElementById('enabled-status').textContent = currentState.enabled ? 'Yes' : 'No';
   
   // Add each route
   routeEntries.forEach(([key, config]) => {
