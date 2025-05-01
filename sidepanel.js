@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
   };
   document.head.appendChild(templatesScript);
 
-  
+
   // UI Elements
   const elements = {
     enableToggle: document.getElementById('enableToggle'),
@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Change button text to reflect we're updating
       elements.addRouteBtn.textContent = 'Save Changes';
-      
+
       // Switch to add tab
       selectTab('add');
     }
