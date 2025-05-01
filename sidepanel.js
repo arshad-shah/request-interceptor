@@ -1,6 +1,27 @@
 // Simplified Side panel script for the Request Interceptor
 
 document.addEventListener('DOMContentLoaded', function() {
+
+    // Import templates.js script dynamically
+  const templatesScript = document.createElement('script');
+  templatesScript.src = 'templates.js';
+  templatesScript.onload = function() {
+    // Import templates-manager.js script after templates.js is loaded
+    const templatesManagerScript = document.createElement('script');
+    templatesManagerScript.src = 'templates-manager.js';
+    templatesManagerScript.onload = function() {
+      // Initialize TemplatesManager after script is loaded
+      const notificationManager = new NotificationManager();
+      const templatesManager = new TemplatesManager(notificationManager);
+      
+      // Make templatesManager available globally for debugging
+      window.templatesManager = templatesManager;
+    };
+    document.head.appendChild(templatesManagerScript);
+  };
+  document.head.appendChild(templatesScript);
+
+  
   // UI Elements
   const elements = {
     enableToggle: document.getElementById('enableToggle'),
@@ -259,35 +280,46 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Reset editing mode
     currentState.editingRouteKey = null;
+
+    // Update button text to reflect we're adding a new route
+    elements.addRouteBtn.textContent = 'Add Route';
   }
   
-  // Edit an existing route
+// Edit an existing route
   function editRoute(routeKey) {
-    const config = currentState.routes[routeKey];
-    const [method, ...urlParts] = routeKey.split(':');
-    const url = urlParts.join(':');
+    const routeConfig = currentState.routes[routeKey];
     
-    // Set form values
-    elements.urlInput.value = url;
-    elements.methodSelect.value = method;
-    elements.statusInput.value = config.status || 200;
-    elements.delayInput.value = config.delay || 0;
-    elements.contentTypeSelect.value = config.contentType || 'application/json';
-    
-    // Format response body based on content type
-    const responseBody = typeof config.response === 'object'
-      ? JSON.stringify(config.response, null, 2)
-      : config.response;
+    if (routeConfig) {
+      // Show notification
+      showNotification('Editing route. Make changes and click "Save Changes" to update.');
       
-    elements.responseBodyTextarea.value = responseBody;
-    
-    // Set editing mode
-    currentState.editingRouteKey = routeKey;
-    
-    // Switch to add tab
-    selectTab('add');
-    
-    showNotification('Editing route: ' + routeKey);
+      // Parse the route key to get method and URL
+      const [method, ...urlParts] = routeKey.split(':');
+      const url = urlParts.join(':');
+      
+      // Populate form with existing values
+      elements.urlInput.value = url;
+      elements.methodSelect.value = method;
+      elements.statusInput.value = routeConfig.status;
+      elements.delayInput.value = routeConfig.delay;
+      elements.contentTypeSelect.value = routeConfig.contentType || 'application/json';
+      
+      // Format and set response body
+      if (typeof routeConfig.response === 'object') {
+        elements.responseBodyTextarea.value = JSON.stringify(routeConfig.response, null, 2);
+      } else {
+        elements.responseBodyTextarea.value = routeConfig.response || '';
+      }
+      
+      // Set editing mode
+      currentState.editingRouteKey = routeKey;
+      
+      // Change button text to reflect we're updating
+      elements.addRouteBtn.textContent = 'Save Changes';
+      
+      // Switch to add tab
+      selectTab('add');
+    }
   }
   
   // Format response for preview display
@@ -349,8 +381,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 3000);
   }
   
-  // This is a snippet showing how to update the route item creation function in sidepanel.js
-
 // Update routes list in UI
 function updateRoutesList() {
   // Clear current list
@@ -488,18 +518,6 @@ function getRouteDescription(method, url) {
   const urlLower = url.toLowerCase();
   
   if (method === 'GET') {
-    if (urlLower.includes('user') && !urlLower.includes('/')) {
-      return 'Returns list of users';
-    }
-    if (urlLower.includes('user') && urlLower.includes('/')) {
-      return 'Returns user details';
-    }
-    if (urlLower.includes('product')) {
-      return 'Returns product information';
-    }
-    if (urlLower.includes('auth') || urlLower.includes('login')) {
-      return 'Returns authentication status';
-    }
     return 'Returns requested resource';
   }
   

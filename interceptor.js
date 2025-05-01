@@ -198,6 +198,7 @@
         
         const url = resource instanceof Request ? resource.url : resource;
         const method = options.method || (resource instanceof Request ? resource.method : 'GET');
+        console.log("Checking if fetch should be intercepted:", method, url);
         
         const routeKey = shouldIntercept(method, url);
         

@@ -42,6 +42,10 @@
             <i class="fas fa-plus"></i>
             <span>Add Route</span>
           </button>
+          <button class="tab" data-tab="templates">
+            <i class="fas fa-file-code"></i>
+            <span>Templates</span>
+          </button>
         </div>
       </nav>
       
@@ -164,6 +168,105 @@
             </div>
           </div>
         </div>
+
+
+<div class="tab-content" id="templates-tab">
+  <div class="card">
+    <div class="card-header">
+      <span>JSON Schema Templates</span>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label for="schemaInput">Import JSON Schema</label>
+        <textarea id="schemaInput" placeholder='{"routes": [{"method": "GET", "url": "/api/users", ...}]}' rows="10"></textarea>
+        <div class="help-text">
+          Paste a JSON schema containing multiple routes to create interceptions in bulk. The schema should follow the format shown in the examples below.
+        </div>
+      </div>
+            <div class="form-group">
+        <label>Templates</label>
+        <div class="template-options">
+          <button class="template-option" data-template="basic">
+            <i class="fas fa-cube"></i>
+            <span>Basic API</span>
+          </button>
+          <button class="template-option" data-template="crud">
+            <i class="fas fa-database"></i>
+            <span>CRUD API</span>
+          </button>
+          <button class="template-option" data-template="auth">
+            <i class="fas fa-lock"></i>
+            <span>Authentication API</span>
+          </button>
+          <button class="template-option" data-template="ecommerce">
+            <i class="fas fa-shopping-cart"></i>
+            <span>E-commerce API</span>
+          </button>
+        </div>
+      </div>
+      <div class="form-group" id="preview-container" style="display: none;">
+        <label>Preview</label>
+        <div class="route-preview">
+          <div class="preview-header">
+            <span id="preview-count">0 routes</span>
+            <button class="btn-secondary btn-sm" id="close-preview">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="preview-routes" id="routes-preview">
+            <!-- Preview routes will be added here -->
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <button type="button" id="parseSchemaBtn" class="btn btn-secondary">
+        <i class="fas fa-code"></i> Parse Schema
+      </button>
+      <button type="button" id="importRoutesBtn" class="btn" disabled>
+        <i class="fas fa-file-import"></i> Import Routes
+      </button>
+    </div>
+  </div>
+  
+  <!-- Schema Examples -->
+  <div class="card mt-20">
+    <div class="card-header">
+      <span>Schema Format Examples</span>
+    </div>
+    <div class="card-body">
+      <div class="schema-example">
+        <h4>Basic Schema Format</h4>
+        <pre><code class="language-json">{
+  "routes": [
+    {
+      "method": "GET",
+      "url": "/api/users",
+      "status": 200,
+      "delay": 300,
+      "contentType": "application/json",
+      "response": {
+        "users": [
+          {"id": 1, "name": "John Doe"},
+          {"id": 2, "name": "Jane Smith"}
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/users",
+      "status": 201,
+      "response": {
+        "id": 3,
+        "success": true
+      }
+    }
+  ]
+}</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
       </div>
     </main>
   </div>

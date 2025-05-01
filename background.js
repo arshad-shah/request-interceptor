@@ -81,6 +81,23 @@ class StateManager {
         });
         sendResponse({ success: true });
       } 
+      //edit route
+      else if (message.action === 'editRoute') {
+        const { route, config } = message;
+        if (this.state.routes[route]) {
+          this.state.routes[route] = config;
+          this.saveState();
+          this.notifyAllTabs({
+            action: 'routesChanged',
+            routes: this.state.routes,
+            enabled: this.state.enabled // Include enabled state to ensure full state sync
+          });
+          sendResponse({ success: true });
+        } else {
+          sendResponse({ success: false, error: 'Route not found' });
+        }
+      }
+      
       else if (message.action === 'removeRoute') {
         const { route } = message;
         if (this.state.routes[route]) {
