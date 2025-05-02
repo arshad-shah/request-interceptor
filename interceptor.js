@@ -33,58 +33,75 @@
       };
     }
     
-    /**
-     * Match a request URL against a pattern URL
-     */
-    function urlMatches(requestUrl, patternUrl) {
-      // Process URLs
-      let requestUrlObj, patternUrlObj;
+/**
+ * Match a request URL against a pattern URL with regex support
+ */
+function urlMatches(requestUrl, patternUrl) {
+  // Check if patternUrl is a regex pattern (starts and ends with /)
+  if (patternUrl.startsWith('/') && patternUrl.lastIndexOf('/') > 0) {
+    try {
+      // Extract the regex pattern and flags
+      const lastSlashIndex = patternUrl.lastIndexOf('/');
+      const pattern = patternUrl.substring(1, lastSlashIndex);
+      const flags = patternUrl.substring(lastSlashIndex + 1);
       
-      try {
-        requestUrlObj = new URL(requestUrl, window.location.origin);
-        patternUrlObj = new URL(patternUrl.includes('://') ? patternUrl : patternUrl, window.location.origin);
-      } catch (e) {
-        try {
-          requestUrlObj = new URL(window.location.origin + (requestUrl.startsWith('/') ? requestUrl : '/' + requestUrl));
-          patternUrlObj = new URL(window.location.origin + (patternUrl.startsWith('/') ? patternUrl : '/' + patternUrl));
-        } catch (e2) {
-          // If all parsing fails, fall back to direct string comparison
-          return requestUrl === patternUrl;
-        }
-      }
-      
-      // Normalize paths (remove trailing slashes)
-      const normalizedRequestPath = requestUrlObj.pathname.replace(/\/+$/, '');
-      const normalizedPatternPath = patternUrlObj.pathname.replace(/\/+$/, '');
-      
-      // Direct path match
-      if (normalizedRequestPath === normalizedPatternPath) {
-        // If pattern has query params, they must all match
-        if (patternUrlObj.search) {
-          const patternParams = new URLSearchParams(patternUrlObj.search);
-          const requestParams = new URLSearchParams(requestUrlObj.search);
-          
-          for (const [key, value] of patternParams) {
-            if (requestParams.get(key) !== value) {
-              return false;
-            }
-          }
-        }
-        return true;
-      }
-      
-      // Wildcard matching
-      if (patternUrl.includes('*')) {
-        const regexPattern = patternUrl
-          .replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&') // Escape regex special chars except *
-          .replace(/\*/g, '.*'); // Convert * to .*
-        
-        const regex = new RegExp(`^${regexPattern}$`);
-        return regex.test(requestUrl) || regex.test(requestUrlObj.pathname);
-      }
-      
-      return false;
+      // Create and test the RegExp
+      const regex = new RegExp(pattern, flags);
+      return regex.test(requestUrl);
+    } catch (e) {
+      console.warn(`[Request Interceptor] Invalid regex pattern: ${patternUrl}`, e);
+      // Fall back to regular matching if regex is invalid
     }
+  }
+  
+  // Process URLs
+  let requestUrlObj, patternUrlObj;
+  
+  try {
+    requestUrlObj = new URL(requestUrl, window.location.origin);
+    patternUrlObj = new URL(patternUrl.includes('://') ? patternUrl : patternUrl, window.location.origin);
+  } catch (e) {
+    try {
+      requestUrlObj = new URL(window.location.origin + (requestUrl.startsWith('/') ? requestUrl : '/' + requestUrl));
+      patternUrlObj = new URL(window.location.origin + (patternUrl.startsWith('/') ? patternUrl : '/' + patternUrl));
+    } catch (e2) {
+      // If all parsing fails, fall back to direct string comparison
+      return requestUrl === patternUrl;
+    }
+  }
+  
+  // Normalize paths (remove trailing slashes)
+  const normalizedRequestPath = requestUrlObj.pathname.replace(/\/+$/, '');
+  const normalizedPatternPath = patternUrlObj.pathname.replace(/\/+$/, '');
+  
+  // Direct path match
+  if (normalizedRequestPath === normalizedPatternPath) {
+    // If pattern has query params, they must all match
+    if (patternUrlObj.search) {
+      const patternParams = new URLSearchParams(patternUrlObj.search);
+      const requestParams = new URLSearchParams(requestUrlObj.search);
+      
+      for (const [key, value] of patternParams) {
+        if (requestParams.get(key) !== value) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  
+  // Wildcard matching
+  if (patternUrl.includes('*')) {
+    const regexPattern = patternUrl
+      .replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&') // Escape regex special chars except *
+      .replace(/\*/g, '.*'); // Convert * to .*
+    
+    const regex = new RegExp(`^${regexPattern}$`);
+    return regex.test(requestUrl) || regex.test(requestUrlObj.pathname);
+  }
+  
+  return false;
+}
     
     /**
      * Check if a request should be intercepted based on configured routes
@@ -95,6 +112,12 @@
       // Direct key match
       const directKey = `${normalizedMethod}:${url}`;
       if (interceptedRoutes[directKey]) {
+        // Check if this specific route is enabled
+        if (interceptedRoutes[directKey].hasOwnProperty('enabled') && !interceptedRoutes[directKey].enabled) {
+          log(`Found match for ${directKey} but route is disabled`);
+          return null;
+        }
+        
         log(`Found direct match for: ${directKey}`);
         return directKey;
       }
@@ -105,6 +128,11 @@
         
         // Method must match
         if (routeMethod !== normalizedMethod) continue;
+        
+        // Check if this specific route is enabled
+        if (interceptedRoutes[key].hasOwnProperty('enabled') && !interceptedRoutes[key].enabled) {
+          continue; // Skip disabled routes
+        }
         
         // Check URL using advanced matching
         if (urlMatches(url, routeUrl)) {

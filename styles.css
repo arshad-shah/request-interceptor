@@ -503,13 +503,15 @@ textarea {
 .route-item.method-DELETE:after { background: linear-gradient(to bottom, #f87171, #dc2626); }
 .route-item.method-PATCH:after { background: linear-gradient(to bottom, #a78bfa, #7c3aed); }
 
+/* Updated route item header for toggle */
 .route-item-header {
-  padding: 18px 20px;
-  background-color: var(--gray-50);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 6px 6px 0 0;
 }
 
 .route-item-title {
@@ -636,7 +638,7 @@ textarea {
   margin-top: 16px;
   background-color: var(--gray-900);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 2px;
   max-height: 140px;
   overflow-y: auto;
   position: relative;
@@ -669,13 +671,20 @@ textarea {
 .response-title i {
   color: var(--primary-500);
 }
-
+.route-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background-color: var(--gray-50);
+}
 .route-actions-buttons {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
   padding-top: 16px;
+  padding-bottom: 16px;
   border-top: 1px dashed var(--border);
 }
 
@@ -914,13 +923,6 @@ textarea {
   animation: fade-out 0.3s var(--ease) forwards;
 }
 
-/* Dark mode support - future enhancement */
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* We could implement dark mode here in the future */
-  }
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   .input-row {
@@ -1044,8 +1046,6 @@ textarea {
   }
 }
 
-/* Add these styles to your styles.css file */
-
 /* Template options */
 .template-options {
   display: grid;
@@ -1056,38 +1056,43 @@ textarea {
 
 .template-option {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 16px;
+  padding: 12px 16px;
   background-color: var(--gray-50);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   cursor: pointer;
   transition: all 0.2s ease;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  color: var(--text-primary);
+  height: 44px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .template-option:hover {
   background-color: var(--gray-100);
   border-color: var(--gray-300);
   transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
 }
 
 .template-option.active {
   background-color: var(--primary-50);
   border-color: var(--primary-300);
+  color: var(--primary-700);
+  font-weight: 600;
 }
 
-.template-option i {
-  font-size: 20px;
-  color: var(--primary-600);
-}
-
-.template-option span {
-  font-size: 13px;
-  font-weight: 500;
-  text-align: center;
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .template-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* Route preview */
@@ -1185,4 +1190,111 @@ textarea {
   .template-options {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* Add these styles to your styles.css file */
+
+/* Route toggle styles */
+.route-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-sm {
+  width: 36px;
+  height: 20px;
+}
+
+.toggle-sm .slider:before {
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+}
+
+.toggle-sm input:checked + .slider:before {
+  transform: translateX(16px);
+}
+
+/* Disabled route styling */
+.route-disabled {
+  opacity: 0.7;
+}
+
+.route-disabled .route-url {
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+/* Export button styling */
+.export-btn {
+  margin-left: 8px;
+}
+
+.editor-container {
+  position: relative;
+  height: 300px;
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+#responseBodyEditor, #schemaInputEditor {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  font-size: 14px;
+  border-radius: 4px;
+}
+
+.ace_editor {
+  border-radius: 4px;
+}
+
+/* Styling for routes that share the same URL */
+.route-item.multi-method-url {
+  position: relative;
+}
+
+.route-item.multi-method-url::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--primary-400),
+    var(--primary-400) 5px,
+    var(--primary-600) 5px,
+    var(--primary-600) 10px
+  );
+  border-top-left-radius: var(--radius-lg);
+  border-bottom-left-radius: var(--radius-lg);
+  z-index: 5;
+}
+
+.multi-method-indicator {
+  font-size: 11px;
+  background-color: var(--primary-50);
+  color: var(--primary-700);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  margin-top: 4px;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.route-item:hover .multi-method-indicator {
+  background-color: var(--primary-100);
+}
+
+.route-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }

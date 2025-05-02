@@ -1,7 +1,7 @@
 // Simplified Side panel script for the Request Interceptor
 
 document.addEventListener('DOMContentLoaded', function() {
-
+  initAceEditors();
     // Import templates.js script dynamically
   const templatesScript = document.createElement('script');
   templatesScript.src = 'templates.js';
@@ -79,6 +79,26 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add active class to selected tab and content
     document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
     document.getElementById(`${tabName}-tab`).classList.add('active');
+    
+    // If switching to routes tab, refresh the routes list
+    if (tabName === 'routes') {
+      // Refresh state from background
+      chrome.runtime.sendMessage({ action: 'getState' }, function(response) {
+        if (response) {
+          // Update local state
+          currentState.enabled = response.enabled || false;
+          currentState.routes = response.routes || {};
+          
+          // Update the routes list with current state
+          updateRoutesList();
+        }
+      });
+    }
+    
+    // If switching to templates tab, refresh template buttons if templatesManager exists
+    if (tabName === 'templates' && window.templatesManager) {
+      window.templatesManager.createTemplateButtons();
+    }
   }
   
   // Setup event listeners
@@ -167,44 +187,131 @@ document.addEventListener('DOMContentLoaded', function() {
     elements.statusText.style.color = isEnabled ? '#10b981' : '#ef4444';
   }
   
-  // Add a new route
-  function addRoute() {
-    // Get form values
-    const url = elements.urlInput.value.trim();
-    const method = elements.methodSelect.value;
-    const status = parseInt(elements.statusInput.value);
-    const delay = parseInt(elements.delayInput.value);
-    const contentType = elements.contentTypeSelect.value;
-    const responseBodyStr = elements.responseBodyTextarea.value;
-    
-    if (!url) {
-      showNotification('Please enter a URL to intercept', 'error');
-      return;
+function addRoute() {
+  // Get form values
+  const url = elements.urlInput.value.trim();
+  const method = elements.methodSelect.value;
+  const status = parseInt(elements.statusInput.value);
+  const delay = parseInt(elements.delayInput.value);
+  const contentType = elements.contentTypeSelect.value;
+  // Get value from Ace editor if available, otherwise from textarea
+  const responseBodyStr = window.responseBodyEditor ? 
+    window.responseBodyEditor.getValue() : 
+    elements.responseBodyTextarea.value;
+  
+  if (!url) {
+    showNotification('Please enter a URL to intercept', 'error');
+    return;
+  }
+  
+  // Validate and parse response body
+  let responseBody;
+  try {
+    if (contentType === 'application/json') {
+      responseBody = JSON.parse(responseBodyStr);
+    } else {
+      responseBody = responseBodyStr;
     }
+  } catch (error) {
+    showNotification(`Invalid JSON format: ${error.message}`, 'error');
+    return;
+  }
+  
+  // Create the new route key
+  const newRouteKey = `${method}:${url}`;
+  
+  // Check if we're in edit mode
+  const isEditing = currentState.editingRouteKey != null;
+  
+  // Check if URL or method has been changed in edit mode
+  let methodOrUrlChanged = false;
+  if (isEditing) {
+    const originalUrl = currentState.originalUrl;
+    const originalMethod = currentState.originalMethod;
+    methodOrUrlChanged = (originalUrl !== url || originalMethod !== method);
+  }
+  
+  // Check if a route with the same URL but different method already exists
+  const conflictingRoutes = Object.keys(currentState.routes).filter(key => {
+    const routeUrl = key.split(':').slice(1).join(':'); // Get URL part
+    const routeMethod = key.split(':')[0]; // Get method part
+    return routeUrl === url && routeMethod !== method;
+  });
+  
+  // If editing and changing the method, check if the new method+URL combination already exists
+  if (isEditing && methodOrUrlChanged && currentState.originalUrl === url && 
+      currentState.originalMethod !== method && currentState.routes[newRouteKey]) {
+    if (!confirm(`A route with ${method} method for URL "${url}" already exists. Do you want to overwrite it?`)) {
+      return; // Abort if user cancels
+    }
+  }
+  
+  // If adding a new route (not editing) and conflicting routes exist, notify the user
+  if (!isEditing && conflictingRoutes.length > 0) {
+    const conflictingMethods = conflictingRoutes.map(key => key.split(':')[0]).join(', ');
     
-    // Validate and parse response body
-    let responseBody;
-    try {
-      if (contentType === 'application/json') {
-        responseBody = JSON.parse(responseBodyStr);
-      } else {
-        responseBody = responseBodyStr;
+    const confirmMessage = `There's already a route for URL "${url}" with method(s): ${conflictingMethods}. Adding this route won't affect those routes since they use different methods. Continue?`;
+    
+    if (!confirm(confirmMessage)) {
+      return; // Abort if user cancels
+    }
+  }
+  
+  // Get the current enabled state if we're updating without changing method/url
+  let enabled = true;
+  if (isEditing && !methodOrUrlChanged && currentState.routes[currentState.editingRouteKey]) {
+    enabled = currentState.routes[currentState.editingRouteKey].hasOwnProperty('enabled') 
+      ? currentState.routes[currentState.editingRouteKey].enabled 
+      : true;
+  }
+  
+  // Create route config
+  const routeConfig = {
+    status,
+    delay,
+    response: responseBody,
+    contentType,
+    enabled,
+    timestamp: Date.now()
+  };
+  
+  // If we're editing and method or URL has changed, we need to:
+  // 1. Remove the old route
+  // 2. Add the new route
+  if (isEditing && methodOrUrlChanged) {
+    // Remove the old route first
+    chrome.runtime.sendMessage({
+      action: 'removeRoute',
+      route: currentState.editingRouteKey
+    }, function(removeResponse) {
+      if (removeResponse && removeResponse.success) {
+        // Now add the new route
+        chrome.runtime.sendMessage({
+          action: 'addRoute',
+          route: newRouteKey,
+          config: routeConfig
+        }, function(addResponse) {
+          if (addResponse && addResponse.success) {
+            // Update local state to reflect changes
+            delete currentState.routes[currentState.editingRouteKey];
+            currentState.routes[newRouteKey] = routeConfig;
+            updateRoutesList();
+            
+            showNotification('Route updated with new URL/method successfully');
+            
+            // Switch to routes tab
+            selectTab('routes');
+            
+            // Reset form and editing state
+            resetAddRouteForm();
+          }
+        });
       }
-    } catch (error) {
-      showNotification(`Invalid JSON format: ${error.message}`, 'error');
-      return;
-    }
+    });
+  } else {
+    // Standard add/update without changing method/URL
+    const routeKey = isEditing ? currentState.editingRouteKey : newRouteKey;
     
-    // Create route key and config
-    const routeKey = currentState.editingRouteKey || `${method}:${url}`;
-    const routeConfig = {
-      status,
-      delay,
-      response: responseBody,
-      contentType
-    };
-    
-    // Add route via background script
     chrome.runtime.sendMessage({
       action: 'addRoute',
       route: routeKey,
@@ -215,9 +322,8 @@ document.addEventListener('DOMContentLoaded', function() {
         currentState.routes[routeKey] = routeConfig;
         updateRoutesList();
         
-        if (currentState.editingRouteKey) {
+        if (response.isUpdate) {
           showNotification('Route updated successfully');
-          currentState.editingRouteKey = null;
         } else {
           showNotification('Route added successfully');
         }
@@ -230,6 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+}
   
   // Remove a route
   function removeRoute(routeKey) {
@@ -257,71 +364,242 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+
+  function initAceEditors() {
+    // Initialize responseBody editor
+    const responseBodyEditor = ace.edit("responseBodyEditor");
+    responseBodyEditor.setTheme("ace/theme/monokai");
+    responseBodyEditor.session.setMode("ace/mode/json");
+    responseBodyEditor.setOptions({
+      enableBasicAutocompletion: true,
+      enableLiveAutocompletion: true,
+      showPrintMargin: false,
+      fontSize: "14px",
+      wrap: true
+    });
+    
+    // Set initial value from hidden input
+    const initialResponseBody = document.getElementById('responseBody').value;
+    responseBodyEditor.setValue(initialResponseBody || '{}', -1);
+    
+    // Update hidden input when editor content changes
+    responseBodyEditor.getSession().on('change', function() {
+      document.getElementById('responseBody').value = responseBodyEditor.getValue();
+    });
+    
+    // Initialize schema input editor
+    const schemaInputEditor = ace.edit("schemaInputEditor");
+    schemaInputEditor.setTheme("ace/theme/monokai");
+    schemaInputEditor.session.setMode("ace/mode/json");
+    schemaInputEditor.setOptions({
+      enableBasicAutocompletion: true,
+      enableLiveAutocompletion: true,
+      showPrintMargin: false,
+      fontSize: "14px",
+      wrap: true
+    });
+    
+    // Update hidden input when editor content changes
+    schemaInputEditor.getSession().on('change', function() {
+      document.getElementById('schemaInput').value = schemaInputEditor.getValue();
+    });
+    
+    // Format JSON button functionality
+    document.getElementById('formatJsonBtn').addEventListener('click', function() {
+      formatJson(responseBodyEditor);
+    });
+    
+    // Clear editor button functionality
+    document.getElementById('clearEditorBtn').addEventListener('click', function() {
+      responseBodyEditor.setValue('', -1);
+    });
+    
+    // Make editors available globally
+    window.responseBodyEditor = responseBodyEditor;
+    window.schemaInputEditor = schemaInputEditor;
+  }
   
   // Format JSON in the editor
   function formatJson() {
     try {
-      const jsonString = elements.responseBodyTextarea.value;
-      const parsed = JSON.parse(jsonString);
-      elements.responseBodyTextarea.value = JSON.stringify(parsed, null, 2);
-      showNotification('JSON formatted successfully');
+      // Check if Ace editor is available
+      if (window.responseBodyEditor) {
+        const jsonString = window.responseBodyEditor.getValue().trim();
+        if (!jsonString) return;
+        
+        const parsed = JSON.parse(jsonString);
+        window.responseBodyEditor.setValue(JSON.stringify(parsed, null, 2), -1);
+        showNotification('JSON formatted successfully');
+      } else {
+        // Fallback to original textarea-based formatting
+        const jsonString = elements.responseBodyTextarea.value;
+        const parsed = JSON.parse(jsonString);
+        elements.responseBodyTextarea.value = JSON.stringify(parsed, null, 2);
+        showNotification('JSON formatted successfully');
+      }
     } catch (error) {
       showNotification(`Invalid JSON: ${error.message}`, 'error');
     }
   }
   
   // Reset the add route form
-  function resetAddRouteForm() {
-    elements.addRouteForm.reset();
-    elements.responseBodyTextarea.value = JSON.stringify({ 
-      status: 'success',
-      data: [{ id: 1, name: 'Example' }] 
-    }, null, 2);
-    
-    // Reset editing mode
-    currentState.editingRouteKey = null;
-
-    // Update button text to reflect we're adding a new route
-    elements.addRouteBtn.textContent = 'Add Route';
+function resetAddRouteForm() {
+  elements.addRouteForm.reset();
+  
+  // Reset response body
+  const defaultJson = JSON.stringify({ 
+    status: 'success',
+    data: [{ id: 1, name: 'Example' }] 
+  }, null, 2);
+  
+  // Update Ace editor if available
+  if (window.responseBodyEditor) {
+    window.responseBodyEditor.setValue(defaultJson, -1);
+  } else if (elements.responseBodyTextarea) {
+    elements.responseBodyTextarea.value = defaultJson;
   }
   
-// Edit an existing route
-  function editRoute(routeKey) {
-    const routeConfig = currentState.routes[routeKey];
+  // Reset editing mode
+  currentState.editingRouteKey = null;
+  currentState.originalMethod = null;
+  currentState.originalUrl = null;
+
+  // Update button text to reflect we're adding a new route
+  elements.addRouteBtn.textContent = 'Add Interception';
+}
+  
+function editRoute(routeKey) {
+  const routeConfig = currentState.routes[routeKey];
+  
+  if (routeConfig) {
+    // Parse the route key to get method and URL
+    const [method, ...urlParts] = routeKey.split(':');
+    const url = urlParts.join(':');
     
-    if (routeConfig) {
-      // Show notification
+    // Check if other routes exist with the same URL but different methods
+    const relatedRoutes = Object.keys(currentState.routes).filter(key => {
+      const routeUrl = key.split(':').slice(1).join(':'); // Get URL part
+      const routeMethod = key.split(':')[0]; // Get method part
+      return routeUrl === url && routeMethod !== method;
+    });
+    
+    // If related routes exist, show a notification
+    if (relatedRoutes.length > 0) {
+      const relatedMethods = relatedRoutes.map(key => key.split(':')[0]).join(', ');
+      showNotification(`Note: This URL is also used with ${relatedMethods} method(s). Editing will only affect the ${method} route.`, 'info');
+    } else {
+      // Standard notification
       showNotification('Editing route. Make changes and click "Save Changes" to update.');
-      
-      // Parse the route key to get method and URL
-      const [method, ...urlParts] = routeKey.split(':');
-      const url = urlParts.join(':');
-      
-      // Populate form with existing values
-      elements.urlInput.value = url;
-      elements.methodSelect.value = method;
-      elements.statusInput.value = routeConfig.status;
-      elements.delayInput.value = routeConfig.delay;
-      elements.contentTypeSelect.value = routeConfig.contentType || 'application/json';
-      
-      // Format and set response body
+    }
+    
+    // Populate form with existing values
+    elements.urlInput.value = url;
+    elements.methodSelect.value = method;
+    elements.statusInput.value = routeConfig.status;
+    elements.delayInput.value = routeConfig.delay;
+    elements.contentTypeSelect.value = routeConfig.contentType || 'application/json';
+    
+    // Format and set response body to Ace editor if available
+    if (window.responseBodyEditor) {
+      if (typeof routeConfig.response === 'object') {
+        window.responseBodyEditor.setValue(JSON.stringify(routeConfig.response, null, 2), -1);
+      } else {
+        window.responseBodyEditor.setValue(routeConfig.response || '', -1);
+      }
+    } else if (elements.responseBodyTextarea) {
+      // Fallback to textarea if Ace editor is not available
       if (typeof routeConfig.response === 'object') {
         elements.responseBodyTextarea.value = JSON.stringify(routeConfig.response, null, 2);
       } else {
         elements.responseBodyTextarea.value = routeConfig.response || '';
       }
-      
-      // Set editing mode
-      currentState.editingRouteKey = routeKey;
-      
-      // Change button text to reflect we're updating
-      elements.addRouteBtn.textContent = 'Save Changes';
-
-      // Switch to add tab
-      selectTab('add');
     }
+    
+    // Store the original route key for reference when saving
+    currentState.editingRouteKey = routeKey;
+    currentState.originalMethod = method;
+    currentState.originalUrl = url;
+    
+    // Change button text to reflect we're updating
+    elements.addRouteBtn.textContent = 'Save Changes';
+
+    // Switch to add tab
+    selectTab('add');
   }
-  
+}
+
+function toggleRoute(routeKey, enabled) {
+  chrome.runtime.sendMessage({
+    action: 'toggleRoute',
+    route: routeKey,
+    enabled: enabled
+  }, function(response) {
+    if (response && response.success) {
+      // Update local state
+      if (currentState.routes[routeKey]) {
+        currentState.routes[routeKey].enabled = enabled;
+        updateRoutesList();
+        showNotification(`Route ${enabled ? 'enabled' : 'disabled'}`);
+      }
+    }
+  });
+}
+
+
+  function exportRoutes() {
+    chrome.runtime.sendMessage({ action: 'exportRoutes' }, function(response) {
+      if (response && response.success) {
+        const exportData = response.data;
+        
+        // Convert to JSON string
+        const jsonString = JSON.stringify(exportData, null, 2);
+        
+        // Copy to clipboard using the Clipboard API
+        navigator.clipboard.writeText(jsonString)
+          .catch(err => {
+            console.error('Failed to copy text: ', err);
+          });
+        
+        // Create a download link
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        
+        // Get current date for filename
+        const date = new Date();
+        const dateStr = date.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        
+        // Set download attributes
+        a.href = url;
+        a.download = `request-interceptor-routes-${dateStr}.json`;
+        
+        // Append to document, trigger click, and clean up
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Also set the value to the schema input in the templates tab
+        const schemaInput = document.getElementById('schemaInput');
+        if (schemaInput) {
+          schemaInput.value = jsonString;
+          // Switch to templates tab and trigger a parse
+          selectTab('templates');
+          
+          // Find the parse button and trigger a click
+          const parseBtn = document.getElementById('parseSchemaBtn');
+          if (parseBtn) {
+            setTimeout(() => parseBtn.click(), 100);
+          }
+          
+          showNotification('Routes exported! File downloaded and copied to clipboard.');
+        } else {
+          showNotification('Routes exported! File downloaded and copied to clipboard.');
+        }
+      }
+    });
+  }
+
   // Format response for preview display
   function formatResponsePreview(response) {
     if (typeof response === 'object') {
@@ -381,7 +659,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 3000);
   }
   
-// Update routes list in UI
 function updateRoutesList() {
   // Clear current list
   elements.routeList.innerHTML = '';
@@ -412,26 +689,70 @@ function updateRoutesList() {
     return;
   }
   
+  // Check if export button already exists
+  if (!document.querySelector('.export-btn')) {
+    // Add export button if there are routes
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'btn btn-secondary export-btn';
+    exportBtn.innerHTML = '<i class="fas fa-file-export"></i> Export Routes';
+    exportBtn.addEventListener('click', exportRoutes);
+    
+    // Add export button to the route actions
+    const routeActions = document.querySelector('.route-actions');
+    if (routeActions) {
+      routeActions.appendChild(exportBtn);
+    }
+  }
+  
+  // Create a map of URLs to their methods for showing related routes
+  const urlMethodMap = {};
+  
+  routeEntries.forEach(([key, config]) => {
+    const [method, ...urlParts] = key.split(':');
+    const url = urlParts.join(':');
+    
+    if (!urlMethodMap[url]) {
+      urlMethodMap[url] = [];
+    }
+    urlMethodMap[url].push(method);
+  });
   
   // Add each route
   routeEntries.forEach(([key, config]) => {
     const [method, ...urlParts] = key.split(':');
     const url = urlParts.join(':');
     
+    // Check if the route is enabled
+    const isEnabled = config.hasOwnProperty('enabled') ? config.enabled : true;
+    
+    // Check if this URL has multiple methods
+    const hasMultipleMethods = urlMethodMap[url].length > 1;
+    
     // Get a description based on the URL and method
     const description = getRouteDescription(method, url);
     
-    // Format timestamp (assuming config has a timestamp property)
+    // Format timestamp 
     const timestamp = config.timestamp ? new Date(config.timestamp).toLocaleDateString() : 'N/A';
     
     // Get content type display name
     const contentTypeName = getContentTypeDisplayName(config.contentType);
     
     const routeElement = document.createElement('div');
-    routeElement.className = `route-item method-${method}`;
+    routeElement.className = `route-item method-${method} ${!isEnabled ? 'route-disabled' : ''} ${hasMultipleMethods ? 'multi-method-url' : ''}`;
     
     // Format response for display
     const responsePreview = formatResponsePreview(config.response);
+    
+    // Create html for route item with additional multi-method indicator if needed
+    let multiMethodHtml = '';
+    if (hasMultipleMethods) {
+      const otherMethods = urlMethodMap[url].filter(m => m !== method);
+      multiMethodHtml = `
+        <span class="multi-method-indicator">
+          <i class="fas fa-code-branch"></i> Same URL also used with: ${otherMethods.join(', ')}
+        </span>
+      `;
+    }
     
     routeElement.innerHTML = `
       <div class="route-item-header">
@@ -439,8 +760,17 @@ function updateRoutesList() {
           <span class="method-badge method-${method}">${method}</span>
           <div class="route-url-wrapper">
             <span class="route-url">${escapeHtml(url)}</span>
-            <span class="route-description">${description}</span>
+            <div class="route-info">
+              <span class="route-description">${description}</span>
+              ${multiMethodHtml}
+            </div>
           </div>
+        </div>
+        <div class="route-toggle">
+          <label class="toggle toggle-sm">
+            <input type="checkbox" class="route-toggle-input" data-route="${escapeHtml(key)}" ${isEnabled ? 'checked' : ''}>
+            <span class="slider"></span>
+          </label>
         </div>
       </div>
       <div class="route-item-body">
@@ -504,6 +834,16 @@ function updateRoutesList() {
       const routeKey = this.getAttribute('data-route');
       editRoute(routeKey);
     });
+    
+    // Add change handler for toggle switch
+    const toggleInput = routeElement.querySelector('.route-toggle-input');
+    if (toggleInput) {
+      toggleInput.addEventListener('change', function() {
+        const routeKey = this.getAttribute('data-route');
+        const isEnabled = this.checked;
+        toggleRoute(routeKey, isEnabled);
+      });
+    }
   });
   
   // Apply syntax highlighting if Prism is available

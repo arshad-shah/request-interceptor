@@ -4,10 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Request Interceptor</title>
-  <link rel="stylesheet" href="./scripts//all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="./scripts/prism-tomorrow.min.css">
   <script src="./scripts/prism.min.js"></script>
   <script src="./scripts/prism-json.min.js"></script>
+  <script src="./scripts/ace.js"></script>
+  <script src="./scripts/mode-json.js"></script>
+  <script src="./scripts/theme-monokai.js"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -144,18 +147,21 @@
                   </select>
                 </div>
                 
-                <div class="form-group">
-                  <label for="responseBody">Response Body</label>
-                  <textarea id="responseBody" class="language-json" placeholder='{"status": "success", "data": [{"id": 1, "name": "Example"}]}'>{"status": "success", "data": [{"id": 1, "name": "Example"}]}</textarea>
-                  <div class="editor-actions">
-                    <button type="button" id="formatJsonBtn" class="btn btn-sm btn-secondary">
-                      <i class="fas fa-code"></i> Format JSON
-                    </button>
-                    <button type="button" id="clearEditorBtn" class="btn btn-sm btn-secondary">
-                      <i class="fas fa-eraser"></i> Clear
-                    </button>
-                  </div>
-                </div>
+<div class="form-group">
+  <label for="responseBodyEditor">Response Body</label>
+  <div class="editor-container">
+    <div id="responseBodyEditor"></div>
+  </div>
+  <input type="hidden" id="responseBody" value='{"status": "success", "data": [{"id": 1, "name": "Example"}]}'>
+  <div class="editor-actions">
+    <button type="button" id="formatJsonBtn" class="btn btn-sm btn-secondary">
+      <i class="fas fa-code"></i> Format JSON
+    </button>
+    <button type="button" id="clearEditorBtn" class="btn btn-sm btn-secondary">
+      <i class="fas fa-eraser"></i> Clear
+    </button>
+  </div>
+</div>
               </form>
             </div>
             <div class="card-footer">
@@ -176,34 +182,23 @@
       <span>JSON Schema Templates</span>
     </div>
     <div class="card-body">
-      <div class="form-group">
-        <label for="schemaInput">Import JSON Schema</label>
-        <textarea id="schemaInput" placeholder='{"routes": [{"method": "GET", "url": "/api/users", ...}]}' rows="10"></textarea>
-        <div class="help-text">
-          Paste a JSON schema containing multiple routes to create interceptions in bulk. The schema should follow the format shown in the examples below.
-        </div>
+<div class="form-group">
+  <label for="schemaInputEditor">Import JSON Schema</label>
+  <div class="editor-container">
+    <div id="schemaInputEditor"></div>
+  </div>
+  <input type="hidden" id="schemaInput">
+  <div class="help-text">
+    Paste a JSON schema containing multiple routes to create interceptions in bulk.
+  </div>
+</div>
+    <!-- Modified Template Selection Section -->
+    <div class="form-group">
+      <label>Templates</label>
+      <div class="template-options" id="template-options-container">
+        <!-- Template buttons will be generated here dynamically -->
       </div>
-            <div class="form-group">
-        <label>Templates</label>
-        <div class="template-options">
-          <button class="template-option" data-template="basic">
-            <i class="fas fa-cube"></i>
-            <span>Basic API</span>
-          </button>
-          <button class="template-option" data-template="crud">
-            <i class="fas fa-database"></i>
-            <span>CRUD API</span>
-          </button>
-          <button class="template-option" data-template="auth">
-            <i class="fas fa-lock"></i>
-            <span>Authentication API</span>
-          </button>
-          <button class="template-option" data-template="ecommerce">
-            <i class="fas fa-shopping-cart"></i>
-            <span>E-commerce API</span>
-          </button>
-        </div>
-      </div>
+    </div>
       <div class="form-group" id="preview-container" style="display: none;">
         <label>Preview</label>
         <div class="route-preview">
@@ -220,13 +215,18 @@
       </div>
     </div>
     <div class="card-footer">
-      <button type="button" id="parseSchemaBtn" class="btn btn-secondary">
-        <i class="fas fa-code"></i> Parse Schema
-      </button>
-      <button type="button" id="importRoutesBtn" class="btn" disabled>
-        <i class="fas fa-file-import"></i> Import Routes
-      </button>
-    </div>
+  <div class="import-actions">
+    <button type="button" id="importFromFileBtn" class="btn btn-secondary">
+      <i class="fas fa-file-import"></i> Import from File
+    </button>
+    <button type="button" id="parseSchemaBtn" class="btn btn-secondary">
+      <i class="fas fa-code"></i> Parse Schema
+    </button>
+  </div>
+  <button type="button" id="importRoutesBtn" class="btn" disabled>
+    <i class="fas fa-file-import"></i> Import Routes
+  </button>
+</div>
   </div>
   
   <!-- Schema Examples -->
@@ -236,8 +236,8 @@
     </div>
     <div class="card-body">
       <div class="schema-example">
-        <h4>Basic Schema Format</h4>
-        <pre><code class="language-json">{
+  <h4>Basic Schema Format</h4>
+  <pre><code class="language-json">{
   "routes": [
     {
       "method": "GET",
@@ -245,6 +245,7 @@
       "status": 200,
       "delay": 300,
       "contentType": "application/json",
+      "enabled": true,
       "response": {
         "users": [
           {"id": 1, "name": "John Doe"},
@@ -256,6 +257,7 @@
       "method": "POST",
       "url": "/api/users",
       "status": 201,
+      "enabled": false,
       "response": {
         "id": 3,
         "success": true
@@ -263,7 +265,7 @@
     }
   ]
 }</code></pre>
-      </div>
+</div>
     </div>
   </div>
 </div>
