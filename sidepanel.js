@@ -1,5 +1,75 @@
 // Simplified Side panel script for the Request Interceptor
 
+function initCustomSelectStyles() {
+  // Function to style the currently selected option
+  function updateSelectStyle(select) {
+    // Get the selected option value
+    const selectedValue = select.value;
+    
+    // Apply different styles based on the select element
+    if (select.id === 'method') {
+      // Style for method select
+      let bgColor;
+      switch (selectedValue) {
+        case 'GET':
+          bgColor = '#10b981';
+          break;
+        case 'POST':
+          bgColor = '#3b82f6';
+          break;
+        case 'PUT':
+          bgColor = '#f59e0b';
+          break;
+        case 'DELETE':
+          bgColor = '#ef4444';
+          break;
+        case 'PATCH':
+          bgColor = '#8b5cf6';
+          break;
+        default:
+          bgColor = '#6b7280';
+      }
+      
+      // Apply the background color to the select
+      select.style.backgroundColor = bgColor;
+      select.style.color = 'white';
+      select.style.fontWeight = 'bold';
+      
+      // Also style the icon
+      const iconElement = select.parentElement.querySelector('.select-icon i');
+      if (iconElement) {
+        iconElement.style.color = 'white';
+      }
+    } else if (select.id === 'contentType') {
+      // Style for content type select - more subtle
+      select.style.backgroundColor = '#f3f4f6';
+      select.style.color = '#374151';
+      select.style.fontWeight = 'normal';
+      
+      // Reset icon color
+      const iconElement = select.parentElement.querySelector('.select-icon i');
+      if (iconElement) {
+        iconElement.style.color = '#6b7280';
+      }
+    }
+  }
+  
+  // Find all custom selects
+  const customSelects = document.querySelectorAll('.custom-select select');
+  
+  // Add event listeners and initialize styles for each select
+  customSelects.forEach(select => {
+    // Initialize with current selection
+    updateSelectStyle(select);
+    
+    // Update on change
+    select.addEventListener('change', function() {
+      updateSelectStyle(this);
+    });
+  });
+}
+
+
 document.addEventListener('DOMContentLoaded', function() {
   initAceEditors();
     // Import templates.js script dynamically
@@ -39,7 +109,8 @@ document.addEventListener('DOMContentLoaded', function() {
     responseBodyTextarea: document.getElementById('responseBody'),
     formatJsonBtn: document.getElementById('formatJsonBtn'),
     clearEditorBtn: document.getElementById('clearEditorBtn'),
-    addRouteBtn: document.getElementById('addRouteBtn')
+    addRouteBtn: document.getElementById('addRouteBtn'),
+    addNewRouteBtn: document.getElementById('add-route-btn')
   };
   
   // State tracking
@@ -52,12 +123,17 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize
   initialize();
   
-  // Functions
-  function initialize() {
-    setupTabs();
-    setupEventListeners();
-    loadState();
+function initialize() {
+  setupTabs();
+  setupEventListeners();
+  loadState();
+  
+  // Initialize custom select styles when applicable
+  if (document.querySelector('.custom-select')) {
+    initCustomSelectStyles();
   }
+}
+
   
   // Setup tab navigation
   function setupTabs() {
@@ -108,12 +184,13 @@ document.addEventListener('DOMContentLoaded', function() {
       const isEnabled = this.checked;
       toggleEnabled(isEnabled);
     });
-    
     // Clear all routes
     elements.clearRoutesBtn.addEventListener('click', function() {
-      if (confirm('Are you sure you want to clear all interception routes?')) {
-        clearRoutes();
-      }
+      showConfirmationDialog(
+      'Clear All Routes',
+      'Are you sure you want to clear all interception routes? This action cannot be undone.',
+      clearRoutes
+      );
     });
     
     // Format JSON button
@@ -129,6 +206,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add route button
     elements.addRouteBtn.addEventListener('click', function() {
       addRoute();
+    });
+
+    const searchInput = document.getElementById('search-routes');
+    searchInput.addEventListener('input', function() {
+      filterRoutes();
+    });
+
+    // Filter by method
+    const methodFilter = document.getElementById('filter-method');
+    methodFilter.addEventListener('change', function() {
+      filterRoutes();
+    });
+
+    //add new route button
+    elements.addNewRouteBtn.addEventListener('click', function() {
+      selectTab('add');
+    });
+
+    // Add this to the setupEventListeners function in sidepanel.js
+    document.getElementById('cancelBtn').addEventListener('click', function() {
+      resetAddRouteForm();
+      selectTab('routes');
     });
     
     // Listen for messages from background script
@@ -153,6 +252,72 @@ document.addEventListener('DOMContentLoaded', function() {
       return true;
     });
   }
+
+  function filterRoutes() {
+  const searchTerm = document.getElementById('search-routes').value.toLowerCase();
+  const methodFilter = document.getElementById('filter-method').value;
+  const routeItems = document.querySelectorAll('.route-item');
+  let visibleCount = 0;
+  
+  routeItems.forEach(item => {
+    // Get the URL text from this route item
+    const urlElement = item.querySelector('.route-url');
+    if (!urlElement) return;
+    
+    const url = urlElement.textContent.toLowerCase();
+    const method = item.classList.contains('method-GET') ? 'GET' :
+                   item.classList.contains('method-POST') ? 'POST' :
+                   item.classList.contains('method-PUT') ? 'PUT' :
+                   item.classList.contains('method-DELETE') ? 'DELETE' :
+                   item.classList.contains('method-PATCH') ? 'PATCH' : '';
+    
+    // Check if it matches both the search term and the method filter
+    const matchesSearch = url.includes(searchTerm);
+    const matchesMethod = methodFilter === 'all' || method === methodFilter;
+    
+    // Show or hide based on both conditions
+    if (matchesSearch && matchesMethod) {
+      item.style.display = '';
+      visibleCount++;
+    } else {
+      item.style.display = 'none';
+    }
+  });
+  
+  // Handle empty state when no routes match the filter
+  const routeList = document.getElementById('route-list');
+  const existingEmptyState = routeList.querySelector('.filter-empty-state');
+  
+  // If no items are visible and we have routes, show "no matches" message
+  if (visibleCount === 0 && Object.keys(currentState.routes).length > 0) {
+    if (!existingEmptyState) {
+      const emptyState = document.createElement('div');
+      emptyState.className = 'empty-state filter-empty-state';
+      emptyState.innerHTML = `
+        <div class="empty-state-icon">
+          <i class="fas fa-search"></i>
+        </div>
+        <h3>No matching routes found</h3>
+        <p>Try adjusting your search or filter criteria.</p>
+        <button class="btn btn-secondary" id="clear-filters-btn">
+          <i class="fas fa-times"></i>
+          <span>Clear Filters</span>
+        </button>
+      `;
+      routeList.appendChild(emptyState);
+      
+      // Add event listener to clear filters button
+      document.getElementById('clear-filters-btn').addEventListener('click', function() {
+        document.getElementById('search-routes').value = '';
+        document.getElementById('filter-method').value = 'all';
+        filterRoutes();
+      });
+    }
+  } else if (existingEmptyState) {
+    // Remove empty state if we have matches
+    existingEmptyState.remove();
+  }
+}
   
   // Load state from background script
   function loadState() {
@@ -185,6 +350,11 @@ document.addEventListener('DOMContentLoaded', function() {
     elements.enableToggle.checked = isEnabled;
     elements.statusText.textContent = isEnabled ? 'Enabled' : 'Disabled';
     elements.statusText.style.color = isEnabled ? '#10b981' : '#ef4444';
+    elements.statusText.style.fontWeight = 'bold';
+    elements.statusText.style.fontSize = '16px';
+    elements.statusText.style.transition = 'color 0.3s ease';
+    elements.statusText.style.opacity = '1';
+    elements.statusText.style.transition = 'opacity 0.3s ease';
   }
   
 function addRoute() {
@@ -200,7 +370,7 @@ function addRoute() {
     elements.responseBodyTextarea.value;
   
   if (!url) {
-    showNotification('Please enter a URL to intercept', 'error');
+    showNotification('URL Required', 'Please enter a valid URL pattern to intercept requests', 'error');
     return;
   }
   
@@ -213,7 +383,7 @@ function addRoute() {
       responseBody = responseBodyStr;
     }
   } catch (error) {
-    showNotification(`Invalid JSON format: ${error.message}`, 'error');
+    showNotification('Invalid JSON', 'Please enter valid JSON in the response body', 'error');
     return;
   }
   
@@ -251,10 +421,14 @@ function addRoute() {
     const conflictingMethods = conflictingRoutes.map(key => key.split(':')[0]).join(', ');
     
     const confirmMessage = `There's already a route for URL "${url}" with method(s): ${conflictingMethods}. Adding this route won't affect those routes since they use different methods. Continue?`;
-    
-    if (!confirm(confirmMessage)) {
-      return; // Abort if user cancels
-    }
+    showConfirmationDialog(
+      'Add Route',
+      confirmMessage,
+      () => {
+      // Continue with adding the route if user confirms
+      }
+    );
+    return; // Return early while waiting for confirmation
   }
   
   // Get the current enabled state if we're updating without changing method/url
@@ -297,7 +471,7 @@ function addRoute() {
             currentState.routes[newRouteKey] = routeConfig;
             updateRoutesList();
             
-            showNotification('Route updated with new URL/method successfully');
+            showNotification('success', 'Route has been updated with new method and URL');
             
             // Switch to routes tab
             selectTab('routes');
@@ -323,9 +497,9 @@ function addRoute() {
         updateRoutesList();
         
         if (response.isUpdate) {
-          showNotification('Route updated successfully');
+          showNotification('Success', 'Route updated successfully');
         } else {
-          showNotification('Route added successfully');
+          showNotification('Success', 'Route added successfully');
         }
         
         // Switch to routes tab
@@ -348,7 +522,7 @@ function addRoute() {
         // Update local state immediately
         delete currentState.routes[routeKey];
         updateRoutesList();
-        showNotification('Route removed successfully');
+        showNotification('Success', 'Route removed successfully');
       }
     });
   }
@@ -360,7 +534,7 @@ function addRoute() {
         // Update local state immediately
         currentState.routes = {};
         updateRoutesList();
-        showNotification('All routes cleared');
+        showNotification('Success', 'All routes cleared successfully');
       }
     });
   }
@@ -420,27 +594,36 @@ function addRoute() {
   }
   
   // Format JSON in the editor
-  function formatJson() {
-    try {
-      // Check if Ace editor is available
-      if (window.responseBodyEditor) {
-        const jsonString = window.responseBodyEditor.getValue().trim();
-        if (!jsonString) return;
-        
-        const parsed = JSON.parse(jsonString);
-        window.responseBodyEditor.setValue(JSON.stringify(parsed, null, 2), -1);
-        showNotification('JSON formatted successfully');
-      } else {
-        // Fallback to original textarea-based formatting
-        const jsonString = elements.responseBodyTextarea.value;
-        const parsed = JSON.parse(jsonString);
-        elements.responseBodyTextarea.value = JSON.stringify(parsed, null, 2);
-        showNotification('JSON formatted successfully');
+function formatJson() {
+  try {
+    // Check if Ace editor is available
+    if (window.responseBodyEditor) {
+      const jsonString = window.responseBodyEditor.getValue().trim();
+      if (!jsonString) return;
+      
+      const parsed = JSON.parse(jsonString);
+      window.responseBodyEditor.setValue(JSON.stringify(parsed, null, 2), -1);
+      showNotification('Success', 'JSON formatted successfully');
+      
+      // Add visual feedback to the format button
+      const formatBtn = document.getElementById('formatJsonBtn');
+      if (formatBtn) {
+        formatBtn.classList.add('btn-success');
+        setTimeout(() => {
+          formatBtn.classList.remove('btn-success');
+        }, 1000);
       }
-    } catch (error) {
-      showNotification(`Invalid JSON: ${error.message}`, 'error');
+    } else {
+      // Fallback to original textarea-based formatting
+      const jsonString = elements.responseBodyTextarea.value;
+      const parsed = JSON.parse(jsonString);
+      elements.responseBodyTextarea.value = JSON.stringify(parsed, null, 2);
+      showNotification('Success', 'JSON formatted successfully');
     }
+  } catch (error) {
+    showNotification('Error', 'Invalid JSON format. Please check your input.', 'error');
   }
+}
   
   // Reset the add route form
 function resetAddRouteForm() {
@@ -486,10 +669,10 @@ function editRoute(routeKey) {
     // If related routes exist, show a notification
     if (relatedRoutes.length > 0) {
       const relatedMethods = relatedRoutes.map(key => key.split(':')[0]).join(', ');
-      showNotification(`Note: This URL is also used with ${relatedMethods} method(s). Editing will only affect the ${method} route.`, 'info');
+      showNotification("Editing Route", `This URL is also used with method(s): ${relatedMethods}. Make sure to check them if needed.`, 'info');
     } else {
       // Standard notification
-      showNotification('Editing route. Make changes and click "Save Changes" to update.');
+      showNotification("Editing Route", `Editing route for ${method} ${url}`, 'info');
     }
     
     // Populate form with existing values
@@ -539,7 +722,7 @@ function toggleRoute(routeKey, enabled) {
       if (currentState.routes[routeKey]) {
         currentState.routes[routeKey].enabled = enabled;
         updateRoutesList();
-        showNotification(`Route ${enabled ? 'enabled' : 'disabled'}`);
+        showNotification('Success', `Route ${enabled ? 'enabled' : 'disabled'} successfully`);
       }
     }
   });
@@ -592,9 +775,9 @@ function toggleRoute(routeKey, enabled) {
             setTimeout(() => parseBtn.click(), 100);
           }
           
-          showNotification('Routes exported! File downloaded and copied to clipboard.');
+          showNotification('Routes exported!','File downloaded and copied to clipboard.');
         } else {
-          showNotification('Routes exported! File downloaded and copied to clipboard.');
+          showNotification('Routes exported!','File downloaded and copied to clipboard.');
         }
       }
     });
@@ -630,34 +813,63 @@ function toggleRoute(routeKey, enabled) {
   }
   
   // Show a notification
-  function showNotification(message, type = 'success') {
-    const notificationContainer = document.getElementById('notification-container');
-    
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    
-    // Add icon based on type
-    const icon = type === 'success' ? 'check-circle' : 'exclamation-circle';
-    
-    notification.innerHTML = `
-      <div style="display: flex; align-items: center;">
-        <i class="fas fa-${icon}" style="margin-right: 8px;"></i>
-        <span>${message}</span>
-      </div>
-    `;
-    
-    // Add to container
-    notificationContainer.appendChild(notification);
-    
-    // Remove after timeout
-    setTimeout(() => {
-      notification.classList.add('fade-out');
-      setTimeout(() => {
-        notification.remove();
-      }, 300);
-    }, 3000);
+function showNotification(title, message, type = 'success') {
+  const notificationContainer = document.getElementById('notification-container');
+  
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.className = `notification notification-${type}`;
+  
+  // Add icon based on type
+  let icon;
+  switch (type) {
+    case 'success':
+      icon = 'check-circle';
+      break;
+    case 'error':
+      icon = 'exclamation-circle';
+      break;
+    case 'info':
+      icon = 'info-circle';
+      break;
+    default:
+      icon = 'bell';
   }
+  
+  notification.innerHTML = `
+    <div class="notification-icon">
+        <i class="fas fa-${icon}"></i>
+    </div>
+    <div class="notification-content">
+      <div class="notification-title">${title}</div>
+      <div class="notification-message">
+        ${message}
+      </div>
+    </div>
+  `;
+  
+  // Add to container with animation
+  notification.style.opacity = '0';
+  notification.style.transform = 'translateY(10px)';
+  notification.style.transition = 'all 0.3s ease';
+  
+  notificationContainer.appendChild(notification);
+  
+  // Trigger animation
+  setTimeout(() => {
+    notification.style.opacity = '1';
+    notification.style.transform = 'translateY(0)';
+  }, 10);
+  
+  // Remove after timeout
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateY(-10px)';
+    setTimeout(() => {
+      notification.remove();
+    }, 300);
+  }, 3000);
+}
   
 function updateRoutesList() {
   // Clear current list
@@ -689,20 +901,19 @@ function updateRoutesList() {
     return;
   }
   
-  // Check if export button already exists
   if (!document.querySelector('.export-btn')) {
-    // Add export button if there are routes
-    const exportBtn = document.createElement('button');
-    exportBtn.className = 'btn btn-secondary export-btn';
-    exportBtn.innerHTML = '<i class="fas fa-file-export"></i> Export Routes';
-    exportBtn.addEventListener('click', exportRoutes);
-    
-    // Add export button to the route actions
-    const routeActions = document.querySelector('.route-actions');
-    if (routeActions) {
-      routeActions.appendChild(exportBtn);
-    }
+  // Add export button if there are routes
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'btn btn-secondary export-btn';
+  exportBtn.innerHTML = '<i class="fas fa-file-export"></i> Export Routes';
+  exportBtn.addEventListener('click', exportRoutes);
+  
+  // Add export button to the action buttons container
+  const actionButtons = document.querySelector('.action-buttons');
+  if (actionButtons) {
+    actionButtons.appendChild(exportBtn);
   }
+}
   
   // Create a map of URLs to their methods for showing related routes
   const urlMethodMap = {};
@@ -845,6 +1056,8 @@ function updateRoutesList() {
       });
     }
   });
+
+  filterRoutes();
   
   // Apply syntax highlighting if Prism is available
   if (window.Prism) {

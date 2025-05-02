@@ -289,29 +289,40 @@ createTemplateButtons() {
   }
   
   // Show preview of parsed routes
-  showPreview(routes) {
-    this.elements.previewContainer.style.display = 'block';
-    this.elements.previewCount.textContent = `${routes.length} routes`;
-    this.elements.routesPreview.innerHTML = '';
+// Show preview of parsed routes
+showPreview(routes) {
+  this.elements.previewContainer.style.display = 'block';
+  this.elements.previewCount.textContent = `${routes.length} routes`;
+  this.elements.routesPreview.innerHTML = '';
+  
+  for (const route of routes) {
+    const { method, url } = this.parseRouteKey(route.key);
+    const statusCode = route.config.status;
     
-    for (const route of routes) {
-      const { method, url } = this.parseRouteKey(route.key);
-      const previewRoute = document.createElement('div');
-      previewRoute.className = `preview-route method-${method}`;
-      
-      previewRoute.innerHTML = `
-        <div class="preview-route-info">
-          <span class="preview-route-method ${method}">${method}</span>
-          <span class="preview-route-url">${this.escapeHtml(url)}</span>
-        </div>
-        <div class="preview-route-status">
-          <span class="preview-route-code">${route.config.status}</span>
-        </div>
-      `;
-      
-      this.elements.routesPreview.appendChild(previewRoute);
+    // Determine status class
+    let statusClass = 'status-2xx';
+    if (statusCode >= 400 && statusCode < 500) {
+      statusClass = 'status-4xx';
+    } else if (statusCode >= 500) {
+      statusClass = 'status-5xx';
     }
+    
+    const previewRoute = document.createElement('div');
+    previewRoute.className = `preview-route ${method} ${statusClass}`;
+    
+    previewRoute.innerHTML = `
+      <div class="preview-route-content">
+        <span class="preview-route-method ${method}">${method}</span>
+        <span class="preview-route-url">${this.escapeHtml(url)}</span>
+        <div class="preview-route-status">
+          <span class="preview-route-code">${statusCode}</span>
+        </div>
+      </div>
+    `;
+    
+    this.elements.routesPreview.appendChild(previewRoute);
   }
+}
   
   // Import all parsed routes
   importRoutes() {
