@@ -416,37 +416,3 @@ async importRoutesInBatches(routes, batchSize) {
     return div.innerHTML;
   }
 }
-
-// Create a simple notification manager class
-class NotificationManager {
-  constructor() {
-    this.container = document.getElementById('notification-container');
-  }
-  
-  show(message, type = 'success') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    
-    // Add icon based on type
-    const icon = type === 'success' ? 'check-circle' : 'exclamation-circle';
-    
-    notification.innerHTML = `
-      <div style="display: flex; align-items: center;">
-        <i class="fas fa-${icon}" style="margin-right: 8px;"></i>
-        <span>${message}</span>
-      </div>
-    `;
-    
-    // Add to container
-    this.container.appendChild(notification);
-    
-    // Remove after timeout
-    setTimeout(() => {
-      notification.classList.add('fade-out');
-      setTimeout(() => {
-        notification.remove();
-      }, 300);
-    }, 3000);
-  }
-}

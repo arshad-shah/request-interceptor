@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const enableToggle = document.getElementById('enableToggle');
   const statusText = document.getElementById('status-text');
   const routesCount = document.getElementById('routes-count');
-  const openSidePanelBtn = document.getElementById('open-side-panel');
   
   // Track state locally
   let currentState = {
@@ -39,20 +38,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update local state
         currentState.enabled = isEnabled;
         updateEnabledState(isEnabled);
-      }
-    });
-  });
-  
-  // Open side panel button
-  openSidePanelBtn.addEventListener('click', function() {
-    // Send a message to the background script to open the side panel
-    chrome.runtime.sendMessage({ action: 'openSidePanel' }, function(response) {
-      if (response && response.success) {
-        // Close the popup after successfully opening the side panel
-        window.close();
-      } else {
-        // Fallback for older Chrome versions or if the operation failed
-        alert('Could not open side panel. Please ensure you are using the latest Chrome version.');
       }
     });
   });

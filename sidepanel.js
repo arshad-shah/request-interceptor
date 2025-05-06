@@ -1,4 +1,3 @@
-// Simplified Side panel script for the Request Interceptor
 
 function initCustomSelectStyles() {
   // Function to style the currently selected option
@@ -69,27 +68,41 @@ function initCustomSelectStyles() {
   });
 }
 
+// function to load a script dynamically
+function loadScript(src, callback) {
+  console.log(`Loading script: ${src}`);
+  
+  const script = document.createElement('script');
+  script.src = src;
+  script.onload = function() {
+    if (callback) callback();
+  };
+  document.head.appendChild(script);
+}
+
+
 
 document.addEventListener('DOMContentLoaded', function() {
   initAceEditors();
-    // Import templates.js script dynamically
-  const templatesScript = document.createElement('script');
-  templatesScript.src = 'templates.js';
-  templatesScript.onload = function() {
-    // Import templates-manager.js script after templates.js is loaded
-    const templatesManagerScript = document.createElement('script');
-    templatesManagerScript.src = 'templates-manager.js';
-    templatesManagerScript.onload = function() {
-      // Initialize TemplatesManager after script is loaded
-      const notificationManager = new NotificationManager();
+
+  let notificationManager = null;
+  // notification manager
+  loadScript('notification-manager.js', function() {
+    // Initialize NotificationManager after script is loaded
+    notificationManager = new NotificationManager();
+  });
+
+    console.log('NotificationManager initialized:', notificationManager);
+    
+
+  //load the templates.js script
+  loadScript('templates.js', function() {
+    loadScript('templates-manager.js', function() {
       const templatesManager = new TemplatesManager(notificationManager);
-      
       // Make templatesManager available globally for debugging
       window.templatesManager = templatesManager;
-    };
-    document.head.appendChild(templatesManagerScript);
-  };
-  document.head.appendChild(templatesScript);
+    });
+  });
 
 
   // UI Elements
@@ -370,7 +383,7 @@ function addRoute() {
     elements.responseBodyTextarea.value;
   
   if (!url) {
-    showNotification('URL Required', 'Please enter a valid URL pattern to intercept requests', 'error');
+    notificationManager.show('URL Required', 'Please enter a valid URL pattern to intercept requests', 'error');
     return;
   }
   
@@ -383,7 +396,7 @@ function addRoute() {
       responseBody = responseBodyStr;
     }
   } catch (error) {
-    showNotification('Invalid JSON', 'Please enter valid JSON in the response body', 'error');
+    notificationManager.show('Invalid JSON', 'Please enter valid JSON in the response body', 'error');
     return;
   }
   
@@ -471,7 +484,7 @@ function addRoute() {
             currentState.routes[newRouteKey] = routeConfig;
             updateRoutesList();
             
-            showNotification('success', 'Route has been updated with new method and URL');
+            notificationManager.show('success', 'Route has been updated with new method and URL');
             
             // Switch to routes tab
             selectTab('routes');
@@ -497,9 +510,9 @@ function addRoute() {
         updateRoutesList();
         
         if (response.isUpdate) {
-          showNotification('Success', 'Route updated successfully');
+          notificationManager.show('Success', 'Route updated successfully');
         } else {
-          showNotification('Success', 'Route added successfully');
+          notificationManager.show('Success', 'Route added successfully');
         }
         
         // Switch to routes tab
@@ -522,7 +535,7 @@ function addRoute() {
         // Update local state immediately
         delete currentState.routes[routeKey];
         updateRoutesList();
-        showNotification('Success', 'Route removed successfully');
+        notificationManager.show('Success', 'Route removed successfully');
       }
     });
   }
@@ -534,7 +547,7 @@ function addRoute() {
         // Update local state immediately
         currentState.routes = {};
         updateRoutesList();
-        showNotification('Success', 'All routes cleared successfully');
+        notificationManager.show('Success', 'All routes cleared successfully');
       }
     });
   }
@@ -603,7 +616,7 @@ function formatJson() {
       
       const parsed = JSON.parse(jsonString);
       window.responseBodyEditor.setValue(JSON.stringify(parsed, null, 2), -1);
-      showNotification('Success', 'JSON formatted successfully');
+      notificationManager.show('Success', 'JSON formatted successfully');
       
       // Add visual feedback to the format button
       const formatBtn = document.getElementById('formatJsonBtn');
@@ -618,10 +631,10 @@ function formatJson() {
       const jsonString = elements.responseBodyTextarea.value;
       const parsed = JSON.parse(jsonString);
       elements.responseBodyTextarea.value = JSON.stringify(parsed, null, 2);
-      showNotification('Success', 'JSON formatted successfully');
+      notificationManager.show('Success', 'JSON formatted successfully');
     }
   } catch (error) {
-    showNotification('Error', 'Invalid JSON format. Please check your input.', 'error');
+    notificationManager.show('Error', 'Invalid JSON format. Please check your input.', 'error');
   }
 }
   
@@ -669,10 +682,10 @@ function editRoute(routeKey) {
     // If related routes exist, show a notification
     if (relatedRoutes.length > 0) {
       const relatedMethods = relatedRoutes.map(key => key.split(':')[0]).join(', ');
-      showNotification("Editing Route", `This URL is also used with method(s): ${relatedMethods}. Make sure to check them if needed.`, 'info');
+      notificationManager.show("Editing Route", `This URL is also used with method(s): ${relatedMethods}. Make sure to check them if needed.`, 'info');
     } else {
       // Standard notification
-      showNotification("Editing Route", `Editing route for ${method} ${url}`, 'info');
+      notificationManager.show("Editing Route", `Editing route for ${method} ${url}`, 'info');
     }
     
     // Populate form with existing values
@@ -722,7 +735,7 @@ function toggleRoute(routeKey, enabled) {
       if (currentState.routes[routeKey]) {
         currentState.routes[routeKey].enabled = enabled;
         updateRoutesList();
-        showNotification('Success', `Route ${enabled ? 'enabled' : 'disabled'} successfully`);
+        notificationManager.show('Success', `Route ${enabled ? 'enabled' : 'disabled'} successfully`);
       }
     }
   });
@@ -775,9 +788,9 @@ function toggleRoute(routeKey, enabled) {
             setTimeout(() => parseBtn.click(), 100);
           }
           
-          showNotification('Routes exported!','File downloaded and copied to clipboard.');
+          notificationManager.show('Routes exported!','File downloaded and copied to clipboard.');
         } else {
-          showNotification('Routes exported!','File downloaded and copied to clipboard.');
+          notificationManager.show('Routes exported!','File downloaded and copied to clipboard.');
         }
       }
     });
@@ -811,65 +824,6 @@ function toggleRoute(routeKey, enabled) {
     div.textContent = text;
     return div.innerHTML;
   }
-  
-  // Show a notification
-function showNotification(title, message, type = 'success') {
-  const notificationContainer = document.getElementById('notification-container');
-  
-  // Create notification element
-  const notification = document.createElement('div');
-  notification.className = `notification notification-${type}`;
-  
-  // Add icon based on type
-  let icon;
-  switch (type) {
-    case 'success':
-      icon = 'check-circle';
-      break;
-    case 'error':
-      icon = 'exclamation-circle';
-      break;
-    case 'info':
-      icon = 'info-circle';
-      break;
-    default:
-      icon = 'bell';
-  }
-  
-  notification.innerHTML = `
-    <div class="notification-icon">
-        <i class="fas fa-${icon}"></i>
-    </div>
-    <div class="notification-content">
-      <div class="notification-title">${title}</div>
-      <div class="notification-message">
-        ${message}
-      </div>
-    </div>
-  `;
-  
-  // Add to container with animation
-  notification.style.opacity = '0';
-  notification.style.transform = 'translateY(10px)';
-  notification.style.transition = 'all 0.3s ease';
-  
-  notificationContainer.appendChild(notification);
-  
-  // Trigger animation
-  setTimeout(() => {
-    notification.style.opacity = '1';
-    notification.style.transform = 'translateY(0)';
-  }, 10);
-  
-  // Remove after timeout
-  setTimeout(() => {
-    notification.style.opacity = '0';
-    notification.style.transform = 'translateY(-10px)';
-    setTimeout(() => {
-      notification.remove();
-    }, 300);
-  }, 3000);
-}
   
 function updateRoutesList() {
   // Clear current list
