@@ -14,7 +14,8 @@
     <script src="./scripts/ace.js"></script>
     <script src="./scripts/mode-json.js"></script>
     <script src="./scripts/theme-monokai.js"></script>
-    <link rel="stylesheet" href="styles.css" />
+    <!-- Updated to use the new CSS system -->
+    <link rel="stylesheet" href="css/main.css" />
   </head>
   <body>
     <div class="app">
@@ -37,7 +38,7 @@
 
       <!-- Main Content -->
       <main class="main">
-        <!-- Navigation -->
+        <!-- Navigation Tabs -->
         <nav class="nav">
           <div class="tabs">
             <button class="tab active" data-tab="routes">
@@ -60,7 +61,6 @@
           <!-- Routes Tab -->
           <div class="tab-content active" id="routes-tab">
             <!-- Route Controls -->
-            <!-- Replace your existing .route-actions div with this new HTML structure -->
             <div class="route-actions">
               <div class="route-actions-right">
                 <div class="search-input">
@@ -98,23 +98,7 @@
             </div>
 
             <!-- Route List -->
-            <div id="route-list" class="route-list">
-              <!-- Empty state (shown when no routes exist) -->
-              <div class="empty-state">
-                <div class="empty-state-icon">
-                  <i class="fas fa-route"></i>
-                </div>
-                <h3>No routes configured yet</h3>
-                <p>
-                  Add your first route to start intercepting API requests and
-                  mocking responses.
-                </p>
-                <button class="btn" id="add-first-route">
-                  <i class="fas fa-plus-circle"></i>
-                  <span>Add Your First Route</span>
-                </button>
-              </div>
-            </div>
+            <div id="route-list" class="route-list"></div>
           </div>
 
           <!-- Add Route Tab -->
@@ -125,6 +109,21 @@
               </div>
               <div class="card-body">
                 <form id="add-route-form">
+                  <div class="form-group">
+                    <label for="routeName">Route Name (optional)</label>
+                    <div class="input-wrapper">
+                      <i class="fas fa-tag input-icon"></i>
+                      <input
+                        type="text"
+                        id="routeName"
+                        placeholder="e.g. Success Response, Error 404, etc."
+                      />
+                    </div>
+                    <div class="help-text">
+                      Give your route a descriptive name to easily identify it
+                    </div>
+                  </div>
+
                   <div class="form-group">
                     <label for="url">URL to Intercept</label>
                     <div class="input-wrapper">
@@ -264,7 +263,7 @@
                     interceptions in bulk.
                   </div>
                 </div>
-                <!-- Modified Template Selection Section -->
+                <!-- Template Selection Section -->
                 <div class="form-group">
                   <label>Templates</label>
                   <div class="template-options" id="template-options-container">
@@ -291,7 +290,7 @@
                 </div>
               </div>
               <div class="card-footer">
-                <div class="import-actions">
+                <div class="d-flex gap-3">
                   <button
                     type="button"
                     id="importFromFileBtn"
@@ -322,12 +321,13 @@
                 <div class="schema-example">
                   <h4>Basic Schema Format</h4>
                   <pre><code class="language-json">{
-  "routes": [
+"routes": [
     {
       "method": "GET",
       "url": "/api/users",
       "status": 200,
       "delay": 300,
+      "name": "Get Users",
       "contentType": "application/json",
       "enabled": true,
       "response": {
@@ -348,7 +348,8 @@
       }
     }
   ]
-}</code></pre>
+}
+</code></pre>
                 </div>
               </div>
             </div>
@@ -359,6 +360,7 @@
 
     <!-- Notification Container -->
     <div id="notification-container" class="notification-container">
+      <!-- Example notification (commented out) -->
       <!-- <div class="notification notification-success">
         <div class="notification-icon">
           <i class="fas fa-check-circle"></i>

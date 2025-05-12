@@ -1,4 +1,3 @@
-
 /**
  * Object containing API mock templates.
  * The key of each template (e.g., 'basic') will be used as the button name in the template tab.
@@ -12,17 +11,18 @@
  * @property {number} status - HTTP status code
  * @property {number} delay - Response delay in milliseconds
  * @property {string} contentType - Response Content-Type header
+ * @property {string} name - Optional name for the route
  * @property {Object} response - Response body object
  */
 const Templates = {
-  // Basic template with simple endpoints
-  basic: {
+  "Test Template": {
     routes: [
       {
         method: "GET",
         url: "/api/data",
         status: 200,
         delay: 200,
+        name: "Success Response",
         contentType: "application/json",
         response: {
           success: true,
@@ -38,18 +38,7 @@ const Templates = {
         url: "/api/stats",
         status: 200,
         delay: 300,
-        contentType: "application/json",
-        response: {
-          totalUsers: 1250,
-          activeUsers: 834,
-          conversionRate: "12.5%"
-        }
-      },
-      {
-        method: "GET",
-        url: "/api/stats",
-        status: 200,
-        delay: 300,
+        name: "Stats Data",
         contentType: "application/json",
         response: {
           totalUsers: 1250,
@@ -58,7 +47,7 @@ const Templates = {
         }
       }
     ]
-  }
+  },
 };
 
 // Export the templates

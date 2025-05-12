@@ -270,7 +270,17 @@ createTemplateButtons() {
   
   // Format a route for our system
   formatRoute(route) {
-    const routeKey = `${route.method}:${route.url}`;
+    // Check if the route has a name
+    const routeName = route.name || '';
+    
+    // Create the route key with name if available
+    let routeKey;
+    if (routeName) {
+      routeKey = `${route.method}:${route.url}|${routeName}`;
+    } else {
+      routeKey = `${route.method}:${route.url}`;
+    }
+    
     const defaultContentType = typeof route.response === 'object' ? 'application/json' : 'text/plain';
     
     return {
@@ -282,26 +292,40 @@ createTemplateButtons() {
         response: route.response,
         // Include enabled state if provided, default to true
         enabled: route.hasOwnProperty('enabled') ? route.enabled : true,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        name: routeName // Store name in config
       },
       originalRoute: route
     };
   }
   
-  // Show preview of parsed routes
-// Show preview of parsed routes
+
+getContentTypeDisplay(contentType) {
+  const contentTypeMap = {
+    'application/json': 'JSON',
+    'text/plain': 'Text',
+    'text/html': 'HTML',
+    'application/xml': 'XML'
+  };
+  
+  return contentTypeMap[contentType] || contentType.split('/')[1] || 'Unknown';
+}
+
 showPreview(routes) {
   this.elements.previewContainer.style.display = 'block';
   this.elements.previewCount.textContent = `${routes.length} routes`;
   this.elements.routesPreview.innerHTML = '';
   
   for (const route of routes) {
-    const { method, url } = this.parseRouteKey(route.key);
-    const statusCode = route.config.status;
+    const routeKeyInfo = this.parseRouteKey(route.key);
+    const { method, url, name } = routeKeyInfo;
+    const statusCode = route.config.status || 200;
     
     // Determine status class
     let statusClass = 'status-2xx';
-    if (statusCode >= 400 && statusCode < 500) {
+    if (statusCode >= 300 && statusCode < 400) {
+      statusClass = 'status-3xx';
+    } else if (statusCode >= 400 && statusCode < 500) {
       statusClass = 'status-4xx';
     } else if (statusCode >= 500) {
       statusClass = 'status-5xx';
@@ -310,19 +334,32 @@ showPreview(routes) {
     const previewRoute = document.createElement('div');
     previewRoute.className = `preview-route ${method} ${statusClass}`;
     
+    // Only show name if it exists
+    const nameDisplay = name ? 
+      `<span class="preview-route-name">${this.escapeHtml(name)}</span>` : '';
+    
     previewRoute.innerHTML = `
       <div class="preview-route-content">
         <span class="preview-route-method ${method}">${method}</span>
         <span class="preview-route-url">${this.escapeHtml(url)}</span>
-        <div class="preview-route-status">
-          <span class="preview-route-code">${statusCode}</span>
-        </div>
+        ${nameDisplay}
+        <span class="preview-route-status">${statusCode}</span>
       </div>
     `;
     
+    // Add animation class for new routes (will be removed after animation completes)
+    previewRoute.classList.add('new-route');
+    setTimeout(() => {
+      previewRoute.classList.remove('new-route');
+    }, 1500);
+    
     this.elements.routesPreview.appendChild(previewRoute);
   }
+  
+  // Scroll to the top of the preview container
+  this.elements.routesPreview.scrollTop = 0;
 }
+  
   
   // Import all parsed routes
   importRoutes() {
@@ -402,11 +439,25 @@ async importRoutesInBatches(routes, batchSize) {
   
   // Parse a route key into method and URL
   parseRouteKey(routeKey) {
-    const [method, ...urlParts] = routeKey.split(':');
-    return {
-      method,
-      url: urlParts.join(':') // Rejoin in case the URL contained colons
-    };
+    // First split by colon to get the method
+    const firstColonIndex = routeKey.indexOf(':');
+    if (firstColonIndex === -1) return { method: 'GET', url: routeKey };
+    
+    const method = routeKey.substring(0, firstColonIndex);
+    const remaining = routeKey.substring(firstColonIndex + 1);
+    
+    // Then split remaining by pipe to separate URL and name
+    const pipeIndex = remaining.indexOf('|');
+    if (pipeIndex === -1) {
+      // No name, just method:url format
+      return { method, url: remaining };
+    }
+    
+    // We have a name, extract it
+    const url = remaining.substring(0, pipeIndex);
+    const name = remaining.substring(pipeIndex + 1);
+    
+    return { method, url, name };
   }
   
   // Helper function to escape HTML

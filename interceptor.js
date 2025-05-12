@@ -26,13 +26,26 @@
      * Parse a route key into its components (method and URL)
      */
     function parseRouteKey(routeKey) {
-      const [method, ...urlParts] = routeKey.split(':');
-      return {
-        method,
-        url: urlParts.join(':') // Rejoin in case the URL contained colons
-      };
+      // First split by colon to get the method
+      const firstColonIndex = routeKey.indexOf(':');
+      if (firstColonIndex === -1) return { method: 'GET', url: routeKey };
+      
+      const method = routeKey.substring(0, firstColonIndex);
+      const remaining = routeKey.substring(firstColonIndex + 1);
+      
+      // Then split remaining by pipe to separate URL and name
+      const pipeIndex = remaining.indexOf('|');
+      if (pipeIndex === -1) {
+        // No name, just method:url format
+        return { method, url: remaining };
+      }
+      
+      // We have a name, extract it
+      const url = remaining.substring(0, pipeIndex);
+      const name = remaining.substring(pipeIndex + 1);
+      
+      return { method, url, name };
     }
-    
 /**
  * Match a request URL against a pattern URL with regex support
  */
@@ -109,7 +122,7 @@ function urlMatches(requestUrl, patternUrl) {
     function shouldIntercept(method, url) {
       const normalizedMethod = method.toUpperCase();
       
-      // Direct key match
+      // Direct key match - we first check for method:url format (no name)
       const directKey = `${normalizedMethod}:${url}`;
       if (interceptedRoutes[directKey]) {
         // Check if this specific route is enabled
@@ -122,7 +135,22 @@ function urlMatches(requestUrl, patternUrl) {
         return directKey;
       }
       
-      // Check all routes for pattern matching
+      // Check for routes with names (method:url:name format)
+      // First find all routes that match method:url, regardless of name
+      const keyMatches = Object.keys(interceptedRoutes).filter(key => {
+        const { method: routeMethod, url: routeUrl } = parseRouteKey(key);
+        return routeMethod === normalizedMethod && routeUrl === url;
+      });
+      
+      // Check if any of these routes are enabled
+      for (const key of keyMatches) {
+        if (!interceptedRoutes[key].hasOwnProperty('enabled') || interceptedRoutes[key].enabled) {
+          log(`Found match for ${method} ${url} using key with name: ${key}`);
+          return key;
+        }
+      }
+      
+      // If no direct matches, check all routes for pattern matching
       for (const key in interceptedRoutes) {
         const { method: routeMethod, url: routeUrl } = parseRouteKey(key);
         

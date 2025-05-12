@@ -1,0 +1,248 @@
+/* responsive.css - Media queries and responsive adjustments */
+
+/* Large desktop */
+@media (max-width: 1200px) {
+    .content {
+      padding: 2rem;
+    }
+    
+    .route-actions {
+      padding: 1.6rem;
+    }
+  }
+  
+  /* Desktop/Laptop */
+  @media (max-width: 992px) {
+    .route-actions {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+    
+    .route-actions-left {
+      margin-right: 0;
+      margin-bottom: 1.6rem;
+      width: 100%;
+    }
+    
+    .route-actions-right {
+      width: 100%;
+      justify-content: space-between;
+    }
+    
+    .template-options {
+      grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+      gap: 1rem;
+    }
+  }
+  
+  /* Tablet/iPad */
+  @media (max-width: 768px) {
+    :root {
+      --container-padding: 16px;
+    }
+    
+    .header {
+      padding: 0 1.6rem;
+    }
+    
+    .header h1 {
+      font-size: 1.6rem;
+    }
+    
+    .route-actions-right {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+    }
+    
+    .search-input, 
+    .method-filter {
+      width: 100%;
+      max-width: none;
+      min-width: 0;
+      margin-bottom: 1rem;
+    }
+    
+    .action-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      width: 100%;
+    }
+    
+    .route-actions .btn {
+      width: 100%;
+    }
+    
+    .route-item-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+      padding: 1.2rem 1.6rem;
+    }
+    
+    .route-toggle {
+      align-self: flex-end;
+      margin-top: 0.8rem;
+    }
+    
+    .detail-item {
+      padding: 0.4rem 0.8rem;
+      font-size: 1.2rem;
+    }
+    
+    .preview-route-content {
+      flex-wrap: wrap;
+    }
+    
+    .preview-route-url {
+      order: 3;
+      width: 100%;
+      margin-top: 0.8rem;
+    }
+    
+    .preview-route-status {
+      margin-left: auto;
+    }
+    
+    .filter-controls {
+      flex-direction: column;
+      width: 100%;
+      padding: 1rem;
+      gap: 1rem;
+    }
+    
+    .notification-container {
+      bottom: 1.6rem;
+      right: 1.6rem;
+      left: 1.6rem;
+    }
+    
+    .notification {
+      max-width: none;
+    }
+    
+    .card-header, 
+    .card-body, 
+    .card-footer {
+      padding: 1.4rem 1.6rem;
+    }
+    
+    .input-row {
+      grid-template-columns: 1fr;
+      gap: 1.2rem;
+    }
+  }
+  
+  /* Mobile Phone */
+  @media (max-width: 576px) {
+    .tab {
+      padding: 0 1.2rem;
+    }
+    
+    .tab span {
+      display: none;
+    }
+    
+    .tab i {
+      font-size: 1.8rem;
+    }
+    
+    .logo {
+      width: 3.2rem;
+      height: 3.2rem;
+    }
+    
+    .header h1 {
+      font-size: 1.5rem;
+    }
+    
+    .toggle-wrapper {
+      padding: 0.4rem 0.8rem;
+      gap: 0.8rem;
+    }
+    
+    .status {
+      font-size: 1.2rem;
+    }
+    
+    .content {
+      padding: 1.6rem;
+    }
+    
+    .route-item-body {
+      padding: 1.2rem 1.6rem;
+    }
+    
+    .card-header,
+    .card-body,
+    .card-footer {
+      padding: 1.2rem;
+    }
+    
+    .method-badge {
+      min-width: 4.4rem;
+      padding: 0.4rem 0.6rem;
+      font-size: 1.1rem;
+    }
+    
+    .action-buttons {
+      grid-template-columns: 1fr;
+    }
+    
+    .confirmation-dialog {
+      padding: 1.2rem;
+    }
+    
+    .template-options {
+      grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+      gap: 0.8rem;
+    }
+    
+    .template-option {
+      padding: 1rem;
+      font-size: 1.2rem;
+      height: 4rem;
+    }
+    
+    .empty-state {
+      padding: 4rem 1.2rem;
+    }
+    
+    .empty-state-icon {
+      width: 5.6rem;
+      height: 5.6rem;
+      margin-bottom: 2rem;
+    }
+    
+    .empty-state h3 {
+      font-size: 1.6rem;
+    }
+    
+    .empty-state p {
+      font-size: 1.3rem;
+    }
+  }
+  
+  /* Small Mobile */
+  @media (max-width: 375px) {
+    .header h1 {
+      font-size: 1.4rem;
+    }
+    
+    .toggle {
+      width: 3.6rem;
+    }
+    
+    .toggle-wrapper {
+      padding: 0.3rem 0.6rem;
+    }
+    
+    .content {
+      padding: 1.2rem;
+    }
+    
+    .route-response pre {
+      font-size: 1.1rem;
+    }
+  }

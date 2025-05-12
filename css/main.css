@@ -1,0 +1,20 @@
+/* main.css - Master file that imports all modular CSS files */
+
+/* Import all modular CSS files in the correct order */
+
+/* Variables and reset first */
+@import 'variables.css';
+@import 'reset.css';
+
+/* Core layout and components */
+@import 'layout.css';
+@import 'components.css';
+@import 'route-components.css';
+@import 'template.css';
+
+/* Animations */
+@import 'animations.css';
+
+/* Utilities and responsive last */
+@import 'utilities.css';
+@import 'responsive.css';

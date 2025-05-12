@@ -1,0 +1,110 @@
+/* animations.css - Animation keyframes and transitions */
+
+/* Logo shine animation */
+@keyframes shine {
+    0% {
+      transform: rotate(45deg) translateY(-100%);
+    }
+    100% {
+      transform: rotate(45deg) translateY(100%);
+    }
+  }
+  
+  /* Fade in animation for content */
+  @keyframes fadeIn {
+    from { 
+      opacity: 0; 
+      transform: translateY(10px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+  
+  /* Scale in animation for dialogs */
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  /* Slide in animation for notifications */
+  @keyframes slide-in {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  /* Fade out animation for notifications */
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+  
+  /* Pulse animation for status indicators */
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(22, 163, 74, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+    }
+  }
+  
+  /* Animation utility classes */
+  .fade-in {
+    animation: fadeIn 0.3s var(--ease) forwards;
+  }
+  
+  .scale-in {
+    animation: scaleIn 0.3s var(--ease) forwards;
+  }
+  
+  .slide-in {
+    animation: slide-in 0.4s var(--ease) forwards;
+  }
+  
+  .fade-out {
+    animation: fade-out 0.3s var(--ease) forwards;
+  }
+  
+  /* Applied animations */
+  .tab-content {
+    animation: fadeIn 0.3s var(--ease);
+  }
+  
+  .preview-route {
+    animation: fadeIn 0.3s var(--ease) forwards;
+  }
+  
+  .confirmation-dialog {
+    animation: fadeIn 0.2s var(--ease);
+  }
+  
+  .confirmation-dialog-content {
+    animation: scaleIn 0.3s var(--ease);
+  }
+  
+  .notification {
+    animation: slide-in 0.4s var(--ease);
+  }

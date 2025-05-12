@@ -71,10 +71,31 @@ setupMessageHandlers() {
       sendResponse({ success: true });
     } 
     else if (message.action === 'addRoute') {
-      const { route, config } = message;
+      const { route, config, name } = message;
+      
+      // Store the name in the config if provided
+      if (name) {
+        config.name = name;
+      }
       
       // Check if this route already exists (improves updating logic)
       const isUpdate = this.state.routes.hasOwnProperty(route);
+      
+      // If enabling this route, disable other routes with the same URL and method
+      if (config.enabled) {
+        const [method, ...urlParts] = route.split(':');
+        const url = urlParts.join(':');
+        
+        Object.keys(this.state.routes).forEach(key => {
+          const [otherMethod, ...otherUrlParts] = key.split(':');
+          const otherUrl = otherUrlParts.join(':');
+          
+          // If same URL and method but different route, disable it
+          if (otherUrl === url && otherMethod === method && key !== route) {
+            this.state.routes[key].enabled = false;
+          }
+        });
+      }
       
       // Update or add the route
       this.state.routes[route] = config;
@@ -88,7 +109,7 @@ setupMessageHandlers() {
       
       // Send whether this was an update or a new route
       sendResponse({ success: true, isUpdate });
-    } 
+    }
     else if (message.action === 'removeRoute') {
       const { route } = message;
       if (this.state.routes[route]) {
@@ -107,6 +128,23 @@ setupMessageHandlers() {
     else if (message.action === 'toggleRoute') {
       const { route, enabled } = message;
       if (this.state.routes[route]) {
+        // Get the URL part from the route key
+        const [method, ...urlParts] = route.split(':');
+        const url = urlParts.join(':');
+        
+        // If enabling this route, disable all other routes with the same URL and method
+        if (enabled) {
+          Object.keys(this.state.routes).forEach(key => {
+            const [otherMethod, ...otherUrlParts] = key.split(':');
+            const otherUrl = otherUrlParts.join(':');
+            
+            // If same URL and method but different route (different name), disable it
+            if (otherUrl === url && otherMethod === method && key !== route) {
+              this.state.routes[key].enabled = false;
+            }
+          });
+        }
+        
         // Update the enabled state of the specific route
         this.state.routes[route].enabled = enabled;
         this.saveState();
@@ -135,10 +173,29 @@ setupMessageHandlers() {
       sendResponse({ 
         success: true, 
         data: { routes: Object.entries(this.state.routes).map(([key, config]) => {
-          const [method, ...urlParts] = key.split(':');
+          // Parse the route key
+          const firstColonIndex = key.indexOf(':');
+          const method = key.substring(0, firstColonIndex);
+          const remaining = key.substring(firstColonIndex + 1);
+          
+          // Check if route has a name (method:url|name format)
+          let url, name;
+          const pipeIndex = remaining.indexOf('|');
+          if (pipeIndex !== -1) {
+            // The part before pipe is the URL
+            url = remaining.substring(0, pipeIndex);
+            // The part after pipe is the name
+            name = remaining.substring(pipeIndex + 1);
+          } else {
+            // No name, just method:url format
+            url = remaining;
+            name = config.name || '';
+          }
+          
           return {
             method,
-            url: urlParts.join(':'),
+            url,
+            name,
             status: config.status || 200,
             delay: config.delay || 0,
             contentType: config.contentType,

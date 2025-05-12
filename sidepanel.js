@@ -1,4 +1,3 @@
-
 function initCustomSelectStyles() {
   // Function to style the currently selected option
   function updateSelectStyle(select) {
@@ -114,6 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
     routeList: document.getElementById('route-list'),
     clearRoutesBtn: document.getElementById('clear-routes-btn'),
     addRouteForm: document.getElementById('add-route-form'),
+    routeNameInput: document.getElementById('routeName'),
     urlInput: document.getElementById('url'),
     methodSelect: document.getElementById('method'),
     statusInput: document.getElementById('status'),
@@ -130,7 +130,8 @@ document.addEventListener('DOMContentLoaded', function() {
   let currentState = {
     enabled: false,
     routes: {},
-    editingRouteKey: null
+    editingRouteKey: null,
+    originalName: null
   };
   
   // Initialize
@@ -377,6 +378,8 @@ function addRoute() {
   const status = parseInt(elements.statusInput.value);
   const delay = parseInt(elements.delayInput.value);
   const contentType = elements.contentTypeSelect.value;
+  const routeName = elements.routeNameInput ? elements.routeNameInput.value.trim() : '';
+  
   // Get value from Ace editor if available, otherwise from textarea
   const responseBodyStr = window.responseBodyEditor ? 
     window.responseBodyEditor.getValue() : 
@@ -400,8 +403,15 @@ function addRoute() {
     return;
   }
   
-  // Create the new route key
-  const newRouteKey = `${method}:${url}`;
+  // Create the new route key - include name in the route key if provided
+  let newRouteKey;
+  if (routeName) {
+    // Use method:url|name format with pipe as delimiter
+    newRouteKey = `${method}:${url}|${routeName}`;
+  } else {
+    // Use method:url format if no name is provided
+    newRouteKey = `${method}:${url}`;
+  }
   
   // Check if we're in edit mode
   const isEditing = currentState.editingRouteKey != null;
@@ -416,16 +426,26 @@ function addRoute() {
   
   // Check if a route with the same URL but different method already exists
   const conflictingRoutes = Object.keys(currentState.routes).filter(key => {
-    const routeUrl = key.split(':').slice(1).join(':'); // Get URL part
+    const routeUrl = key.split(':').slice(1, 2).join(':'); // Get URL part (middle part)
     const routeMethod = key.split(':')[0]; // Get method part
     return routeUrl === url && routeMethod !== method;
   });
   
   // If editing and changing the method, check if the new method+URL combination already exists
   if (isEditing && methodOrUrlChanged && currentState.originalUrl === url && 
-      currentState.originalMethod !== method && currentState.routes[newRouteKey]) {
-    if (!confirm(`A route with ${method} method for URL "${url}" already exists. Do you want to overwrite it?`)) {
-      return; // Abort if user cancels
+      currentState.originalMethod !== method) {
+    
+    // Check if route with new method exists
+    const existingRoutes = Object.keys(currentState.routes).filter(key => {
+      const routeUrl = key.split(':').slice(1, 2).join(':'); // Get URL part
+      const routeMethod = key.split(':')[0]; // Get method part
+      return routeUrl === url && routeMethod === method;
+    });
+    
+    if (existingRoutes.length > 0) {
+      if (!confirm(`A route with ${method} method for URL "${url}" already exists. Do you want to overwrite it?`)) {
+        return; // Abort if user cancels
+      }
     }
   }
   
@@ -438,91 +458,100 @@ function addRoute() {
       'Add Route',
       confirmMessage,
       () => {
-      // Continue with adding the route if user confirms
+        // Continue with adding the route if user confirms
+        proceedWithAddRoute();
       }
     );
     return; // Return early while waiting for confirmation
   }
   
-  // Get the current enabled state if we're updating without changing method/url
-  let enabled = true;
-  if (isEditing && !methodOrUrlChanged && currentState.routes[currentState.editingRouteKey]) {
-    enabled = currentState.routes[currentState.editingRouteKey].hasOwnProperty('enabled') 
-      ? currentState.routes[currentState.editingRouteKey].enabled 
-      : true;
-  }
+  // Proceed with adding the route
+  proceedWithAddRoute();
   
-  // Create route config
-  const routeConfig = {
-    status,
-    delay,
-    response: responseBody,
-    contentType,
-    enabled,
-    timestamp: Date.now()
-  };
-  
-  // If we're editing and method or URL has changed, we need to:
-  // 1. Remove the old route
-  // 2. Add the new route
-  if (isEditing && methodOrUrlChanged) {
-    // Remove the old route first
-    chrome.runtime.sendMessage({
-      action: 'removeRoute',
-      route: currentState.editingRouteKey
-    }, function(removeResponse) {
-      if (removeResponse && removeResponse.success) {
-        // Now add the new route
-        chrome.runtime.sendMessage({
-          action: 'addRoute',
-          route: newRouteKey,
-          config: routeConfig
-        }, function(addResponse) {
-          if (addResponse && addResponse.success) {
-            // Update local state to reflect changes
-            delete currentState.routes[currentState.editingRouteKey];
-            currentState.routes[newRouteKey] = routeConfig;
-            updateRoutesList();
-            
-            notificationManager.show('success', 'Route has been updated with new method and URL');
-            
-            // Switch to routes tab
-            selectTab('routes');
-            
-            // Reset form and editing state
-            resetAddRouteForm();
-          }
-        });
-      }
-    });
-  } else {
-    // Standard add/update without changing method/URL
-    const routeKey = isEditing ? currentState.editingRouteKey : newRouteKey;
+  function proceedWithAddRoute() {
+    // Get the current enabled state if we're updating without changing method/url
+    let enabled = true;
+    if (isEditing && !methodOrUrlChanged && currentState.routes[currentState.editingRouteKey]) {
+      enabled = currentState.routes[currentState.editingRouteKey].hasOwnProperty('enabled') 
+        ? currentState.routes[currentState.editingRouteKey].enabled 
+        : true;
+    }
     
-    chrome.runtime.sendMessage({
-      action: 'addRoute',
-      route: routeKey,
-      config: routeConfig
-    }, function(response) {
-      if (response && response.success) {
-        // Update local state to reflect changes immediately
-        currentState.routes[routeKey] = routeConfig;
-        updateRoutesList();
-        
-        if (response.isUpdate) {
-          notificationManager.show('Success', 'Route updated successfully');
-        } else {
-          notificationManager.show('Success', 'Route added successfully');
+    // Create route config
+    const routeConfig = {
+      status,
+      delay,
+      response: responseBody,
+      contentType,
+      enabled,
+      timestamp: Date.now(),
+      name: routeName // Store name in config
+    };
+    
+    // If we're editing and method or URL has changed, we need to:
+    // 1. Remove the old route
+    // 2. Add the new route
+    if (isEditing && methodOrUrlChanged) {
+      // Remove the old route first
+      chrome.runtime.sendMessage({
+        action: 'removeRoute',
+        route: currentState.editingRouteKey
+      }, function(removeResponse) {
+        if (removeResponse && removeResponse.success) {
+          // Now add the new route
+          addRouteWithKey(newRouteKey, routeConfig);
         }
-        
-        // Switch to routes tab
-        selectTab('routes');
-        
-        // Reset form
-        resetAddRouteForm();
-      }
-    });
+      });
+      return;
+    }
+    
+    // If editing and only the name has changed
+    if (isEditing && currentState.originalName !== routeName) {
+      // Remove the old route first
+      chrome.runtime.sendMessage({
+        action: 'removeRoute',
+        route: currentState.editingRouteKey
+      }, function(removeResponse) {
+        if (removeResponse && removeResponse.success) {
+          // Add with new key including the new name
+          addRouteWithKey(newRouteKey, routeConfig);
+        }
+      });
+      return;
+    }
+    
+    // Standard add/update without changing method/URL or name
+    const routeKey = isEditing ? currentState.editingRouteKey : newRouteKey;
+    addRouteWithKey(routeKey, routeConfig);
   }
+}
+
+// Helper function to add a route with specific key
+function addRouteWithKey(routeKey, routeConfig) {
+  chrome.runtime.sendMessage({
+    action: 'addRoute',
+    route: routeKey,
+    config: routeConfig,
+    name: routeConfig.name // Pass name separately as well
+  }, function(response) {
+    if (response && response.success) {
+      // Update local state to reflect changes immediately
+      currentState.routes[routeKey] = routeConfig;
+      updateRoutesList();
+      
+      if (response.isUpdate) {
+        notificationManager.show('Success', 'Route updated successfully');
+      } else {
+        notificationManager.show('Success', 'Route added successfully');
+      }
+      
+      // Switch to routes tab
+      selectTab('routes');
+      
+      // Reset form
+      resetAddRouteForm();
+    }
+  });
 }
   
   // Remove a route
@@ -655,10 +684,16 @@ function resetAddRouteForm() {
     elements.responseBodyTextarea.value = defaultJson;
   }
   
+  // Clear the route name field
+  if (elements.routeNameInput) {
+    elements.routeNameInput.value = '';
+  }
+  
   // Reset editing mode
   currentState.editingRouteKey = null;
   currentState.originalMethod = null;
   currentState.originalUrl = null;
+  currentState.originalName = null;
 
   // Update button text to reflect we're adding a new route
   elements.addRouteBtn.textContent = 'Add Interception';
@@ -668,14 +703,30 @@ function editRoute(routeKey) {
   const routeConfig = currentState.routes[routeKey];
   
   if (routeConfig) {
-    // Parse the route key to get method and URL
-    const [method, ...urlParts] = routeKey.split(':');
-    const url = urlParts.join(':');
+    // Parse the route key
+    const firstColonIndex = routeKey.indexOf(':');
+    const method = routeKey.substring(0, firstColonIndex);
+    const remaining = routeKey.substring(firstColonIndex + 1);
+    
+    // Check if route has a name (method:url|name format)
+    let url, name;
+    const pipeIndex = remaining.indexOf('|');
+    if (pipeIndex !== -1) {
+      // The part before pipe is the URL
+      url = remaining.substring(0, pipeIndex);
+      // The part after pipe is the name
+      name = remaining.substring(pipeIndex + 1);
+    } else {
+      // No name, just method:url format
+      url = remaining;
+      name = routeConfig.name || '';
+    }
     
     // Check if other routes exist with the same URL but different methods
     const relatedRoutes = Object.keys(currentState.routes).filter(key => {
-      const routeUrl = key.split(':').slice(1).join(':'); // Get URL part
-      const routeMethod = key.split(':')[0]; // Get method part
+      const keyParts = key.split(':');
+      const routeMethod = keyParts[0];
+      const routeUrl = keyParts[1];
       return routeUrl === url && routeMethod !== method;
     });
     
@@ -695,6 +746,12 @@ function editRoute(routeKey) {
     elements.delayInput.value = routeConfig.delay;
     elements.contentTypeSelect.value = routeConfig.contentType || 'application/json';
     
+    // Set route name if available
+    if (elements.routeNameInput) {
+      // Use the name from the route key or from the config
+      elements.routeNameInput.value = name;
+    }
+    
     // Format and set response body to Ace editor if available
     if (window.responseBodyEditor) {
       if (typeof routeConfig.response === 'object') {
@@ -711,10 +768,11 @@ function editRoute(routeKey) {
       }
     }
     
-    // Store the original route key for reference when saving
+    // Store the original values for reference when saving
     currentState.editingRouteKey = routeKey;
     currentState.originalMethod = method;
     currentState.originalUrl = url;
+    currentState.originalName = name;
     
     // Change button text to reflect we're updating
     elements.addRouteBtn.textContent = 'Save Changes';
@@ -731,11 +789,12 @@ function toggleRoute(routeKey, enabled) {
     enabled: enabled
   }, function(response) {
     if (response && response.success) {
-      // Update local state
-      if (currentState.routes[routeKey]) {
-        currentState.routes[routeKey].enabled = enabled;
-        updateRoutesList();
-        notificationManager.show('Success', `Route ${enabled ? 'enabled' : 'disabled'} successfully`);
+      // The background script will handle disabling other routes with the same URL
+      // We'll just update the UI when we receive the routesChanged message
+      if (enabled) {
+        notificationManager.show('Success', 'Route enabled successfully');
+      } else {
+        notificationManager.show('Success', 'Route disabled successfully');
       }
     }
   });
@@ -806,7 +865,6 @@ function toggleRoute(routeKey, enabled) {
         : json;
       return escapeHtml(shortened);
     }
-    
     // For strings, truncate if needed
     if (typeof response === 'string') {
       const shortened = response.length > 500
@@ -825,14 +883,15 @@ function toggleRoute(routeKey, enabled) {
     return div.innerHTML;
   }
   
+// Updated Route List rendering function with compact expandable design
 function updateRoutesList() {
   // Clear current list
   elements.routeList.innerHTML = '';
   
   const routeEntries = Object.entries(currentState.routes);
   
+  // Show empty state if no routes
   if (routeEntries.length === 0) {
-    // Show empty state
     elements.routeList.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">
@@ -855,26 +914,26 @@ function updateRoutesList() {
     return;
   }
   
-  if (!document.querySelector('.export-btn')) {
   // Add export button if there are routes
-  const exportBtn = document.createElement('button');
-  exportBtn.className = 'btn btn-secondary export-btn';
-  exportBtn.innerHTML = '<i class="fas fa-file-export"></i> Export Routes';
-  exportBtn.addEventListener('click', exportRoutes);
-  
-  // Add export button to the action buttons container
-  const actionButtons = document.querySelector('.action-buttons');
-  if (actionButtons) {
-    actionButtons.appendChild(exportBtn);
+  if (!document.querySelector('.export-btn')) {
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'btn btn-secondary export-btn';
+    exportBtn.innerHTML = '<i class="fas fa-file-export"></i> Export Routes';
+    exportBtn.addEventListener('click', exportRoutes);
+    
+    // Add export button to the action buttons container
+    const actionButtons = document.querySelector('.action-buttons');
+    if (actionButtons) {
+      actionButtons.appendChild(exportBtn);
+    }
   }
-}
   
   // Create a map of URLs to their methods for showing related routes
   const urlMethodMap = {};
   
   routeEntries.forEach(([key, config]) => {
     const [method, ...urlParts] = key.split(':');
-    const url = urlParts.join(':');
+    const url = urlParts.join(':').split('|')[0];
     
     if (!urlMethodMap[url]) {
       urlMethodMap[url] = [];
@@ -885,7 +944,7 @@ function updateRoutesList() {
   // Add each route
   routeEntries.forEach(([key, config]) => {
     const [method, ...urlParts] = key.split(':');
-    const url = urlParts.join(':');
+    const [url, routeName] = urlParts.join(':').split('|');
     
     // Check if the route is enabled
     const isEnabled = config.hasOwnProperty('enabled') ? config.enabled : true;
@@ -902,120 +961,351 @@ function updateRoutesList() {
     // Get content type display name
     const contentTypeName = getContentTypeDisplayName(config.contentType);
     
-    const routeElement = document.createElement('div');
-    routeElement.className = `route-item method-${method} ${!isEnabled ? 'route-disabled' : ''} ${hasMultipleMethods ? 'multi-method-url' : ''}`;
-    
     // Format response for display
     const responsePreview = formatResponsePreview(config.response);
     
-    // Create html for route item with additional multi-method indicator if needed
+    // Get the status code class (2xx, 3xx, etc.)
+    const statusClass = `status-${Math.floor(config.status / 100)}xx`;
+    
+    // Create a new route element
+    const routeElement = document.createElement('div');
+    routeElement.className = `route-card ${method} ${!isEnabled ? 'route-disabled' : ''}`;
+    routeElement.dataset.routeKey = key;
+    
+    // Create multi-method indicator HTML if needed
     let multiMethodHtml = '';
     if (hasMultipleMethods) {
       const otherMethods = urlMethodMap[url].filter(m => m !== method);
       multiMethodHtml = `
-        <span class="multi-method-indicator">
-          <i class="fas fa-code-branch"></i> Same URL also used with: ${otherMethods.join(', ')}
-        </span>
+        <div class="multi-method-indicator">
+          <i class="fas fa-code-branch"></i> Also used with: ${otherMethods.join(', ')}
+        </div>
       `;
     }
     
+    // Build the route element HTML
     routeElement.innerHTML = `
-      <div class="route-item-header">
-        <div class="route-item-title">
-          <span class="method-badge method-${method}">${method}</span>
-          <div class="route-url-wrapper">
-            <span class="route-url">${escapeHtml(url)}</span>
-            <div class="route-info">
-              <span class="route-description">${description}</span>
-              ${multiMethodHtml}
-            </div>
+      <div class="route-header">
+        <div class="route-main">
+          <div class="method-badge ${method}">${method}</div>
+          <div class="route-url-container">
+            <div class="route-url">${escapeHtml(url)}</div>
+            ${routeName ? `<div class="route-name"><i class="fas fa-tag"></i>${escapeHtml(routeName)}</div>` : ''}
           </div>
         </div>
-        <div class="route-toggle">
-          <label class="toggle toggle-sm">
+        
+        <div class="route-meta">
+          <div class="route-meta-item ${statusClass}">
+            <i class="fas fa-code"></i>
+            <span>${config.status}</span>
+          </div>
+          <div class="route-meta-item">
+            <i class="fas fa-clock"></i>
+            <span>${config.delay}ms</span>
+          </div>
+        </div>
+        
+        <div class="route-controls">
+          <label class="toggle">
             <input type="checkbox" class="route-toggle-input" data-route="${escapeHtml(key)}" ${isEnabled ? 'checked' : ''}>
             <span class="slider"></span>
           </label>
+          <div class="expand-icon">
+            <i class="fas fa-chevron-down"></i>
+          </div>
         </div>
       </div>
-      <div class="route-item-body">
-        <div class="route-details">
-          <div class="detail-item">
-            <i class="fas fa-code"></i>
-            <span>Status: ${config.status}</span>
+      
+      <div class="route-content">
+        <div class="route-content-inside">
+          ${description ? `
+            <div class="route-description">
+              <span>${description}</span>
+              ${multiMethodHtml}
+            </div>
+          ` : multiMethodHtml ? `<div class="route-description">${multiMethodHtml}</div>` : ''}
+          
+          <div class="route-info-grid">
+            <div class="info-item">
+              <div class="info-label">Status</div>
+              <div class="info-value ${statusClass}">${config.status}</div>
+            </div>
+            
+            <div class="info-item">
+              <div class="info-label">Delay</div>
+              <div class="info-value">${config.delay}ms</div>
+            </div>
+            
+            <div class="info-item">
+              <div class="info-label">Content Type</div>
+              <div class="info-value">${contentTypeName}</div>
+            </div>
+            
+            <div class="info-item">
+              <div class="info-label">Added</div>
+              <div class="info-value">${timestamp}</div>
+            </div>
           </div>
-          <div class="detail-item">
-            <i class="fas fa-clock"></i>
-            <span>Delay: ${config.delay}ms</span>
+          
+          <div class="response-container">
+            <div class="response-header">
+              <div class="response-title">
+                <i class="fas fa-code"></i>
+                <span>Response Body</span>
+              </div>
+              <button class="expand-button" title="Expand/Collapse">
+                <i class="fas fa-expand-alt"></i>
+              </button>
+            </div>
+            <div class="response-body">
+              <pre><code class="language-json">${responsePreview}</code></pre>
+            </div>
           </div>
-          <div class="detail-item">
-            <i class="fas fa-file-code"></i>
-            <span>${contentTypeName}</span>
+          
+          <div class="route-actions">
+            <button class="action-button edit-button" data-route="${escapeHtml(key)}">
+              <i class="fas fa-edit"></i>
+              <span>Edit</span>
+            </button>
+            <button class="action-button delete-button" data-route="${escapeHtml(key)}">
+              <i class="fas fa-trash-alt"></i>
+              <span>Delete</span>
+            </button>
           </div>
-          <div class="detail-item">
-            <i class="fas fa-calendar"></i>
-            <span>Added: ${timestamp}</span>
-          </div>
-        </div>
-        
-        <div class="route-response-header">
-          <div class="response-title">
-            <i class="fas fa-exchange-alt"></i>
-            <span>Response Body</span>
-          </div>
-        </div>
-        
-        <div class="route-response">
-          <pre><code class="language-json">${responsePreview}</code></pre>
-        </div>
-        
-        <div class="route-actions-buttons">
-          <button class="action-btn action-btn-edit" data-route="${escapeHtml(key)}">
-            <i class="fas fa-edit"></i>
-            <span>Edit</span>
-          </button>
-          <button class="action-btn action-btn-remove" data-route="${escapeHtml(key)}">
-            <i class="fas fa-trash-alt"></i>
-            <span>Remove</span>
-          </button>
         </div>
       </div>
     `;
     
+    // Add the route element to the list
     elements.routeList.appendChild(routeElement);
     
-    // Add click handler for remove button
-    routeElement.querySelector('.action-btn-remove').addEventListener('click', function() {
-      const routeKey = this.getAttribute('data-route');
-      showConfirmationDialog(
-        'Delete Route',
-        `Are you sure you want to delete the ${method} route for "${url}"?`,
-        () => removeRoute(routeKey)
-      );
-    });
+    // Add event listeners
     
-    // Add click handler for edit button
-    routeElement.querySelector('.action-btn-edit').addEventListener('click', function() {
-      const routeKey = this.getAttribute('data-route');
-      editRoute(routeKey);
-    });
+    // Toggle expand/collapse when clicking on header
+    const routeHeader = routeElement.querySelector('.route-header');
+    if (routeHeader) {
+      routeHeader.addEventListener('click', function(e) {
+        // Don't toggle if clicking on the toggle switch
+        if (e.target.closest('.toggle')) {
+          return;
+        }
+        
+        routeElement.classList.toggle('expanded');
+      });
+    }
     
-    // Add change handler for toggle switch
+    // Toggle button
     const toggleInput = routeElement.querySelector('.route-toggle-input');
     if (toggleInput) {
-      toggleInput.addEventListener('change', function() {
+      toggleInput.addEventListener('change', function(e) {
+        e.stopPropagation(); // Prevent the header click from triggering
+        
         const routeKey = this.getAttribute('data-route');
         const isEnabled = this.checked;
         toggleRoute(routeKey, isEnabled);
+        
+        // Update visual state
+        if (isEnabled) {
+          routeElement.classList.remove('route-disabled');
+        } else {
+          routeElement.classList.add('route-disabled');
+        }
+      });
+    }
+    
+    // Expand/collapse response button
+    const expandButton = routeElement.querySelector('.expand-button');
+    const responseBody = routeElement.querySelector('.response-body');
+    
+    if (expandButton && responseBody) {
+      expandButton.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent the event from bubbling up
+        
+        if (responseBody.classList.contains('expanded')) {
+          responseBody.classList.remove('expanded');
+          this.innerHTML = '<i class="fas fa-expand-alt"></i>';
+        } else {
+          responseBody.classList.add('expanded');
+          this.innerHTML = '<i class="fas fa-compress-alt"></i>';
+        }
+      });
+    }
+    
+    // Edit button
+    const editButton = routeElement.querySelector('.edit-button');
+    if (editButton) {
+      editButton.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent the event from bubbling up
+        
+        const routeKey = this.getAttribute('data-route');
+        editRoute(routeKey);
+      });
+    }
+    
+    // Delete button
+    const deleteButton = routeElement.querySelector('.delete-button');
+    if (deleteButton) {
+      deleteButton.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent the event from bubbling up
+        
+        const routeKey = this.getAttribute('data-route');
+        showConfirmationDialog(
+          'Delete Route',
+          `Are you sure you want to delete the ${method} route for "${url}"?`,
+          () => removeRoute(routeKey)
+        );
       });
     }
   });
-
+  
+  // Apply any active filters
   filterRoutes();
   
   // Apply syntax highlighting if Prism is available
   if (window.Prism) {
     Prism.highlightAll();
+  }
+}
+
+// Updated filter routes function
+function filterRoutes() {
+  const searchTerm = document.getElementById('search-routes').value.toLowerCase();
+  const methodFilter = document.getElementById('filter-method').value;
+  const routeCards = document.querySelectorAll('.route-card');
+  let visibleCount = 0;
+  
+  routeCards.forEach(card => {
+    // Get the URL text from this route card
+    const urlElement = card.querySelector('.route-url');
+    if (!urlElement) return;
+    
+    const url = urlElement.textContent.toLowerCase();
+    const method = card.classList.contains('GET') ? 'GET' :
+                   card.classList.contains('POST') ? 'POST' :
+                   card.classList.contains('PUT') ? 'PUT' :
+                   card.classList.contains('DELETE') ? 'DELETE' :
+                   card.classList.contains('PATCH') ? 'PATCH' : '';
+    
+    // Also check route name if it exists
+    const nameElement = card.querySelector('.route-name');
+    const routeName = nameElement ? nameElement.textContent.toLowerCase() : '';
+    
+    // Check if it matches both the search term and the method filter
+    const matchesSearch = url.includes(searchTerm) || routeName.includes(searchTerm);
+    const matchesMethod = methodFilter === 'all' || method === methodFilter;
+    
+    // Show or hide based on both conditions
+    if (matchesSearch && matchesMethod) {
+      card.style.display = '';
+      visibleCount++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+  
+  // Handle empty state when no routes match the filter
+  const routeList = document.getElementById('route-list');
+  const existingEmptyState = routeList.querySelector('.filter-empty-state');
+  
+  // If no items are visible and we have routes, show "no matches" message
+  if (visibleCount === 0 && Object.keys(currentState.routes).length > 0) {
+    if (!existingEmptyState) {
+      const emptyState = document.createElement('div');
+      emptyState.className = 'empty-state filter-empty-state';
+      emptyState.innerHTML = `
+        <div class="empty-state-icon">
+          <i class="fas fa-search"></i>
+        </div>
+        <h3>No matching routes found</h3>
+        <p>Try adjusting your search or filter criteria.</p>
+        <button class="btn btn-secondary" id="clear-filters-btn">
+          <i class="fas fa-times"></i>
+          <span>Clear Filters</span>
+        </button>
+      `;
+      routeList.appendChild(emptyState);
+      
+      // Add event listener to clear filters button
+      document.getElementById('clear-filters-btn').addEventListener('click', function() {
+        document.getElementById('search-routes').value = '';
+        document.getElementById('filter-method').value = 'all';
+        filterRoutes();
+      });
+    }
+  } else if (existingEmptyState) {
+    // Remove empty state if we have matches
+    existingEmptyState.remove();
+  }
+}
+
+// Updated filter routes function
+function filterRoutes() {
+  const searchTerm = document.getElementById('search-routes').value.toLowerCase();
+  const methodFilter = document.getElementById('filter-method').value;
+  const routeCards = document.querySelectorAll('.route-card');
+  let visibleCount = 0;
+  
+  routeCards.forEach(card => {
+    // Get the URL text from this route card
+    const urlElement = card.querySelector('.route-url');
+    if (!urlElement) return;
+    
+    const url = urlElement.textContent.toLowerCase();
+    const method = card.classList.contains('GET') ? 'GET' :
+                   card.classList.contains('POST') ? 'POST' :
+                   card.classList.contains('PUT') ? 'PUT' :
+                   card.classList.contains('DELETE') ? 'DELETE' :
+                   card.classList.contains('PATCH') ? 'PATCH' : '';
+    
+    // Also check route name if it exists
+    const nameElement = card.querySelector('.route-name');
+    const routeName = nameElement ? nameElement.textContent.toLowerCase() : '';
+    
+    // Check if it matches both the search term and the method filter
+    const matchesSearch = url.includes(searchTerm) || routeName.includes(searchTerm);
+    const matchesMethod = methodFilter === 'all' || method === methodFilter;
+    
+    // Show or hide based on both conditions
+    if (matchesSearch && matchesMethod) {
+      card.style.display = '';
+      visibleCount++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+  
+  // Handle empty state when no routes match the filter
+  const routeList = document.getElementById('route-list');
+  const existingEmptyState = routeList.querySelector('.filter-empty-state');
+  
+  // If no items are visible and we have routes, show "no matches" message
+  if (visibleCount === 0 && Object.keys(currentState.routes).length > 0) {
+    if (!existingEmptyState) {
+      const emptyState = document.createElement('div');
+      emptyState.className = 'empty-state filter-empty-state';
+      emptyState.innerHTML = `
+        <div class="empty-state-icon">
+          <i class="fas fa-search"></i>
+        </div>
+        <h3>No matching routes found</h3>
+        <p>Try adjusting your search or filter criteria.</p>
+        <button class="btn btn-secondary" id="clear-filters-btn">
+          <i class="fas fa-times"></i>
+          <span>Clear Filters</span>
+        </button>
+      `;
+      routeList.appendChild(emptyState);
+      
+      // Add event listener to clear filters button
+      document.getElementById('clear-filters-btn').addEventListener('click', function() {
+        document.getElementById('search-routes').value = '';
+        document.getElementById('filter-method').value = 'all';
+        filterRoutes();
+      });
+    }
+  } else if (existingEmptyState) {
+    // Remove empty state if we have matches
+    existingEmptyState.remove();
   }
 }
 
@@ -1087,7 +1377,7 @@ function showConfirmationDialog(title, message, onConfirm) {
       </div>
       <div class="confirmation-dialog-footer">
         <button class="btn btn-secondary cancel-btn">Cancel</button>
-        <button class="btn btn-danger confirm-btn">Delete</button>
+        <button class="btn btn-danger confirm-btn">Confirm</button>
       </div>
     </div>
   `;
