@@ -443,7 +443,6 @@
   
   .search-input input {
     width: 100%;
-    padding: 0.8rem 1rem 0.8rem 3.2rem;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     font-size: 1.4rem;
@@ -468,7 +467,6 @@
   .method-filter select {
     appearance: none;
     width: 100%;
-    padding: 0.8rem 3rem 0.8rem 1rem;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     font-size: 1.4rem;

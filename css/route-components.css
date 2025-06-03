@@ -137,7 +137,7 @@
   
   .route-url {
     font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--text-primary);
     white-space: nowrap;
@@ -188,7 +188,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    background-color: var(--gray-100);
+    background-color: var(--gray-200);
     color: var(--gray-700);
     border-radius: 4px;
     padding: 1px 6px;

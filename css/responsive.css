@@ -3,11 +3,11 @@
 /* Large desktop */
 @media (max-width: 1200px) {
     .content {
-      padding: 2rem;
+      padding: 1.5rem;
     }
     
     .route-actions {
-      padding: 1.6rem;
+      padding: 0.5rem;
     }
   }
   
@@ -239,7 +239,7 @@
     }
     
     .content {
-      padding: 1.2rem;
+      padding: 1rem;
     }
     
     .route-response pre {
