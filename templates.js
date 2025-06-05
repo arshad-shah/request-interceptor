@@ -53,6 +53,24 @@ const Templates = {
       {
         "method": "POST",
         "url": "https://hapi.int.hmhco.com/wormhole-api/graphql/student",
+        "name": "Student Assignment - error",
+        "status": 400,
+        "delay": 0,
+        "contentType": "application/json",
+        "response": {
+          "data": [
+            {
+              "id": 1,
+              "name": "Example"
+            }
+          ],
+          "status": "success"
+        },
+        "enabled": true
+      },
+      {
+        "method": "POST",
+        "url": "https://hapi.int.hmhco.com/wormhole-api/graphql/student",
         "name": "Student Assignments - Google Classroom",
         "status": 200,
         "delay": 0,
@@ -124,7 +142,7 @@ const Templates = {
           "errors": [],
           "extensions": null
         },
-        "enabled": true
+        "enabled": false
       },
       {
         "method": "POST",
@@ -932,7 +950,7 @@ const Templates = {
           "errors": [],
           "extensions": null
         },
-        "enabled": true
+        "enabled": false
       },
       {
         "method": "POST",
