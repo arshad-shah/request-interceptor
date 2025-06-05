@@ -333,17 +333,10 @@ showPreview(routes) {
     
     const previewRoute = document.createElement('div');
     previewRoute.className = `preview-route ${method} ${statusClass}`;
-    
-    // Only show name if it exists
-    const nameDisplay = name ? 
-      `<span class="preview-route-name">${this.escapeHtml(name)}</span>` : '';
-    
     previewRoute.innerHTML = `
       <div class="preview-route-content">
         <span class="preview-route-method ${method}">${method}</span>
         <span class="preview-route-url">${this.escapeHtml(url)}</span>
-        ${nameDisplay}
-        <span class="preview-route-status">${statusCode}</span>
       </div>
     `;
     

@@ -91,10 +91,10 @@
   
   /* Preview Route Content */
   .preview-route-content {
-    padding: 10px 12px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 4px;
+    padding: 0.5rem;
   }
   
   /* Method Badge */
