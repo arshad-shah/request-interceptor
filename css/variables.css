@@ -112,4 +112,39 @@
     --sidebar-width: 300px;
     --content-max-width: 1200px;
     --section-spacing: 32px;
+
+      /* Spacing scale to match your design system */
+  --spacing-xs: 0.4rem;
+  --spacing-sm: 0.8rem;
+  --spacing-md: 1.6rem;
+  --spacing-lg: 2.4rem;
+  --spacing-xl: 4rem;
+  
+  /* Font sizes to match your design system */
+  --font-size-xs: 1.1rem;
+  --font-size-sm: 1.2rem;
+  --font-size-md: 1.4rem;
+  --font-size-lg: 1.6rem;
+  --font-size-xl: 1.8rem;
+  
+  /* Monospace font family */
+  --font-mono: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+  
+  /* Additional semantic colors */
+  --success-color: var(--success-500);
+  --warning-color: var(--warning-500);
+  --danger-color: var(--error-500);
+  --primary-color: var(--primary-500);
+  --secondary-color: var(--gray-500);
+  
+  /* Additional border colors */
+  --border-color: var(--border);
+  --border-color-light: var(--gray-200);
+  
+  /* Background colors */
+  --background-primary: var(--surface);
+  --background-secondary: var(--gray-50);
+  
+  /* Primary RGB for rgba usage */
+  --primary-rgb: 64, 99, 238;
   }
