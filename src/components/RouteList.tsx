@@ -8,17 +8,16 @@ import {
   Clock, 
   Code, 
   ExpandIcon,
-  Shrink as CompressIcon,
-  Router as Route,
+  Shrink,
+  Route,
   Search,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { parseRouteKey, chromeApi } from '@/lib/chrome-api';
 import { 
-  cn, 
-  getMethodColor, 
-  getStatusColor, 
+  cn,
   getContentTypeDisplay,
   formatResponsePreview,
   getRouteDescription 
@@ -211,7 +210,7 @@ const RouteItem: React.FC<RouteItemProps> = ({
                     className="text-gray-500 hover:text-gray-700 transition-colors"
                   >
                     {isResponseExpanded ? (
-                      <CompressIcon className="w-4 h-4" />
+                      <Shrink className="w-4 h-4" />
                     ) : (
                       <ExpandIcon className="w-4 h-4" />
                     )}
@@ -262,6 +261,9 @@ const EmptyState: React.FC<{ onAddRoute: () => void }> = ({ onAddRoute }) => (
     <p className="text-gray-500 mb-6 max-w-sm mx-auto">
       Add your first route to start intercepting API requests and mocking responses.
     </p>
+    <Button variant="primary" onClick={onAddRoute} leftIcon={<Plus className="w-4 h-4" />}>
+      Add Route
+    </Button>
   </div>
 );
 

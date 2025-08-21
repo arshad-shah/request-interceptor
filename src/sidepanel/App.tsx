@@ -1,9 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Router, 
-  Plus, 
-  FileCode, 
+  Route,
   Search, 
   Filter,
   Download,
@@ -11,8 +9,6 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, addMessageListener } from '@/lib/chrome-api';
-import { TabId } from '@/types';
-import { cn } from '@/lib/utils';
 import RouteList from '@/components/RouteList';
 import AddRouteForm from '@/components/AddRouteForm';
 import TemplatesTab from '@/components/TemplatesTab';
@@ -28,8 +24,7 @@ const RouteControls: React.FC = () => {
   const { 
     routes, 
     filters, 
-    setFilters, 
-    setActiveTab, 
+    setFilters,
     addNotification,
     clearRoutes 
   } = useAppStore();
@@ -80,7 +75,7 @@ const RouteControls: React.FC = () => {
 
   return (
     <>
-      <div className="flex flex-col gap-4 p-6 bg-gray-50 border-b border-gray-200">
+      <div className="flex flex-col gap-4 p-2 bg-gray-50 border-b border-gray-200">
         {/* Search and Filter Row */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
@@ -110,21 +105,8 @@ const RouteControls: React.FC = () => {
 
         {/* Action Buttons Row */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Router className="w-4 h-4" />
-            <span>{routeCount} route{routeCount !== 1 ? 's' : ''} configured</span>
-          </div>
           
           <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setActiveTab('add')}
-              leftIcon={<Plus className="w-4 h-4" />}
-            >
-              Add Route
-            </Button>
-            
             {routeCount > 0 && (
               <>
                 <Button
@@ -175,7 +157,7 @@ const TabContent: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.2 }}
-          className="p-6"
+          className="p-2"
         >
           {activeTab === 'routes' && (
             <>
