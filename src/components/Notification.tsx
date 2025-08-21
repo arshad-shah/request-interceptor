@@ -59,6 +59,12 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onRem
       }, notification.duration);
 
       return () => clearTimeout(timer);
+    }else{
+      const timer = setTimeout(() => {
+        onRemove(notification.id);
+      }, 2000);
+
+      return () => clearTimeout(timer);
     }
   }, [notification.id, notification.duration, onRemove]);
 

@@ -50,7 +50,7 @@ const RouteItem: React.FC<RouteItemProps> = ({
   const { method, url, name } = parseRouteKey(routeKey);
   const isEnabled = config.enabled !== false;
   
-  const responsePreview = formatResponsePreview(config.response, 500);
+  const responsePreview = formatResponsePreview(config.response);
   const description = getRouteDescription(method as any, url);
   const timestamp = config.timestamp ? new Date(config.timestamp).toLocaleDateString() : 'N/A';
   const contentTypeName = getContentTypeDisplay(config.contentType);

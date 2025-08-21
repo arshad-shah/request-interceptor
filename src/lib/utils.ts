@@ -70,7 +70,7 @@ export const truncateText = (text: string, maxLength: number): string => {
 };
 
 // Format response for preview display
-export const formatResponsePreview = (response: any, maxLength = 500): string => {
+export const formatResponsePreview = (response: any): string => {
   let text: string;
   
   if (typeof response === 'object') {
@@ -79,7 +79,7 @@ export const formatResponsePreview = (response: any, maxLength = 500): string =>
     text = String(response);
   }
   
-  return truncateText(text, maxLength);
+  return text;
 };
 
 // Generate unique ID
