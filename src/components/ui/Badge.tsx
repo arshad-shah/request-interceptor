@@ -57,7 +57,9 @@ const MethodBadge: React.FC<MethodBadgeProps> = ({ method, className }) => {
     POST: 'bg-green-100 text-green-800 border-green-200',
     PUT: 'bg-amber-100 text-amber-800 border-amber-200',
     DELETE: 'bg-red-100 text-red-800 border-red-200',
-    PATCH: 'bg-purple-100 text-purple-800 border-purple-200'
+    PATCH: 'bg-purple-100 text-purple-800 border-purple-200',
+    OPTIONS: 'bg-gray-100 text-gray-800 border-gray-200',
+    HEAD: 'bg-gray-200 text-gray-800 border-gray-300',
   };
 
   return (

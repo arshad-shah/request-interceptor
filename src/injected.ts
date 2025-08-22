@@ -1,4 +1,4 @@
-// Injected script for Request Interceptor Chrome Extension
+// Enhanced injected script with headers-only interception mode
 
 (function() {
   const RequestInterceptor = (function() {
@@ -6,6 +6,7 @@
     const originalFetch = window.fetch;
     const originalXHROpen = XMLHttpRequest.prototype.open;
     const originalXHRSend = XMLHttpRequest.prototype.send;
+    const originalXHRSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
     
     // Internal state
     let isActive = false;
@@ -26,21 +27,17 @@
      * Parse a route key into its components (method and URL)
      */
     function parseRouteKey(routeKey: string) {
-      // First split by colon to get the method
       const firstColonIndex = routeKey.indexOf(':');
       if (firstColonIndex === -1) return { method: 'GET', url: routeKey };
       
       const method = routeKey.substring(0, firstColonIndex);
       const remaining = routeKey.substring(firstColonIndex + 1);
       
-      // Then split remaining by pipe to separate URL and name
       const pipeIndex = remaining.indexOf('|');
       if (pipeIndex === -1) {
-        // No name, just method:url format
         return { method, url: remaining };
       }
       
-      // We have a name, extract it
       const url = remaining.substring(0, pipeIndex);
       const name = remaining.substring(pipeIndex + 1);
       
@@ -51,35 +48,38 @@
      * Match a request URL against a pattern URL with regex support
      */
     function urlMatches(requestUrl: string, patternUrl: string): boolean {
+      // Direct string match first (fastest)
+      if (requestUrl === patternUrl) {
+        return true;
+      }
+
       // Check if patternUrl is a regex pattern (starts and ends with /)
       if (patternUrl.startsWith('/') && patternUrl.lastIndexOf('/') > 0) {
         try {
-          // Extract the regex pattern and flags
           const lastSlashIndex = patternUrl.lastIndexOf('/');
           const pattern = patternUrl.substring(1, lastSlashIndex);
           const flags = patternUrl.substring(lastSlashIndex + 1);
           
-          // Create and test the RegExp
           const regex = new RegExp(pattern, flags);
           return regex.test(requestUrl);
         } catch (e) {
           console.warn(`[Request Interceptor] Invalid regex pattern: ${patternUrl}`, e);
-          // Fall back to regular matching if regex is invalid
         }
       }
       
-      // Process URLs
+      // Process URLs for more complex matching
       let requestUrlObj: URL, patternUrlObj: URL;
       
       try {
-        requestUrlObj = new URL(requestUrl, window.location.origin);
-        patternUrlObj = new URL(patternUrl.includes('://') ? patternUrl : patternUrl, window.location.origin);
+        requestUrlObj = new URL(requestUrl);
+        patternUrlObj = new URL(patternUrl);
       } catch (e) {
+        // If URL parsing fails, try relative URL handling
         try {
-          requestUrlObj = new URL(window.location.origin + (requestUrl.startsWith('/') ? requestUrl : '/' + requestUrl));
-          patternUrlObj = new URL(window.location.origin + (patternUrl.startsWith('/') ? patternUrl : '/' + patternUrl));
+          requestUrlObj = new URL(requestUrl, window.location.origin);
+          patternUrlObj = new URL(patternUrl, window.location.origin);
         } catch (e2) {
-          // If all parsing fails, fall back to direct string comparison
+          // Final fallback to simple string comparison
           return requestUrl === patternUrl;
         }
       }
@@ -87,6 +87,11 @@
       // Normalize paths (remove trailing slashes)
       const normalizedRequestPath = requestUrlObj.pathname.replace(/\/+$/, '');
       const normalizedPatternPath = patternUrlObj.pathname.replace(/\/+$/, '');
+      
+      // Check if hosts match (for full URLs)
+      if (requestUrlObj.hostname !== patternUrlObj.hostname) {
+        return false;
+      }
       
       // Direct path match
       if (normalizedRequestPath === normalizedPatternPath) {
@@ -107,11 +112,11 @@
       // Wildcard matching
       if (patternUrl.includes('*')) {
         const regexPattern = patternUrl
-          .replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&') // Escape regex special chars except *
-          .replace(/\*/g, '.*'); // Convert * to .*
+          .replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&')
+          .replace(/\*/g, '.*');
         
         const regex = new RegExp(`^${regexPattern}$`);
-        return regex.test(requestUrl) || regex.test(requestUrlObj.pathname);
+        return regex.test(requestUrl);
       }
       
       return false;
@@ -120,64 +125,132 @@
     /**
      * Check if a request should be intercepted based on configured routes
      */
-    function shouldIntercept(method: string, url: string): string | null {
+    function shouldIntercept(method: string, url: string): { routeKey: string; mode: 'full' | 'headers-only' } | null {
       const normalizedMethod = method.toUpperCase();
       
-      // Direct key match - we first check for method:url format (no name)
-      const directKey = `${normalizedMethod}:${url}`;
-      if (interceptedRoutes[directKey]) {
-        // Check if this specific route is enabled
-        if (interceptedRoutes[directKey].hasOwnProperty('enabled') && !interceptedRoutes[directKey].enabled) {
-          log(`Found match for ${directKey} but route is disabled`);
-          return null;
-        }
-        
-        log(`Found direct match for: ${directKey}`);
-        return directKey;
-      }
+      log(`Checking interception for: ${normalizedMethod} ${url}`);
+      log(`Available routes: ${Object.keys(interceptedRoutes).length}`);
       
-      // Check for routes with names (method:url:name format)
-      // First find all routes that match method:url, regardless of name
-      const keyMatches = Object.keys(interceptedRoutes).filter(key => {
-        const { method: routeMethod, url: routeUrl } = parseRouteKey(key);
-        return routeMethod === normalizedMethod && routeUrl === url;
+      // Find enabled routes
+      const enabledRoutes = Object.keys(interceptedRoutes).filter(key => {
+        const config = interceptedRoutes[key];
+        const isEnabled = config.enabled === true || config.enabled === undefined || config.enabled !== false;
+        return isEnabled;
       });
       
-      // Check if any of these routes are enabled
-      for (const key of keyMatches) {
-        if (!interceptedRoutes[key].hasOwnProperty('enabled') || interceptedRoutes[key].enabled) {
-          log(`Found match for ${method} ${url} using key with name: ${key}`);
-          return key;
-        }
-      }
+      log(`Enabled routes: ${enabledRoutes.length} of ${Object.keys(interceptedRoutes).length}`);
       
-      // If no direct matches, check all routes for pattern matching
-      for (const key in interceptedRoutes) {
-        const { method: routeMethod, url: routeUrl } = parseRouteKey(key);
+      // Find matching routes
+      const matchingRoutes = [];
+      
+      for (const routeKey of enabledRoutes) {
+        const { method: routeMethod, url: routeUrl } = parseRouteKey(routeKey);
+        
+        log(`Checking route: ${routeMethod} ${routeUrl} (${routeKey})`);
         
         // Method must match
-        if (routeMethod !== normalizedMethod) continue;
-        
-        // Check if this specific route is enabled
-        if (interceptedRoutes[key].hasOwnProperty('enabled') && !interceptedRoutes[key].enabled) {
-          continue; // Skip disabled routes
+        if (routeMethod !== normalizedMethod) {
+          log(`Method mismatch: ${routeMethod} !== ${normalizedMethod}`);
+          continue;
         }
         
-        // Check URL using advanced matching
+        // Check URL match
         if (urlMatches(url, routeUrl)) {
-          log(`Found match for ${method} ${url} using pattern: ${routeUrl}`);
-          return key;
+          log(`✓ URL matches for route: ${routeKey}`);
+          matchingRoutes.push(routeKey);
+        } else {
+          log(`URL mismatch: ${url} does not match ${routeUrl}`);
         }
       }
       
-      return null;
+      if (matchingRoutes.length === 0) {
+        log(`No matching route found for: ${normalizedMethod} ${url}`);
+        return null;
+      }
+      
+      // Handle multiple matching routes - prefer named routes over simple routes
+      let selectedRoute: string;
+      if (matchingRoutes.length > 1) {
+        log(`Multiple matching routes found: ${matchingRoutes.join(', ')}`);
+        
+        const namedRoutes = matchingRoutes.filter(key => key.includes('|'));
+        const simpleRoutes = matchingRoutes.filter(key => !key.includes('|'));
+        
+        selectedRoute = namedRoutes.length > 0 ? namedRoutes[0] : simpleRoutes[0];
+        log(`✓ Selected route: ${selectedRoute}`);
+      } else {
+        selectedRoute = matchingRoutes[0];
+        log(`✓ Found matching route: ${selectedRoute}`);
+      }
+      
+      // Determine interception mode
+      const config = interceptedRoutes[selectedRoute];
+      const hasResponse = config.response !== undefined && config.response !== null && config.response !== '';
+      const hasHeaders = (config.responseHeaders && Object.keys(config.responseHeaders).length > 0) ||
+                        (config.requestHeaders && Object.keys(config.requestHeaders).length > 0) ||
+                        (config.removeRequestHeaders && config.removeRequestHeaders.length > 0);
+      
+      // NEW: Headers-only mode logic
+      const mode = config.headersOnly || (!hasResponse && hasHeaders) ? 'headers-only' : 'full';
+      
+      log(`Interception mode: ${mode} (hasResponse: ${hasResponse}, hasHeaders: ${hasHeaders}, headersOnly: ${config.headersOnly})`);
+      
+      return { routeKey: selectedRoute, mode };
+    }
+
+    /**
+     * Apply request header modifications
+     */
+    function modifyRequestHeaders(headers: Headers, config: any): Headers {
+      const modifiedHeaders = new Headers(headers);
+      
+      // Remove headers if specified
+      if (config.removeRequestHeaders && Array.isArray(config.removeRequestHeaders)) {
+        config.removeRequestHeaders.forEach((headerName: string) => {
+          modifiedHeaders.delete(headerName);
+          log(`Removed request header: ${headerName}`);
+        });
+      }
+      
+      // Add/modify headers if specified
+      if (config.requestHeaders && typeof config.requestHeaders === 'object') {
+        Object.entries(config.requestHeaders).forEach(([key, value]) => {
+          modifiedHeaders.set(key, value as string);
+          log(`Set request header: ${key} = ${value}`);
+        });
+      }
+      
+      return modifiedHeaders;
     }
     
     /**
-     * Create a proper response object
+     * Apply response header modifications to a real response
      */
-    function createResponse(body: any, config: any): Response {
-      // Format the body appropriately
+    function modifyResponseHeaders(response: Response, config: any): Response {
+      if (!config.responseHeaders || Object.keys(config.responseHeaders).length === 0) {
+        return response;
+      }
+      
+      // Create new headers with the original ones plus modifications
+      const newHeaders = new Headers(response.headers);
+      
+      Object.entries(config.responseHeaders).forEach(([key, value]) => {
+        newHeaders.set(key, value as string);
+        log(`Added response header: ${key} = ${value}`);
+      });
+      
+      // Create new response with modified headers
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: newHeaders
+      });
+    }
+    
+    /**
+     * Create a mock response object with custom headers (for full interception)
+     */
+    function createMockResponse(body: any, config: any): Response {
       let responseBody: string, contentType: string;
       
       if (typeof body === 'string') {
@@ -194,7 +267,6 @@
           contentType = config.contentType;
         }
       } else {
-        // For objects, stringify and default to JSON
         try {
           responseBody = JSON.stringify(body);
           contentType = config.contentType || 'application/json';
@@ -204,14 +276,24 @@
         }
       }
       
-      // Create the response with appropriate status
+      // Create headers object
+      const headers: Record<string, string> = {
+        'Content-Type': contentType,
+        'X-Request-Intercepted': 'true'
+      };
+      
+      // Add custom response headers if specified
+      if (config.responseHeaders && typeof config.responseHeaders === 'object') {
+        Object.entries(config.responseHeaders).forEach(([key, value]) => {
+          headers[key] = value as string;
+          log(`Added response header: ${key} = ${value}`);
+        });
+      }
+      
       const response = new Response(responseBody, {
         status: config.status || 200,
         statusText: getStatusText(config.status || 200),
-        headers: new Headers({
-          'Content-Type': contentType,
-          'X-Request-Intercepted': 'true'
-        }),
+        headers: new Headers(headers),
       });
       
       return response;
@@ -241,11 +323,11 @@
     function init() {
       setupFetchInterceptor();
       setupXHRInterceptor();
-      log('Request Interceptor initialized');
+      log('Request Interceptor initialized with headers-only support');
     }
     
     /**
-     * Set up fetch API interception
+     * Set up fetch API interception with headers-only mode
      */
     function setupFetchInterceptor() {
       (window as any).fetch = function(resource: RequestInfo | URL, options: RequestInit = {}) {
@@ -256,41 +338,82 @@
         const url = resource instanceof Request ? resource.url : String(resource);
         const method = options.method || (resource instanceof Request ? resource.method : 'GET');
         
-        const routeKey = shouldIntercept(method, url);
-        
-        // Check if this request should be intercepted
-        if (routeKey) {
-          log(`Intercepting fetch request: ${method} ${url}`);
+        const interceptResult = shouldIntercept(method, url);
+
+        if (interceptResult) {
+          const { routeKey, mode } = interceptResult;
           const interceptConfig = interceptedRoutes[routeKey];
           
-          return new Promise(resolve => {
-            setTimeout(() => {
-              // Get the response based on configuration
-              const responseBody = interceptConfig.response;
-              
-              // Create a response object
-              const response = createResponse(responseBody, interceptConfig);
-              
-              resolve(response);
-            }, interceptConfig.delay || 0);
-          });
+          log(`✓ Intercepting fetch request: ${method} ${url} with route: ${routeKey} (mode: ${mode})`);
+          
+          if (mode === 'full') {
+            // Full interception - return mock response
+            return new Promise(resolve => {
+              setTimeout(() => {
+                const response = createMockResponse(interceptConfig.response, interceptConfig);
+                resolve(response);
+              }, interceptConfig.delay || 0);
+            });
+          } else {
+            // Headers-only interception - modify request and let it proceed
+            let modifiedResource = resource;
+            let modifiedOptions = { ...options };
+            
+            // Modify request headers
+            if (interceptConfig.requestHeaders || interceptConfig.removeRequestHeaders) {
+              const originalHeaders = new Headers(options.headers);
+              const modifiedHeaders = modifyRequestHeaders(originalHeaders, interceptConfig);
+              modifiedOptions.headers = modifiedHeaders;
+            }
+            
+            // Make the real request with modified headers
+            const realRequestPromise = originalFetch.call(this, modifiedResource, modifiedOptions);
+            
+            // If we need to modify response headers, intercept the response
+            if (interceptConfig.responseHeaders && Object.keys(interceptConfig.responseHeaders).length > 0) {
+              return realRequestPromise.then(response => {
+                log(`✓ Modifying response headers for: ${method} ${url}`);
+                return modifyResponseHeaders(response, interceptConfig);
+              });
+            }
+            
+            return realRequestPromise;
+          }
         }
         
-        // Not intercepted, proceed normally
-        return originalFetch.apply(this, arguments as any);
+        // If not intercepted, proceed with original request
+        log(`→ Not intercepting fetch request: ${method} ${url}`);
+        return originalFetch.call(this, resource, options);
       };
     }
     
     /**
-     * Set up XHR interception
+     * Set up XHR interception with headers-only mode
      */
     function setupXHRInterceptor() {
       // Override the XHR open method to capture the URL and method
       XMLHttpRequest.prototype.open = function(method: string, url: string | URL) {
         (this as any)._interceptUrl = String(url);
         (this as any)._interceptMethod = method;
+        (this as any)._interceptHeaders = new Map();
+        (this as any)._originalHeaders = new Map();
         
         return originalXHROpen.apply(this, arguments as any);
+      };
+      
+      // Override setRequestHeader to track headers
+      XMLHttpRequest.prototype.setRequestHeader = function(name: string, value: string) {
+        if (!(this as any)._interceptHeaders) {
+          (this as any)._interceptHeaders = new Map();
+        }
+        if (!(this as any)._originalHeaders) {
+          (this as any)._originalHeaders = new Map();
+        }
+        
+        (this as any)._originalHeaders.set(name.toLowerCase(), value);
+        (this as any)._interceptHeaders.set(name.toLowerCase(), value);
+        
+        return originalXHRSetRequestHeader.apply(this, arguments as any);
       };
       
       // Override the XHR send method to intercept if needed
@@ -299,71 +422,160 @@
           return originalXHRSend.apply(this, arguments as any);
         }
         
-        const routeKey = shouldIntercept((this as any)._interceptMethod, (this as any)._interceptUrl);
-        
-        // Check if this request should be intercepted
-        if (routeKey) {
-          log(`Intercepting XMLHttpRequest: ${(this as any)._interceptMethod} ${(this as any)._interceptUrl}`);
+        const method = (this as any)._interceptMethod;
+        const url = (this as any)._interceptUrl;
+        const interceptResult = shouldIntercept(method, url);
+
+        if (interceptResult) {
+          const { routeKey, mode } = interceptResult;
           const interceptConfig = interceptedRoutes[routeKey];
-          const xhr = this;
           
-          // Simulate the XHR response after delay
-          setTimeout(() => {
-            // Get the response based on configuration
-            const responseBody = interceptConfig.response;
+          log(`✓ Intercepting XMLHttpRequest: ${method} ${url} with route: ${routeKey} (mode: ${mode})`);
+          
+          if (mode === 'full') {
+            // Full interception - return mock response
+            const xhr = this;
             
-            // Format the response based on content type
-            let responseText: string;
-            if (typeof responseBody === 'object') {
-              try {
-                responseText = JSON.stringify(responseBody);
-              } catch (e) {
+            setTimeout(() => {
+              const responseBody = interceptConfig.response;
+              
+              let responseText: string;
+              if (typeof responseBody === 'object') {
+                try {
+                  responseText = JSON.stringify(responseBody);
+                } catch (e) {
+                  responseText = String(responseBody);
+                }
+              } else {
                 responseText = String(responseBody);
               }
-            } else {
-              responseText = String(responseBody);
+              
+              // Set XHR properties
+              Object.defineProperty(xhr, 'readyState', { value: 4, configurable: true });
+              Object.defineProperty(xhr, 'status', { value: interceptConfig.status || 200, configurable: true });
+              Object.defineProperty(xhr, 'statusText', { value: getStatusText(interceptConfig.status || 200), configurable: true });
+              Object.defineProperty(xhr, 'responseText', { value: responseText, configurable: true });
+              Object.defineProperty(xhr, 'response', { value: responseText, configurable: true });
+              
+              // Create response headers
+              const responseHeaders: Record<string, string> = {
+                'Content-Type': interceptConfig.contentType || 'application/json',
+                'X-Request-Intercepted': 'true'
+              };
+              
+              // Add custom response headers
+              if (interceptConfig.responseHeaders) {
+                Object.assign(responseHeaders, interceptConfig.responseHeaders);
+              }
+              
+              (xhr as any).responseHeaders = responseHeaders;
+              
+              // Override getResponseHeader method
+              xhr.getResponseHeader = function(name: string) {
+                return (xhr as any).responseHeaders[name.toLowerCase()] || null;
+              };
+              
+              // Override getAllResponseHeaders method
+              xhr.getAllResponseHeaders = function() {
+                return Object.entries((xhr as any).responseHeaders)
+                  .map(([key, value]) => `${key}: ${value}`)
+                  .join('\r\n');
+              };
+              
+              // Trigger callbacks
+              if (xhr.onreadystatechange) {
+                xhr.onreadystatechange(new Event('readystatechange'));
+              }
+              if (xhr.onload) {
+                xhr.onload(new ProgressEvent('load'));
+              }
+              
+              if (xhr.dispatchEvent) {
+                xhr.dispatchEvent(new Event('load'));
+                xhr.dispatchEvent(new Event('loadend'));
+              }
+            }, interceptConfig.delay || 0);
+            
+            return;
+          } else {
+            // Headers-only interception - modify request headers and let it proceed
+            const xhr = this;
+            
+            // Apply request header modifications
+            if (interceptConfig.requestHeaders || interceptConfig.removeRequestHeaders) {
+              const currentHeaders = (this as any)._interceptHeaders || new Map();
+              
+              // Remove headers
+              if (interceptConfig.removeRequestHeaders) {
+                interceptConfig.removeRequestHeaders.forEach((headerName: string) => {
+                  currentHeaders.delete(headerName.toLowerCase());
+                  log(`Removed request header: ${headerName}`);
+                });
+              }
+              
+              // Add/modify headers
+              if (interceptConfig.requestHeaders) {
+                Object.entries(interceptConfig.requestHeaders).forEach(([key, value]) => {
+                  currentHeaders.set(key.toLowerCase(), value as string);
+                  log(`Set request header: ${key} = ${value}`);
+                });
+              }
+              
+              // Re-apply all headers to the XHR
+                currentHeaders.forEach((value: string, key: string) => {
+                originalXHRSetRequestHeader.call(this, key, value);
+                });
             }
             
-            // Set XHR properties
-            Object.defineProperty(xhr, 'readyState', { value: 4, configurable: true });
-            Object.defineProperty(xhr, 'status', { value: interceptConfig.status || 200, configurable: true });
-            Object.defineProperty(xhr, 'statusText', { value: getStatusText(interceptConfig.status || 200), configurable: true });
-            Object.defineProperty(xhr, 'responseText', { value: responseText, configurable: true });
-            Object.defineProperty(xhr, 'response', { value: responseText, configurable: true });
-            
-            // Set content type header
-            const contentType = interceptConfig.contentType || 
-              (typeof responseBody === 'object' ? 'application/json' : 'text/plain');
-            
-            (xhr as any).responseHeaders = {
-              'Content-Type': contentType,
-              'X-Request-Intercepted': 'true'
-            };
-            
-            // Override getResponseHeader method
-            xhr.getResponseHeader = function(name: string) {
-              return (xhr as any).responseHeaders[name.toLowerCase()];
-            };
-            
-            // Trigger callbacks
-            if (xhr.onreadystatechange) {
-              xhr.onreadystatechange(new Event('readystatechange'));
+            // If we need to modify response headers, intercept the response
+            if (interceptConfig.responseHeaders && Object.keys(interceptConfig.responseHeaders).length > 0) {
+              const originalOnReadyStateChange = xhr.onreadystatechange;
+              const originalOnLoad = xhr.onload;
+              
+              xhr.onreadystatechange = function(event) {
+                if (xhr.readyState === 4) {
+                  log(`✓ Modifying response headers for XHR: ${method} ${url}`);
+                  
+                  // Modify response headers
+                  const originalGetResponseHeader = xhr.getResponseHeader;
+                  const originalGetAllResponseHeaders = xhr.getAllResponseHeaders;
+                  
+                  const enhancedHeaders = { ...(xhr as any).responseHeaders };
+                  Object.assign(enhancedHeaders, interceptConfig.responseHeaders);
+                  (xhr as any).responseHeaders = enhancedHeaders;
+                  
+                  xhr.getResponseHeader = function(name: string) {
+                    return enhancedHeaders[name.toLowerCase()] || originalGetResponseHeader.call(xhr, name);
+                  };
+                  
+                  xhr.getAllResponseHeaders = function() {
+                    const original = originalGetAllResponseHeaders.call(xhr);
+                    const additional = Object.entries(interceptConfig.responseHeaders)
+                      .map(([key, value]) => `${key}: ${value}`)
+                      .join('\r\n');
+                    return original + (original ? '\r\n' : '') + additional;
+                  };
+                }
+                
+                if (originalOnReadyStateChange) {
+                  originalOnReadyStateChange.call(xhr, event);
+                }
+              };
+              
+              if (originalOnLoad) {
+                xhr.onload = function(event) {
+                  originalOnLoad.call(xhr, event);
+                };
+              }
             }
-            if (xhr.onload) {
-              xhr.onload(new ProgressEvent('load'));
-            }
             
-            // For modern promise-based code
-            if (xhr.dispatchEvent) {
-              xhr.dispatchEvent(new Event('load'));
-              xhr.dispatchEvent(new Event('loadend'));
-            }
-          }, interceptConfig.delay || 0);
-          
-          return;
+            // Proceed with the original request
+            return originalXHRSend.apply(this, arguments as any);
+          }
         }
         
-        // Not intercepted, proceed normally
+        // If not intercepted, proceed with original request
+        log(`→ Not intercepting XMLHttpRequest: ${method} ${url}`);
         return originalXHRSend.apply(this, arguments as any);
       };
     }
@@ -375,6 +587,7 @@
       (window as any).fetch = originalFetch;
       XMLHttpRequest.prototype.open = originalXHROpen;
       XMLHttpRequest.prototype.send = originalXHRSend;
+      XMLHttpRequest.prototype.setRequestHeader = originalXHRSetRequestHeader;
       isActive = false;
       log('Request Interceptor destroyed');
     }
@@ -386,11 +599,39 @@
         isActive = true;
         init();
         log(`Request Interceptor activated with ${Object.keys(interceptedRoutes).length} routes`);
+        
+        // Debug: Log all routes with their enabled status and mode
+        Object.keys(interceptedRoutes).forEach(key => {
+          const config = interceptedRoutes[key];
+          const { method, url, name } = parseRouteKey(key);
+          const isEnabled = config.enabled === true || config.enabled === undefined || config.enabled !== false;
+          const hasResponse = config.response !== undefined && config.response !== null && config.response !== '';
+          const hasHeaders = (config.responseHeaders && Object.keys(config.responseHeaders).length > 0) ||
+                            (config.requestHeaders && Object.keys(config.requestHeaders).length > 0) ||
+                            (config.removeRequestHeaders && config.removeRequestHeaders.length > 0);
+          const mode = config.headersOnly || (!hasResponse && hasHeaders) ? 'headers-only' : 'full';
+          
+          log(`Route: ${method} ${url} ${name ? `(${name})` : ''} - ${isEnabled ? 'ENABLED' : 'DISABLED'} - Mode: ${mode}`);
+        });
       },
       
       updateRoutes: function(routes: Record<string, any>) {
         interceptedRoutes = routes || {};
         log(`Updated routes. Now intercepting ${Object.keys(interceptedRoutes).length} routes`);
+        
+        // Debug: Log all routes with their enabled status and mode
+        Object.keys(interceptedRoutes).forEach(key => {
+          const config = interceptedRoutes[key];
+          const { method, url, name } = parseRouteKey(key);
+          const isEnabled = config.enabled === true || config.enabled === undefined || config.enabled !== false;
+          const hasResponse = config.response !== undefined && config.response !== null && config.response !== '';
+          const hasHeaders = (config.responseHeaders && Object.keys(config.responseHeaders).length > 0) ||
+                            (config.requestHeaders && Object.keys(config.requestHeaders).length > 0) ||
+                            (config.removeRequestHeaders && config.removeRequestHeaders.length > 0);
+          const mode = config.headersOnly || (!hasResponse && hasHeaders) ? 'headers-only' : 'full';
+          
+          log(`Route: ${method} ${url} ${name ? `(${name})` : ''} - ${isEnabled ? 'ENABLED' : 'DISABLED'} - Mode: ${mode}`);
+        });
       },
       
       enable: function() {
@@ -412,7 +653,6 @@
   
   // Listen for commands from the content script
   window.addEventListener('message', (event) => {
-    // Ensure the message is from our content script
     if (event.data && event.data.type === 'REQUEST_INTERCEPTOR_COMMAND') {
       const { command, routes } = event.data;
       
@@ -436,8 +676,7 @@
     }
   });
   
-  // Notify that the script has been loaded
-  console.log('[Request Interceptor] Script injected into page');
+  console.log('[Request Interceptor] Enhanced script injected with headers-only mode support');
 })();
 
-export {}; // Make this a module
+export {};

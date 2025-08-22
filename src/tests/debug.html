@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request Interceptor Debug Tool</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 4px 8px 4px 0;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button.debug {
+            background: #28a745;
+        }
+        button.debug:hover {
+            background: #218838;
+        }
+        .response-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 16px;
+            margin: 12px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .checklist {
+            background: #e7f3ff;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .info {
+            color: #17a2b8;
+        }
+        .warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .step {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 12px 0;
+        }
+        .code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            color: #e83e8c;
+        }
+    </style>
+</head>
+<body>
+    <h1>Request Interceptor Debug Tool</h1>
+    
+    <div class="checklist">
+        <h3>Pre-Flight Checklist</h3>
+        <div id="checklist-results"></div>
+        <button onclick="runChecklist()" class="debug">Run Debug Checklist</button>
+    </div>
+
+    <div class="container">
+        <h2>1. Extension Status Check</h2>
+        <p>First, let's verify your extension is working:</p>
+        <button onclick="checkExtensionStatus()" class="debug">Check Extension Status</button>
+        <div id="extension-status" class="response-box"></div>
+    </div>
+
+    <div class="container">
+        <h2>2. Route Configuration</h2>
+        <div class="step">
+            <strong>EXACT Configuration Needed:</strong>
+            <br>• Method: <span class="code">GET</span>
+            <br>• URL: <span class="code">/api/test</span> (exactly like this, with leading slash)
+            <br>• Status: <span class="code">200</span>
+            <br>• Content Type: <span class="code">application/json</span>
+            <br>• Response: <span class="code">{"message": "Hello from interceptor!", "intercepted": true}</span>
+            <br>• Make sure the route is <strong>ENABLED</strong> (toggle ON)
+        </div>
+        <button onclick="testBasicRoute()" class="debug">Test Basic Route</button>
+        <div id="basic-test" class="response-box"></div>
+    </div>
+
+    <div class="container">
+        <h2>3. Debug Raw Response</h2>
+        <p>Let's see what the server is actually returning:</p>
+        <button onclick="debugRawResponse()" class="debug">Debug Raw Response</button>
+        <div id="raw-response" class="response-box"></div>
+    </div>
+
+    <div class="container">
+        <h2>4. Network Inspection</h2>
+        <p>Test and inspect network activity:</p>
+        <button onclick="testWithNetworkInspection()" class="debug">Test with Network Inspection</button>
+        <div id="network-test" class="response-box"></div>
+    </div>
+
+    <div class="container">
+        <h2>5. Console Logs Monitor</h2>
+        <p>Monitor console for interceptor logs:</p>
+        <button onclick="startConsoleMonitor()" class="debug">Start Console Monitor</button>
+        <button onclick="stopConsoleMonitor()">Stop Monitor</button>
+        <div id="console-logs" class="response-box"></div>
+    </div>
+
+    <script>
+        let consoleMonitorActive = false;
+        let originalConsoleLog = console.log;
+
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info';
+            element.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            element.scrollTop = element.scrollHeight;
+        }
+
+        function clearLog(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        async function runChecklist() {
+            clearLog('checklist-results');
+            log('checklist-results', 'Running comprehensive debug checklist...', 'info');
+            
+            // Check 1: Extension presence
+            log('checklist-results', '1. Checking if extension context exists...', 'info');
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                log('checklist-results', '   ✓ Chrome extension context available', 'success');
+            } else {
+                log('checklist-results', '   ✗ Chrome extension context missing', 'error');
+                log('checklist-results', '   → Make sure you\'re testing on a website (not file://) and extension is installed', 'warning');
+            }
+            
+            // Check 2: Console logs
+            log('checklist-results', '2. Checking for interceptor logs in console...', 'info');
+            log('checklist-results', '   → Open DevTools (F12) and look for "[Request Interceptor]" messages', 'info');
+            
+            // Check 3: Network tab
+            log('checklist-results', '3. Network tab inspection:', 'info');
+            log('checklist-results', '   → Open DevTools → Network tab', 'info');
+            log('checklist-results', '   → Clear network log', 'info');
+            log('checklist-results', '   → Run test and look for /api/test request', 'info');
+            log('checklist-results', '   → Check if request has "X-Request-Intercepted: true" header', 'info');
+            
+            // Check 4: Extension status
+            log('checklist-results', '4. Extension status check:', 'info');
+            log('checklist-results', '   → Extension icon should be colored (not grayed out)', 'info');
+            log('checklist-results', '   → Extension should show "Active" status', 'info');
+            log('checklist-results', '   → Route should be visible in routes list', 'info');
+            log('checklist-results', '   → Route toggle should be ON (enabled)', 'info');
+            
+            log('checklist-results', 'Checklist complete. Check each item above.', 'success');
+        }
+
+        async function checkExtensionStatus() {
+            clearLog('extension-status');
+            log('extension-status', 'Checking extension status...', 'info');
+            
+            // Check if we're on a valid protocol
+            const protocol = window.location.protocol;
+            log('extension-status', `Current protocol: ${protocol}`, 'info');
+            
+            if (protocol === 'file:') {
+                log('extension-status', 'ERROR: file:// protocol detected!', 'error');
+                log('extension-status', 'Extension cannot run on file:// URLs', 'error');
+                log('extension-status', 'Solution: Serve this page via HTTP server (localhost:3000, etc.)', 'warning');
+                return;
+            }
+            
+            if (protocol === 'chrome:' || protocol === 'chrome-extension:') {
+                log('extension-status', 'WARNING: Chrome internal page detected', 'warning');
+                log('extension-status', 'Extensions may have limited access on internal pages', 'warning');
+                return;
+            }
+            
+            // Check extension context
+            if (typeof chrome === 'undefined') {
+                log('extension-status', 'ERROR: Chrome API not available', 'error');
+                log('extension-status', 'Make sure extension is installed and enabled', 'error');
+                return;
+            }
+            
+            log('extension-status', 'Chrome API available ✓', 'success');
+            log('extension-status', `User agent: ${navigator.userAgent}`, 'info');
+            log('extension-status', `Current URL: ${window.location.href}`, 'info');
+            
+            // Test if content script is loaded
+            log('extension-status', 'Checking for content script injection...', 'info');
+            log('extension-status', 'Look for content script logs in console', 'info');
+        }
+
+        async function testBasicRoute() {
+            clearLog('basic-test');
+            log('basic-test', 'Testing basic route interception...', 'info');
+            log('basic-test', 'Making request to: /api/test', 'info');
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch('/api/test');
+                const endTime = performance.now();
+                const duration = Math.round(endTime - startTime);
+                
+                log('basic-test', `Response received in ${duration}ms`, 'info');
+                log('basic-test', `Status: ${response.status} ${response.statusText}`, response.status === 200 ? 'success' : 'error');
+                log('basic-test', `Content-Type: ${response.headers.get('content-type')}`, 'info');
+                log('basic-test', `X-Request-Intercepted: ${response.headers.get('X-Request-Intercepted')}`, 'info');
+                
+                // Check if intercepted
+                const intercepted = response.headers.get('X-Request-Intercepted');
+                if (intercepted === 'true') {
+                    log('basic-test', '✓ REQUEST WAS INTERCEPTED!', 'success');
+                } else {
+                    log('basic-test', '✗ REQUEST WAS NOT INTERCEPTED', 'error');
+                    log('basic-test', 'This means the route is not configured or not enabled', 'warning');
+                }
+                
+                // Try to parse response
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        const data = await response.json();
+                        log('basic-test', `JSON Response: ${JSON.stringify(data, null, 2)}`, 'success');
+                    } catch (jsonError) {
+                        log('basic-test', `JSON Parse Error: ${jsonError.message}`, 'error');
+                        // Try to get text instead
+                        const text = await response.text();
+                        log('basic-test', `Raw Response: ${text.substring(0, 200)}...`, 'warning');
+                    }
+                } else {
+                    const text = await response.text();
+                    log('basic-test', `Text Response: ${text.substring(0, 200)}...`, 'info');
+                }
+                
+            } catch (error) {
+                log('basic-test', `Fetch Error: ${error.message}`, 'error');
+                log('basic-test', 'This usually means the route is not intercepted and the real server returned an error', 'warning');
+            }
+        }
+
+        async function debugRawResponse() {
+            clearLog('raw-response');
+            log('raw-response', 'Debugging raw response...', 'info');
+            
+            try {
+                const response = await fetch('/api/test');
+                
+                // Log all headers
+                log('raw-response', 'All Response Headers:', 'info');
+                for (let [key, value] of response.headers.entries()) {
+                    log('raw-response', `  ${key}: ${value}`, 'info');
+                }
+                
+                // Get raw text
+                const text = await response.text();
+                log('raw-response', `Response Length: ${text.length} characters`, 'info');
+                log('raw-response', 'Raw Response Body:', 'info');
+                log('raw-response', text.substring(0, 500) + (text.length > 500 ? '...' : ''), 'info');
+                
+                // Check if it looks like HTML
+                if (text.trim().startsWith('<')) {
+                    log('raw-response', 'DETECTED: HTML Response (likely 404 page)', 'error');
+                    log('raw-response', 'This confirms the route is NOT being intercepted', 'error');
+                }
+                
+            } catch (error) {
+                log('raw-response', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testWithNetworkInspection() {
+            clearLog('network-test');
+            log('network-test', 'Testing with network inspection...', 'info');
+            log('network-test', 'Open DevTools → Network tab to see the request', 'warning');
+            
+            // Add a unique parameter to avoid caching
+            const timestamp = Date.now();
+            const testUrl = `/api/test?debug=${timestamp}`;
+            
+            log('network-test', `Making request to: ${testUrl}`, 'info');
+            
+            try {
+                const response = await fetch(testUrl);
+                
+                log('network-test', 'Check Network tab for this request and verify:', 'info');
+                log('network-test', '1. Request URL matches exactly', 'info');
+                log('network-test', '2. Method is GET', 'info');
+                log('network-test', '3. Response has "X-Request-Intercepted: true" header', 'info');
+                log('network-test', '4. Response body is JSON (not HTML)', 'info');
+                
+                const intercepted = response.headers.get('X-Request-Intercepted');
+                if (intercepted === 'true') {
+                    log('network-test', '✓ Network inspection shows interception!', 'success');
+                } else {
+                    log('network-test', '✗ Network inspection shows NO interception', 'error');
+                    log('network-test', 'Check extension configuration and enable status', 'warning');
+                }
+                
+            } catch (error) {
+                log('network-test', `Network test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function startConsoleMonitor() {
+            if (consoleMonitorActive) {
+                log('console-logs', 'Console monitor already active', 'warning');
+                return;
+            }
+            
+            clearLog('console-logs');
+            consoleMonitorActive = true;
+            log('console-logs', 'Console monitor started - intercepting console.log calls...', 'info');
+            log('console-logs', 'Now run a test and watch for interceptor logs below:', 'info');
+            log('console-logs', '─'.repeat(50), 'info');
+            
+            // Override console.log to capture messages
+            console.log = function(...args) {
+                // Call original console.log
+                originalConsoleLog.apply(console, args);
+                
+                // Check if it's a Request Interceptor message
+                const message = args.join(' ');
+                if (message.includes('[Request Interceptor]') || message.includes('Request Interceptor')) {
+                    log('console-logs', message, 'success');
+                }
+            };
+        }
+
+        function stopConsoleMonitor() {
+            if (!consoleMonitorActive) {
+                return;
+            }
+            
+            consoleMonitorActive = false;
+            console.log = originalConsoleLog;
+            log('console-logs', '─'.repeat(50), 'info');
+            log('console-logs', 'Console monitor stopped', 'info');
+        }
+
+        // Auto-start status check
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                log('extension-status', 'Debug tool loaded. Run the checklist first!', 'info');
+            }, 500);
+        });
+    </script>
+</body>
+</html>

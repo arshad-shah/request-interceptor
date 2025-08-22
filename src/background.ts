@@ -1,4 +1,8 @@
-// Background script for Request Interceptor Chrome Extension
+// Enhanced Background script for Request Interceptor Chrome Extension with Headers Support and Named Routes Fix
+
+interface HeaderConfig {
+  [key: string]: string;
+}
 
 interface RouteConfig {
   status: number;
@@ -8,6 +12,10 @@ interface RouteConfig {
   enabled: boolean;
   timestamp: number;
   name?: string;
+  // New header fields
+  responseHeaders?: HeaderConfig;
+  requestHeaders?: HeaderConfig;
+  removeRequestHeaders?: string[];
 }
 
 interface AppState {
@@ -37,17 +45,48 @@ class StateManager {
       const storedState = await chrome.storage.local.get(['enabled', 'routes']);
       this.state.enabled = storedState.enabled || false;
       this.state.routes = storedState.routes || {};
+      
+      // Migrate old routes to include header fields if they don't exist
+      this.migrateRoutesToIncludeHeaders();
+      
       this.updateIcon();
-      console.log('[Background] State loaded:', this.state);
+      console.log('[Background] State loaded with headers support:', this.state);
     } catch (error) {
       console.error('[Background] Error loading state:', error);
+    }
+  }
+
+  private migrateRoutesToIncludeHeaders(): void {
+    let needsSave = false;
+    
+    Object.keys(this.state.routes).forEach(key => {
+      const route = this.state.routes[key];
+      
+      // Add default header fields if they don't exist
+      if (!route.hasOwnProperty('responseHeaders')) {
+        route.responseHeaders = {};
+        needsSave = true;
+      }
+      if (!route.hasOwnProperty('requestHeaders')) {
+        route.requestHeaders = {};
+        needsSave = true;
+      }
+      if (!route.hasOwnProperty('removeRequestHeaders')) {
+        route.removeRequestHeaders = [];
+        needsSave = true;
+      }
+    });
+    
+    if (needsSave) {
+      this.saveState();
+      console.log('[Background] Migrated routes to include header fields');
     }
   }
 
   async saveState(): Promise<void> {
     try {
       await chrome.storage.local.set(this.state);
-      console.log('[Background] State saved:', this.state);
+      console.log('[Background] State saved with headers:', this.state);
     } catch (error) {
       console.error('[Background] Error saving state:', error);
     }
@@ -186,35 +225,65 @@ class StateManager {
   }
 
   async addRoute(route: string, config: RouteConfig, name?: string): Promise<boolean> {
-    console.log('[Background] Adding route:', route, config);
+    console.log('[Background] Adding route with headers:', route, config);
+    
+    // Ensure header fields exist with defaults
+    const enhancedConfig: RouteConfig = {
+      ...config,
+      responseHeaders: config.responseHeaders || {},
+      requestHeaders: config.requestHeaders || {},
+      removeRequestHeaders: config.removeRequestHeaders || []
+    };
     
     // Store the name in the config if provided
     if (name) {
-      config.name = name;
+      enhancedConfig.name = name;
     }
 
     // Check if this route already exists
     const isUpdate = this.state.routes.hasOwnProperty(route);
 
-    // If enabling this route, disable other routes with the same URL and method
-    if (config.enabled) {
+    // FIXED: Only disable conflicting routes for simple routes (no names) or when updating
+    if (enhancedConfig.enabled) {
       const [method, ...urlParts] = route.split(':');
-      const url = urlParts.join(':').split('|')[0]; // Remove name part if present
+      const urlWithName = urlParts.join(':');
+      const hasName = urlWithName.includes('|'); // Check if route has a name
+      const url = hasName ? urlWithName.split('|')[0] : urlWithName;
 
-      Object.keys(this.state.routes).forEach(key => {
-        const [otherMethod, ...otherUrlParts] = key.split(':');
-        const otherUrl = otherUrlParts.join(':').split('|')[0];
+      // Only disable conflicting routes if:
+      // 1. This is a simple route (no name), OR
+      // 2. We're updating an existing route
+      if (!hasName || isUpdate) {
+        Object.keys(this.state.routes).forEach(key => {
+          const [otherMethod, ...otherUrlParts] = key.split(':');
+          const otherUrlWithName = otherUrlParts.join(':');
+          const otherUrl = otherUrlWithName.split('|')[0]; // Remove name part if present
 
-        // If same URL and method but different route, disable it
-        if (otherUrl === url && otherMethod === method && key !== route) {
-          this.state.routes[key].enabled = false;
-          console.log('[Background] Disabled conflicting route:', key);
-        }
-      });
+          // If same URL and method but different route, disable it
+          if (otherUrl === url && otherMethod === method && key !== route) {
+            this.state.routes[key].enabled = false;
+            console.log('[Background] Disabled conflicting route:', key);
+          }
+        });
+      } else {
+        // For new named routes, only disable simple routes (without names) that conflict
+        Object.keys(this.state.routes).forEach(key => {
+          const [otherMethod, ...otherUrlParts] = key.split(':');
+          const otherUrlWithName = otherUrlParts.join(':');
+          const otherHasName = otherUrlWithName.includes('|');
+          const otherUrl = otherHasName ? otherUrlWithName.split('|')[0] : otherUrlWithName;
+
+          // Only disable simple routes (without names) when adding a named route
+          if (otherUrl === url && otherMethod === method && !otherHasName && key !== route) {
+            this.state.routes[key].enabled = false;
+            console.log('[Background] Disabled simple conflicting route:', key);
+          }
+        });
+      }
     }
 
     // Update or add the route
-    this.state.routes[route] = config;
+    this.state.routes[route] = enhancedConfig;
     await this.saveState();
 
     this.notifyAllTabs({
@@ -249,20 +318,42 @@ class StateManager {
     if (this.state.routes[route]) {
       // Get the URL part from the route key
       const [method, ...urlParts] = route.split(':');
-      const url = urlParts.join(':').split('|')[0];
+      const urlWithName = urlParts.join(':');
+      const hasName = urlWithName.includes('|'); // Check if route has a name
+      const url = hasName ? urlWithName.split('|')[0] : urlWithName;
 
-      // If enabling this route, disable all other routes with the same URL and method
+      // FIXED: Only disable conflicting routes under specific conditions
       if (enabled) {
-        Object.keys(this.state.routes).forEach(key => {
-          const [otherMethod, ...otherUrlParts] = key.split(':');
-          const otherUrl = otherUrlParts.join(':').split('|')[0];
+        // For simple routes (no names), disable all conflicting routes
+        // For named routes, only disable simple routes that conflict
+        if (!hasName) {
+          // Simple route - disable all conflicting routes
+          Object.keys(this.state.routes).forEach(key => {
+            const [otherMethod, ...otherUrlParts] = key.split(':');
+            const otherUrlWithName = otherUrlParts.join(':');
+            const otherUrl = otherUrlWithName.split('|')[0];
 
-          // If same URL and method but different route (different name), disable it
-          if (otherUrl === url && otherMethod === method && key !== route) {
-            this.state.routes[key].enabled = false;
-            console.log('[Background] Disabled conflicting route:', key);
-          }
-        });
+            if (otherUrl === url && otherMethod === method && key !== route) {
+              this.state.routes[key].enabled = false;
+              console.log('[Background] Disabled conflicting route:', key);
+            }
+          });
+        } else {
+          // Named route - only disable simple routes (without names) that conflict
+          Object.keys(this.state.routes).forEach(key => {
+            const [otherMethod, ...otherUrlParts] = key.split(':');
+            const otherUrlWithName = otherUrlParts.join(':');
+            const otherHasName = otherUrlWithName.includes('|');
+            const otherUrl = otherHasName ? otherUrlWithName.split('|')[0] : otherUrlWithName;
+
+            // Only disable simple routes when enabling a named route
+            if (otherUrl === url && otherMethod === method && !otherHasName && key !== route) {
+              this.state.routes[key].enabled = false;
+              console.log('[Background] Disabled simple conflicting route:', key);
+            }
+          });
+          // Allow multiple named routes to be enabled simultaneously
+        }
       }
 
       // Update the enabled state of the specific route
@@ -293,7 +384,7 @@ class StateManager {
   }
 
   exportRoutes(): { routes: any[] } {
-    console.log('[Background] Exporting routes');
+    console.log('[Background] Exporting routes with headers');
     
     return {
       routes: Object.entries(this.state.routes).map(([key, config]) => {
@@ -324,7 +415,11 @@ class StateManager {
           delay: config.delay || 0,
           contentType: config.contentType,
           response: config.response,
-          enabled: config.enabled !== false
+          enabled: config.enabled !== false,
+          // Include header fields in export
+          responseHeaders: config.responseHeaders || {},
+          requestHeaders: config.requestHeaders || {},
+          removeRequestHeaders: config.removeRequestHeaders || []
         };
       })
     };
@@ -354,7 +449,7 @@ class StateManager {
 }
 
 // Initialize the state manager
-console.log('[Background] Initializing Request Interceptor');
+console.log('[Background] Initializing Request Interceptor with Headers Support and Named Routes Fix');
 const stateManager = new StateManager();
 
 // Handle extension installation
@@ -367,6 +462,9 @@ chrome.runtime.onInstalled.addListener((details) => {
       enabled: false,
       routes: {}
     });
+  } else if (details.reason === 'update') {
+    // Trigger migration on update
+    stateManager.loadState();
   }
 });
 

@@ -22,206 +22,7 @@ import Card from './ui/Card';
 import Button from './ui/Button';
 import ReactAceEditor from './ReactAceEditor';
 import CodeHighlighter from '@/components/Codehighlighter';
-
-// Default templates
-const defaultTemplates: Record<string, Template> = {
-  "Basic API": {
-    routes: [
-      {
-        method: "GET",
-        url: "/api/data",
-        status: 200,
-        delay: 200,
-        name: "Success Response",
-        contentType: "application/json",
-        response: {
-          success: true,
-          data: [
-            { id: 1, name: "Item 1" },
-            { id: 2, name: "Item 2" },
-            { id: 3, name: "Item 3" }
-          ]
-        }
-      },
-      {
-        method: "GET",
-        url: "/api/stats",
-        status: 200,
-        delay: 300,
-        name: "Stats Data",
-        contentType: "application/json",
-        response: {
-          totalUsers: 1250,
-          activeUsers: 834,
-          conversionRate: "12.5%"
-        }
-      }
-    ]
-  },
-  "CRUD API": {
-    routes: [
-      {
-        method: "GET",
-        url: "/api/users",
-        status: 200,
-        delay: 300,
-        name: "Get All Users",
-        contentType: "application/json",
-        response: {
-          users: [
-            { id: 1, name: "John Doe", email: "john@example.com" },
-            { id: 2, name: "Jane Smith", email: "jane@example.com" }
-          ],
-          total: 2
-        }
-      },
-      {
-        method: "POST",
-        url: "/api/users",
-        status: 201,
-        delay: 500,
-        name: "Create User",
-        contentType: "application/json",
-        response: {
-          id: 3,
-          name: "New User",
-          email: "new@example.com",
-          created: true
-        }
-      },
-      {
-        method: "PUT",
-        url: "/api/users/*",
-        status: 200,
-        delay: 400,
-        name: "Update User",
-        contentType: "application/json",
-        response: {
-          id: 1,
-          name: "Updated User",
-          email: "updated@example.com",
-          updated: true
-        }
-      },
-      {
-        method: "DELETE",
-        url: "/api/users/*",
-        status: 204,
-        delay: 300,
-        name: "Delete User",
-        contentType: "application/json",
-        response: { deleted: true }
-      }
-    ]
-  },
-  "Authentication API": {
-    routes: [
-      {
-        method: "POST",
-        url: "/api/auth/login",
-        status: 200,
-        delay: 800,
-        name: "Login Success",
-        contentType: "application/json",
-        response: {
-          token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-          user: {
-            id: 1,
-            name: "John Doe",
-            email: "john@example.com",
-            role: "user"
-          },
-          expiresIn: 3600
-        }
-      },
-      {
-        method: "POST",
-        url: "/api/auth/register",
-        status: 201,
-        delay: 1000,
-        name: "Register Success",
-        contentType: "application/json",
-        response: {
-          message: "User created successfully",
-          user: {
-            id: 2,
-            name: "New User",
-            email: "new@example.com"
-          }
-        }
-      },
-      {
-        method: "POST",
-        url: "/api/auth/logout",
-        status: 200,
-        delay: 200,
-        name: "Logout",
-        contentType: "application/json",
-        response: { message: "Logged out successfully" }
-      }
-    ]
-  },
-  "E-commerce API": {
-    routes: [
-      {
-        method: "GET",
-        url: "/api/products",
-        status: 200,
-        delay: 400,
-        name: "Get Products",
-        contentType: "application/json",
-        response: {
-          products: [
-            {
-              id: 1,
-              name: "Laptop",
-              price: 999.99,
-              category: "Electronics",
-              inStock: true
-            },
-            {
-              id: 2,
-              name: "Phone",
-              price: 599.99,
-              category: "Electronics",
-              inStock: false
-            }
-          ],
-          total: 2,
-          page: 1,
-          limit: 10
-        }
-      },
-      {
-        method: "POST",
-        url: "/api/cart/add",
-        status: 200,
-        delay: 300,
-        name: "Add to Cart",
-        contentType: "application/json",
-        response: {
-          message: "Item added to cart",
-          cartItems: 3,
-          total: 1599.98
-        }
-      },
-      {
-        method: "POST",
-        url: "/api/orders",
-        status: 201,
-        delay: 800,
-        name: "Create Order",
-        contentType: "application/json",
-        response: {
-          orderId: "ORD-12345",
-          status: "confirmed",
-          total: 1599.98,
-          estimatedDelivery: "2024-01-15"
-        }
-      }
-    ]
-  }
-};
+import templates from '@/lib/templates';
 
 const templateIcons = {
   "Basic API": Zap,
@@ -344,7 +145,7 @@ const TemplatesTab: React.FC = () => {
 
   const handleTemplateSelect = (templateName: string) => {
     setSelectedTemplate(templateName);
-    const template = defaultTemplates[templateName];
+    const template = templates[templateName];
     if (template) {
       const formattedSchema = formatJson({ routes: template.routes });
       setSchemaInput(formattedSchema);
@@ -479,7 +280,7 @@ const TemplatesTab: React.FC = () => {
         
         <Card.Body>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(defaultTemplates).map(([name, template]) => (
+            {Object.entries(templates).map(([name, template]) => (
               <TemplateCard
                 key={name}
                 name={name}

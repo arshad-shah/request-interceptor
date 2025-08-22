@@ -14,7 +14,9 @@ export const getMethodColor = (method: HttpMethod): string => {
     POST: 'text-green-600 bg-green-50 border-green-200',
     PUT: 'text-amber-600 bg-amber-50 border-amber-200',
     DELETE: 'text-red-600 bg-red-50 border-red-200',
-    PATCH: 'text-purple-600 bg-purple-50 border-purple-200'
+    PATCH: 'text-purple-600 bg-purple-50 border-purple-200',
+    OPTIONS: 'text-gray-600 bg-gray-50 border-gray-200',
+    HEAD: 'text-gray-200 bg-gray-50 border-gray-300',
   };
   return colors[method] || 'text-gray-600 bg-gray-50 border-gray-200';
 };

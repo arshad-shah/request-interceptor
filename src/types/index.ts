@@ -1,5 +1,7 @@
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+export interface HeaderConfig {
+  [key: string]: string;
+}
 export interface RouteConfig {
   status: number;
   delay: number;
@@ -8,7 +10,12 @@ export interface RouteConfig {
   enabled: boolean;
   timestamp: number;
   name?: string;
+  responseHeaders?: HeaderConfig;
+  requestHeaders?: HeaderConfig;
+  removeRequestHeaders?: string[];
+  headersOnly?: boolean; // NEW: Flag to enable headers-only mode
 }
+
 
 export interface Route {
   key: string;
@@ -39,6 +46,9 @@ export interface TemplateRoute {
   contentType: string;
   enabled?: boolean;
   response: any;
+    responseHeaders?: HeaderConfig;
+  requestHeaders?: HeaderConfig;
+  removeRequestHeaders?: string[];
 }
 
 export type NotificationType = 'success' | 'error' | 'info' | 'warning';
@@ -66,6 +76,10 @@ export interface RouteFormData {
   delay: number;
   contentType: string;
   response: string;
+  responseHeaders: HeaderConfig;
+  requestHeaders: HeaderConfig;
+  removeRequestHeaders: string[];
+  headersOnly: boolean; // NEW: Flag for headers-only mode
 }
 
 export interface FilterState {

@@ -1,11 +1,12 @@
-// Content script for Request Interceptor Chrome Extension
+// Enhanced Content script for Request Interceptor Chrome Extension
+// Note: Minimal changes needed since it's primarily a message relay
 
 // Create a unique ID for this instance
 const scriptId = 'request-interceptor-script-' + Math.random().toString(36).slice(2, 10);
 
 // Check if the interceptor script is already injected
 if (!document.getElementById(scriptId)) {
-  console.log('[Request Interceptor] Initializing content script');
+  console.log('[Request Interceptor] Initializing content script with headers support');
   
   // Track state locally
   let isEnabled = false;
@@ -16,6 +17,15 @@ if (!document.getElementById(scriptId)) {
     if (response) {
       isEnabled = response.enabled;
       interceptedRoutes = response.routes || {};
+      
+      // Log header information for debugging
+      const routesWithHeaders = Object.entries(interceptedRoutes).filter(([key, config]) => {
+        return config.responseHeaders || config.requestHeaders || config.removeRequestHeaders?.length > 0;
+      });
+      
+      if (routesWithHeaders.length > 0) {
+        console.log(`[Request Interceptor] Found ${routesWithHeaders.length} routes with header configurations`);
+      }
       
       // If enabled, inject the interceptor script immediately
       if (isEnabled) {
@@ -32,6 +42,15 @@ if (!document.getElementById(scriptId)) {
       // Update routes if they're included in the message
       if (message.routes) {
         interceptedRoutes = message.routes;
+        
+        // Log header information for debugging
+        const routesWithHeaders = Object.entries(interceptedRoutes).filter(([key, config]) => {
+          return config.responseHeaders || config.requestHeaders || config.removeRequestHeaders?.length > 0;
+        });
+        
+        if (routesWithHeaders.length > 0) {
+          console.log(`[Request Interceptor] Updated with ${routesWithHeaders.length} routes containing headers`);
+        }
       }
       
       if (isEnabled) {
@@ -67,6 +86,15 @@ if (!document.getElementById(scriptId)) {
         isEnabled = message.enabled;
       }
       
+      // Log header information for debugging
+      const routesWithHeaders = Object.entries(interceptedRoutes).filter(([key, config]) => {
+        return config.responseHeaders || config.requestHeaders || config.removeRequestHeaders?.length > 0;
+      });
+      
+      if (routesWithHeaders.length > 0) {
+        console.log(`[Request Interceptor] Routes changed - ${routesWithHeaders.length} routes with headers`);
+      }
+      
       // Update the routes in the injected script if it exists
       if (document.getElementById(scriptId)) {
         window.postMessage({
@@ -91,11 +119,17 @@ if (!document.getElementById(scriptId)) {
     return true; // Required for async response
   });
   
-  // Listen for messages from the page script
+  // Listen for messages from the page script (enhanced for header logging)
   window.addEventListener('message', (event) => {
     // Only process messages from our interceptor
     if (event.data && event.data.type === 'REQUEST_INTERCEPTOR_LOG') {
-      console.log(`[Request Interceptor] ${event.data.message}`);
+      // Enhanced logging to include header-specific messages
+      const message = event.data.message;
+      if (message.includes('header') || message.includes('Header')) {
+        console.log(`[Request Interceptor - Headers] ${message}`);
+      } else {
+        console.log(`[Request Interceptor] ${message}`);
+      }
     }
   });
   
@@ -117,6 +151,7 @@ if (!document.getElementById(scriptId)) {
     script.src = chrome.runtime.getURL('injected.js');
     script.onload = () => {
       // After the script is loaded, initialize it with current routes
+      console.log('[Request Interceptor] Injecting interceptor with header support');
       window.postMessage({
         type: 'REQUEST_INTERCEPTOR_COMMAND',
         command: 'initialize',
