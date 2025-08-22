@@ -1,4 +1,5 @@
 import React, { forwardRef, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -34,6 +35,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedValue, setSelectedValue] = useState(value || '');
   const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const selectId = id || `select-${Math.random().toString(36).substr(2, 9)}`;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -49,10 +51,30 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
 
   const selectedOption = options.find(option => option.value === selectedValue);
 
+  // Calculate dropdown position
+  const updateDropdownPosition = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const scrollY = window.scrollY || window.pageYOffset;
+      const scrollX = window.scrollX || window.pageXOffset;
+      
+      setDropdownPosition({
+        top: rect.bottom + scrollY + 8, // 8px gap
+        left: rect.left + scrollX,
+        width: rect.width
+      });
+    }
+  };
+
   // Handle outside clicks
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(event.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
         setFocusedIndex(-1);
       }
@@ -61,6 +83,23 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Update position when opened
+  useEffect(() => {
+    if (isOpen) {
+      updateDropdownPosition();
+      
+      // Update position on scroll/resize
+      const handleReposition = () => updateDropdownPosition();
+      window.addEventListener('scroll', handleReposition, true);
+      window.addEventListener('resize', handleReposition);
+      
+      return () => {
+        window.removeEventListener('scroll', handleReposition, true);
+        window.removeEventListener('resize', handleReposition);
+      };
+    }
+  }, [isOpen]);
 
   // Handle keyboard navigation
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -119,6 +158,61 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
     }
   };
 
+  // Dropdown component to be rendered in portal
+  const dropdown = isOpen ? (
+    <div 
+      ref={dropdownRef}
+      style={{
+        position: 'absolute',
+        top: dropdownPosition.top,
+        left: dropdownPosition.left,
+        width: dropdownPosition.width,
+        zIndex: 9999,
+      }}
+      className={cn(
+        "bg-white rounded-xl shadow-xl border-2 border-gray-200",
+        "max-h-60 overflow-auto",
+        "animate-in fade-in-0 zoom-in-95 duration-200"
+      )}
+    >
+      <div className="p-2">
+        {options.length === 0 ? (
+          <div className="px-3 py-2 text-sm text-gray-500 text-center">
+            No options available
+          </div>
+        ) : (
+          options.map((option, index) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => handleOptionSelect(option.value)}
+              disabled={option.disabled}
+              className={cn(
+                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
+                "text-left focus:outline-none",
+                // Hover and focus states
+                !option.disabled && "hover:bg-gray-50 focus:bg-gray-50",
+                // Selected state
+                selectedValue === option.value && "bg-blue-50 text-blue-700 font-medium",
+                // Focused state (keyboard navigation)
+                focusedIndex === index && !option.disabled && "bg-gray-100",
+                // Disabled state
+                option.disabled && "text-gray-400 cursor-not-allowed opacity-60"
+              )}
+              role="option"
+              aria-selected={selectedValue === option.value}
+            >
+              <span className="truncate">{option.label}</span>
+              {selectedValue === option.value && (
+                <Check className="w-4 h-4 text-blue-600 flex-shrink-0 ml-2" />
+              )}
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-2">
       {label && (
@@ -134,7 +228,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
         </label>
       )}
       
-      <div className="relative" ref={dropdownRef}>
+      <div className="relative">
         {/* Hidden native select for form compatibility */}
         <select
           ref={ref}
@@ -203,53 +297,10 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
             error ? "text-red-500" : "text-gray-400"
           )} />
         </button>
-
-        {/* Custom dropdown */}
-        {isOpen && (
-          <div className={cn(
-            "absolute top-full left-0 right-0 mt-2 z-50",
-            "bg-white rounded-xl shadow-xl border-2 border-gray-200",
-            "max-h-60 overflow-auto",
-            "animate-in fade-in-0 zoom-in-95 duration-200"
-          )}>
-            <div className="p-2">
-              {options.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-gray-500 text-center">
-                  No options available
-                </div>
-              ) : (
-                options.map((option, index) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => handleOptionSelect(option.value)}
-                    disabled={option.disabled}
-                    className={cn(
-                      "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
-                      "text-left focus:outline-none",
-                      // Hover and focus states
-                      !option.disabled && "hover:bg-gray-50 focus:bg-gray-50",
-                      // Selected state
-                      selectedValue === option.value && "bg-blue-50 text-blue-700 font-medium",
-                      // Focused state (keyboard navigation)
-                      focusedIndex === index && !option.disabled && "bg-gray-100",
-                      // Disabled state
-                      option.disabled && "text-gray-400 cursor-not-allowed opacity-60"
-                    )}
-                    role="option"
-                    aria-selected={selectedValue === option.value}
-                  >
-                    <span className="truncate">{option.label}</span>
-                    {selectedValue === option.value && (
-                      <Check className="w-4 h-4 text-blue-600 flex-shrink-0 ml-2" />
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        )}
       </div>
+      
+      {/* Render dropdown in portal */}
+      {typeof document !== 'undefined' && dropdown && createPortal(dropdown, document.body)}
       
       {(error || helperText) && (
         <div className="flex items-start gap-2">
