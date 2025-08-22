@@ -1,4 +1,4 @@
-import { ChromeMessage, AppState, RouteConfig } from '@/types';
+import { ChromeMessage, AppState, RouteConfig, WebSocketConfig } from '@/types';
 
 // Chrome runtime messaging helpers
 export const sendMessage = <T = any>(message: ChromeMessage): Promise<T> => {
@@ -26,7 +26,7 @@ export const chromeApi = {
   },
 
   // Add or update a route
-  addRoute: (route: string, config: RouteConfig, name?: string): Promise<{ success: boolean; isUpdate: boolean }> => {
+  addRoute: (route: string, config: RouteConfig | WebSocketConfig, name?: string): Promise<{ success: boolean; isUpdate: boolean }> => {
     return sendMessage({ action: 'addRoute', route, config, name });
   },
 

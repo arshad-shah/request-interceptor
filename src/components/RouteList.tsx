@@ -1,5 +1,3 @@
-// Updated RouteList component with headers-only mode support
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -19,7 +17,9 @@ import {
   Shield,
   ArrowUpRight,
   ArrowDownLeft,
-  Filter
+  Filter,
+  MessageSquare,
+  Zap
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { parseRouteKey, chromeApi } from '@/lib/chrome-api';
@@ -29,7 +29,7 @@ import {
   formatResponsePreview,
   getRouteDescription 
 } from '@/lib/utils';
-import { RouteConfig, HeaderConfig } from '@/types';
+import { RouteConfig, HeaderConfig, WebSocketConfig, WebSocketRule } from '@/types';
 import { MethodBadge, StatusBadge } from './ui/Badge';
 import Toggle from './ui/Toggle';
 import Button from './ui/Button';
@@ -38,14 +38,44 @@ import CodeHighlighter from '@/components/Codehighlighter';
 
 interface RouteItemProps {
   routeKey: string;
-  config: RouteConfig;
+  config: RouteConfig | WebSocketConfig;
   onEdit: (routeKey: string) => void;
   onDelete: (routeKey: string) => void;
   onToggle: (routeKey: string, enabled: boolean) => void;
 }
 
+// Helper function for parsing WebSocket keys
+function parseWebSocketKey(routeKey: string) {
+  const remaining = routeKey.substring(3); // Remove 'WS:'
+  const pipeIndex = remaining.indexOf('|');
+  
+  if (pipeIndex === -1) {
+    return { url: remaining, name: '' };
+  }
+  
+  const url = remaining.substring(0, pipeIndex);
+  const name = remaining.substring(pipeIndex + 1);
+  
+  return { url, name };
+}
+
 // Mode badge component
-const ModeBadge: React.FC<{ headersOnly?: boolean }> = ({ headersOnly }) => {
+const ModeBadge: React.FC<{ 
+  headersOnly?: boolean; 
+  isWebSocket?: boolean; 
+  ruleCount?: number;
+}> = ({ headersOnly, isWebSocket, ruleCount = 0 }) => {
+  if (isWebSocket) {
+    return (
+      <div className="flex items-center gap-1">
+        <MessageSquare className="w-3 h-3 text-purple-500" />
+        <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded">
+          WebSocket ({ruleCount} rules)
+        </span>
+      </div>
+    );
+  }
+  
   if (headersOnly) {
     return (
       <div className="flex items-center gap-1">
@@ -67,6 +97,116 @@ const ModeBadge: React.FC<{ headersOnly?: boolean }> = ({ headersOnly }) => {
   );
 };
 
+// WebSocket Rules Display Component
+const WebSocketRulesDisplay: React.FC<{
+  rules: WebSocketRule[];
+  title: string;
+  icon: React.ReactNode;
+  direction: 'incoming' | 'outgoing';
+}> = ({ rules, title, icon, direction }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const enabledRules = rules.filter(rule => rule.enabled);
+  const hasRules = rules.length > 0;
+
+  if (!hasRules && !isExpanded) {
+    return null;
+  }
+
+  return (
+    <div className="bg-purple-50 rounded-lg overflow-hidden border border-purple-200">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between p-3 text-left hover:bg-purple-100 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          {icon}
+          <span className="text-sm font-medium text-purple-700">{title}</span>
+          {hasRules && (
+            <span className="px-2 py-0.5 bg-purple-200 text-purple-800 rounded-full text-xs font-medium">
+              {enabledRules.length}/{rules.length}
+            </span>
+          )}
+        </div>
+        <motion.div
+          animate={{ rotate: isExpanded ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <ChevronDown className="w-4 h-4 text-purple-400" />
+        </motion.div>
+      </button>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="border-t border-purple-200 overflow-hidden"
+          >
+            {hasRules ? (
+              <div className="p-3 space-y-2">
+                {rules.map((rule, index) => (
+                  <div
+                    key={rule.id}
+                    className={cn(
+                      "p-2 rounded border",
+                      rule.enabled 
+                        ? "bg-white border-purple-200" 
+                        : "bg-gray-50 border-gray-200 opacity-60"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={cn(
+                        "text-xs px-2 py-1 rounded font-medium",
+                        rule.type === 'replace' ? 'bg-blue-100 text-blue-700' :
+                        rule.type === 'block' ? 'bg-red-100 text-red-700' :
+                        'bg-green-100 text-green-700'
+                      )}>
+                        {rule.type.toUpperCase()}
+                      </span>
+                      <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                        {rule.matchType.toUpperCase()}
+                      </span>
+                      {!rule.enabled && (
+                        <span className="text-xs px-2 py-1 bg-gray-200 text-gray-600 rounded">
+                          DISABLED
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="text-xs">
+                      <span className="font-medium text-gray-900">Match:</span>
+                      <span className="ml-2 font-mono text-gray-600 break-all">{rule.match}</span>
+                    </div>
+                    
+                    {rule.replacement && (
+                      <div className="text-xs mt-1">
+                        <span className="font-medium text-gray-900">
+                          {rule.type === 'inject' ? 'Inject:' : 'Replace:'}
+                        </span>
+                        <span className="ml-2 font-mono text-gray-600 break-all">{rule.replacement}</span>
+                      </div>
+                    )}
+                    
+                    {rule.description && (
+                      <div className="text-xs text-gray-500 mt-1">{rule.description}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-3 text-sm text-purple-600 text-center">
+                No {direction} rules configured
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 const RouteItem: React.FC<RouteItemProps> = ({
   routeKey,
   config,
@@ -77,22 +217,41 @@ const RouteItem: React.FC<RouteItemProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isResponseExpanded, setIsResponseExpanded] = useState(false);
   
-  const { method, url, name } = parseRouteKey(routeKey);
+  const isWebSocket = routeKey.startsWith('WS:');
   const isEnabled = config.enabled !== false;
   
-  const responsePreview = formatResponsePreview(config.response);
-  const description = getRouteDescription(method as any, url);
+  // Parse route information
+  let method = '', url = '', name = '';
+  if (isWebSocket) {
+    const parsed = parseWebSocketKey(routeKey);
+    url = parsed.url;
+    name = parsed.name;
+  } else {
+    const parsed = parseRouteKey(routeKey);
+    method = parsed.method;
+    url = parsed.url;
+    name = parsed.name;
+  }
+  
   const timestamp = config.timestamp ? new Date(config.timestamp).toLocaleDateString() : 'N/A';
-  const contentTypeName = getContentTypeDisplay(config.contentType);
-
-  // Check if route has header modifications
-  const hasResponseHeaders = config.responseHeaders && Object.keys(config.responseHeaders).length > 0;
-  const hasRequestHeaders = config.requestHeaders && Object.keys(config.requestHeaders).length > 0;
-  const hasRemoveHeaders = config.removeRequestHeaders && config.removeRequestHeaders.length > 0;
+  
+  // HTTP specific properties
+  const httpConfig = config as RouteConfig;
+  const responsePreview = !isWebSocket ? formatResponsePreview(httpConfig.response) : '';
+  const description = !isWebSocket ? getRouteDescription(method as any, url) : 'WebSocket message interception';
+  const contentTypeName = !isWebSocket ? getContentTypeDisplay(httpConfig.contentType) : '';
+  const isHeadersOnly = !isWebSocket && (httpConfig.headersOnly || false);
+  
+  // WebSocket specific properties
+  const wsConfig = config as WebSocketConfig;
+  const totalRules = isWebSocket ? 
+    (wsConfig.incomingRules?.length || 0) + (wsConfig.outgoingRules?.length || 0) : 0;
+  
+  // Check if route has header modifications (HTTP only)
+  const hasResponseHeaders = !isWebSocket && httpConfig.responseHeaders && Object.keys(httpConfig.responseHeaders).length > 0;
+  const hasRequestHeaders = !isWebSocket && httpConfig.requestHeaders && Object.keys(httpConfig.requestHeaders).length > 0;
+  const hasRemoveHeaders = !isWebSocket && httpConfig.removeRequestHeaders && httpConfig.removeRequestHeaders.length > 0;
   const hasAnyHeaders = hasResponseHeaders || hasRequestHeaders || hasRemoveHeaders;
-
-  // Check if this is headers-only mode
-  const isHeadersOnly = config.headersOnly || false;
 
   const handleToggle = (enabled: boolean) => {
     onToggle(routeKey, enabled);
@@ -117,11 +276,12 @@ const RouteItem: React.FC<RouteItemProps> = ({
         "shadow-sm hover:shadow-md transition-all duration-200",
         "relative",
         !isEnabled && "opacity-60",
-        isHeadersOnly && "border-l-4 border-l-blue-500" // Blue left border for headers-only mode
+        isWebSocket && "border-l-4 border-l-purple-500",
+        !isWebSocket && isHeadersOnly && "border-l-4 border-l-blue-500"
       )}
     >
-      {/* Method color indicator (only for full interception) */}
-      {!isHeadersOnly && (
+      {/* Method color indicator (only for full HTTP interception) */}
+      {!isWebSocket && !isHeadersOnly && (
         <div className={cn(
           "absolute top-0 left-0 w-1 h-full",
           method === 'GET' && "bg-blue-500",
@@ -138,7 +298,15 @@ const RouteItem: React.FC<RouteItemProps> = ({
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <MethodBadge method={method as any} />
+          {!isWebSocket && <MethodBadge method={method as any} />}
+          {isWebSocket && (
+            <div className="flex items-center gap-1">
+              <MessageSquare className="w-4 h-4 text-purple-600" />
+              <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                WS
+              </span>
+            </div>
+          )}
           
           <div className="flex-1 min-w-0">
             <div className={cn(
@@ -156,8 +324,12 @@ const RouteItem: React.FC<RouteItemProps> = ({
                   </span>
                 </div>
               )}
-              <ModeBadge headersOnly={isHeadersOnly} />
-              {hasAnyHeaders && (
+              <ModeBadge 
+                headersOnly={isHeadersOnly} 
+                isWebSocket={isWebSocket}
+                ruleCount={totalRules}
+              />
+              {!isWebSocket && hasAnyHeaders && (
                 <div className="flex items-center gap-1">
                   <Settings className="w-3 h-3 text-primary-500" />
                   <span className="text-xs text-primary-600 bg-primary-50 px-2 py-0.5 rounded">
@@ -170,10 +342,10 @@ const RouteItem: React.FC<RouteItemProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Status and delay indicators - only show for full interception */}
-          {!isHeadersOnly && (
+          {/* Status and delay indicators - only show for HTTP full interception */}
+          {!isWebSocket && !isHeadersOnly && (
             <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500">
-              <StatusBadge status={config.status} />
+              <StatusBadge status={httpConfig.status} />
               <div className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 <span>{config.delay}ms</span>
@@ -181,11 +353,11 @@ const RouteItem: React.FC<RouteItemProps> = ({
             </div>
           )}
 
-          {/* For headers-only mode, show delay only */}
-          {isHeadersOnly && config.delay > 0 && (
+          {/* For headers-only mode or WebSocket, show delay only if > 0 */}
+          {(isHeadersOnly || isWebSocket) && (config.delay ?? 0) > 0 && (
             <div className="hidden sm:flex items-center gap-1 text-xs text-gray-500">
               <Clock className="w-3 h-3" />
-              <span>{config.delay}ms</span>
+              <span>{config.delay ?? 0}ms</span>
             </div>
           )}
 
@@ -218,35 +390,42 @@ const RouteItem: React.FC<RouteItemProps> = ({
           >
             <div className="p-4 space-y-4">
               {/* Description */}
-              {description && (
-                <p className="text-sm text-gray-600">
-                  {description}
-                  {isHeadersOnly && (
-                    <span className="ml-2 text-blue-600 font-medium">
-                      (Headers will be modified, original response preserved)
-                    </span>
-                  )}
-                </p>
-              )}
+              <p className="text-sm text-gray-600">
+                {description}
+                {isHeadersOnly && (
+                  <span className="ml-2 text-blue-600 font-medium">
+                    (Headers will be modified, original response preserved)
+                  </span>
+                )}
+                {isWebSocket && (
+                  <span className="ml-2 text-purple-600 font-medium">
+                    (Real-time message processing)
+                  </span>
+                )}
+              </p>
 
               {/* Route info grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 p-3 rounded-lg">
                 <div>
                   <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                    Mode
+                    Type
                   </div>
                   <div className="mt-1">
-                    <ModeBadge headersOnly={isHeadersOnly} />
+                    <ModeBadge 
+                      headersOnly={isHeadersOnly} 
+                      isWebSocket={isWebSocket}
+                      ruleCount={totalRules}
+                    />
                   </div>
                 </div>
                 
-                {!isHeadersOnly && (
+                {!isWebSocket && !isHeadersOnly && (
                   <div>
                     <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                       Status
                     </div>
                     <div className="mt-1">
-                      <StatusBadge status={config.status} />
+                      <StatusBadge status={httpConfig.status} />
                     </div>
                   </div>
                 )}
@@ -256,11 +435,11 @@ const RouteItem: React.FC<RouteItemProps> = ({
                     Delay
                   </div>
                   <div className="mt-1 text-sm font-medium text-gray-900">
-                    {config.delay}ms
+                    {config.delay ?? 0}ms
                   </div>
                 </div>
                 
-                {!isHeadersOnly && (
+                {!isWebSocket && !isHeadersOnly && (
                   <div>
                     <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                       Content Type
@@ -281,8 +460,34 @@ const RouteItem: React.FC<RouteItemProps> = ({
                 </div>
               </div>
 
-              {/* Headers section */}
-              {hasAnyHeaders && (
+              {/* WebSocket Rules section */}
+              {isWebSocket && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-purple-600" />
+                    <span className="text-sm font-medium text-gray-700">WebSocket Rules</span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <WebSocketRulesDisplay
+                      rules={wsConfig.incomingRules || []}
+                      title="Incoming Message Rules"
+                      icon={<ArrowDownLeft className="w-4 h-4 text-green-600" />}
+                      direction="incoming"
+                    />
+                    
+                    <WebSocketRulesDisplay
+                      rules={wsConfig.outgoingRules || []}
+                      title="Outgoing Message Rules"
+                      icon={<ArrowUpRight className="w-4 h-4 text-blue-600" />}
+                      direction="outgoing"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* HTTP Headers section */}
+              {!isWebSocket && hasAnyHeaders && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Settings className="w-4 h-4 text-primary-600" />
@@ -290,30 +495,27 @@ const RouteItem: React.FC<RouteItemProps> = ({
                   </div>
                   
                   <div className="space-y-3">
-                    {/* Response Headers */}
                     {hasResponseHeaders && (
                       <HeaderDisplay
-                        headers={config.responseHeaders || {}}
+                        headers={httpConfig.responseHeaders || {}}
                         title={isHeadersOnly ? "Response Headers (Added to Real Response)" : "Response Headers"}
                         icon={<ArrowDownLeft className="w-4 h-4 text-green-600" />}
                         emptyMessage="No response headers configured"
                       />
                     )}
                     
-                    {/* Request Headers */}
                     {hasRequestHeaders && (
                       <HeaderDisplay
-                        headers={config.requestHeaders || {}}
+                        headers={httpConfig.requestHeaders || {}}
                         title="Request Headers (Added to Outgoing Request)"
                         icon={<ArrowUpRight className="w-4 h-4 text-blue-600" />}
                         emptyMessage="No request headers configured"
                       />
                     )}
                     
-                    {/* Remove Headers */}
                     {hasRemoveHeaders && (
                       <RemoveHeadersDisplay
-                        removeHeaders={config.removeRequestHeaders || []}
+                        removeHeaders={httpConfig.removeRequestHeaders || []}
                         title="Remove Request Headers"
                         icon={<Shield className="w-4 h-4 text-red-600" />}
                       />
@@ -322,8 +524,8 @@ const RouteItem: React.FC<RouteItemProps> = ({
                 </div>
               )}
 
-              {/* Response preview - only show for full interception or if response is provided in headers-only mode */}
-              {(!isHeadersOnly || (config.response && String(config.response).trim())) && (
+              {/* HTTP Response preview - only show for full interception or if response is provided in headers-only mode */}
+              {!isWebSocket && (!isHeadersOnly || (httpConfig.response && String(httpConfig.response).trim())) && (
                 <div className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
                   <div className="flex items-center justify-between px-3 py-2 bg-gray-100 border-b border-gray-200">
                     <div className="flex items-center gap-2">
@@ -539,7 +741,7 @@ const RemoveHeadersDisplay: React.FC<RemoveHeadersDisplayProps> = ({
   );
 };
 
-// Empty state components (unchanged)
+// Empty state components
 const EmptyState: React.FC<{ onAddRoute: () => void }> = ({ onAddRoute }) => (
   <div className="text-center py-12">
     <div className="w-16 h-16 mx-auto mb-4 bg-primary-50 rounded-full flex items-center justify-center">
@@ -547,8 +749,8 @@ const EmptyState: React.FC<{ onAddRoute: () => void }> = ({ onAddRoute }) => (
     </div>
     <h3 className="text-lg font-medium text-gray-900 mb-2">No routes configured yet</h3>
     <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-      Add your first route to start intercepting API requests. You can either replace responses entirely 
-      or modify headers while preserving the original response.
+      Add your first route to start intercepting requests. You can intercept HTTP requests, 
+      modify headers, or process WebSocket messages in real-time.
     </p>
     <Button variant="primary" onClick={onAddRoute} leftIcon={<Plus className="w-4 h-4" />}>
       Add Route
@@ -590,6 +792,30 @@ const RouteList: React.FC = () => {
 
   // Filter routes based on search and method filter
   const filteredRoutes = Object.entries(routes).filter(([routeKey, config]) => {
+    // Check route type filter
+    if (filters.routeType && filters.routeType !== 'all') {
+      const isWebSocket = routeKey.startsWith('WS:');
+      if (filters.routeType === 'websocket' && !isWebSocket) return false;
+      if (filters.routeType === 'http' && isWebSocket) return false;
+    }
+    
+    // For WebSocket routes, skip method filter
+    if (routeKey.startsWith('WS:')) {
+      const { url, name } = parseWebSocketKey(routeKey);
+      
+      // Search filter for WebSocket
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        return (
+          url.toLowerCase().includes(searchLower) ||
+          name?.toLowerCase().includes(searchLower) ||
+          'websocket'.includes(searchLower)
+        );
+      }
+      return true;
+    }
+    
+    // For HTTP routes
     const { method, url, name } = parseRouteKey(routeKey);
     
     // Method filter
@@ -652,14 +878,14 @@ const RouteList: React.FC = () => {
   };
 
   const handleClearFilters = () => {
-    setFilters({ search: '', method: 'all' });
+    setFilters({ search: '', method: 'all', routeType: 'all' });
   };
 
   if (Object.keys(routes).length === 0) {
     return <EmptyState onAddRoute={() => setActiveTab('add')} />;
   }
 
-  if (filteredRoutes.length === 0 && (filters.search || filters.method !== 'all')) {
+  if (filteredRoutes.length === 0 && (filters.search || filters.method !== 'all' || filters.routeType !== 'all')) {
     return <FilterEmptyState onClearFilters={handleClearFilters} />;
   }
 

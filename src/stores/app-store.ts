@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import { AppState, RouteConfig, Notification, FilterState, TabId, NotificationType } from '@/types';
+import { 
+  AppState, 
+  RouteConfig, 
+  WebSocketConfig, 
+  Notification, 
+  FilterState, 
+  TabId, 
+  NotificationType 
+} from '@/types';
 
 interface AppStore extends AppState {
   // State
@@ -8,12 +16,12 @@ interface AppStore extends AppState {
   filters: FilterState;
   editingRoute: string | null;
   
-  // Actions
+  // Actions - Updated to handle both RouteConfig and WebSocketConfig
   setEnabled: (enabled: boolean) => void;
-  setRoutes: (routes: Record<string, RouteConfig>) => void;
-  addRoute: (key: string, config: RouteConfig) => void;
+  setRoutes: (routes: Record<string, RouteConfig | WebSocketConfig>) => void;
+  addRoute: (key: string, config: RouteConfig | WebSocketConfig) => void;
   removeRoute: (key: string) => void;
-  updateRoute: (key: string, config: RouteConfig) => void;
+  updateRoute: (key: string, config: RouteConfig | WebSocketConfig) => void;
   toggleRoute: (key: string, enabled: boolean) => void;
   clearRoutes: () => void;
   
@@ -26,6 +34,12 @@ interface AppStore extends AppState {
   addNotification: (title: string, message: string, type?: NotificationType) => void;
   removeNotification: (id: string) => void;
   clearNotifications: () => void;
+  
+  // Helper methods for route type detection
+  isWebSocketRoute: (key: string) => boolean;
+  getHttpRoutes: () => Record<string, RouteConfig>;
+  getWebSocketRoutes: () => Record<string, WebSocketConfig>;
+  getRoutesByType: (type: 'http' | 'websocket' | 'all') => Record<string, RouteConfig | WebSocketConfig>;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -36,7 +50,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   notifications: [],
   filters: {
     search: '',
-    method: 'all'
+    method: 'all',
+    routeType: 'all' // Added route type filter
   },
   editingRoute: null,
 
@@ -59,7 +74,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     routes: { ...state.routes, [key]: config }
   })),
   
-  // Fixed toggleRoute to properly update the state
+  // Fixed toggleRoute to properly update the state for both route types
   toggleRoute: (key, enabled) => set((state) => {
     const currentConfig = state.routes[key];
     if (!currentConfig) return state; // Route doesn't exist
@@ -104,5 +119,46 @@ export const useAppStore = create<AppStore>((set, get) => ({
     notifications: state.notifications.filter(n => n.id !== id)
   })),
   
-  clearNotifications: () => set({ notifications: [] })
+  clearNotifications: () => set({ notifications: [] }),
+
+  // Helper methods
+  isWebSocketRoute: (key) => key.startsWith('WS:'),
+  
+  getHttpRoutes: () => {
+    const state = get();
+    const httpRoutes: Record<string, RouteConfig> = {};
+    
+    Object.entries(state.routes).forEach(([key, config]) => {
+      if (!key.startsWith('WS:')) {
+        httpRoutes[key] = config as RouteConfig;
+      }
+    });
+    
+    return httpRoutes;
+  },
+  
+  getWebSocketRoutes: () => {
+    const state = get();
+    const wsRoutes: Record<string, WebSocketConfig> = {};
+    
+    Object.entries(state.routes).forEach(([key, config]) => {
+      if (key.startsWith('WS:')) {
+        wsRoutes[key] = config as WebSocketConfig;
+      }
+    });
+    
+    return wsRoutes;
+  },
+  
+  getRoutesByType: (type) => {
+    const state = get();
+    
+    if (type === 'http') {
+      return state.getHttpRoutes();
+    } else if (type === 'websocket') {
+      return state.getWebSocketRoutes();
+    } else {
+      return state.routes; // Return all routes
+    }
+  }
 }));

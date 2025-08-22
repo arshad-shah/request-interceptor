@@ -5,102 +5,23 @@ import {
   Upload, 
   Code, 
   Import, 
-  X, 
-  ChevronRight,
-  Sparkles,
-  Database,
-  Shield,
-  ShoppingCart,
-  Zap
+  X,
+  Zap,
+  MessageSquare,
+  Filter
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
-import { chromeApi, validateJson, formatJson } from '@/lib/chrome-api';
-import { Template, TemplateRoute } from '@/types';
-import { cn, formatTemplateName } from '@/lib/utils';
+import { chromeApi, validateJson } from '@/lib/chrome-api';
+import { RouteConfig, WebSocketConfig } from '@/types';
+import { cn } from '@/lib/utils';
 import { MethodBadge, StatusBadge } from './ui/Badge';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import ReactAceEditor from './ReactAceEditor';
 import CodeHighlighter from '@/components/Codehighlighter';
-import templates from '@/lib/templates';
-
-const templateIcons = {
-  "Basic API": Zap,
-  "CRUD API": Database,
-  "Authentication API": Shield,
-  "E-commerce API": ShoppingCart
-};
-
-interface TemplateCardProps {
-  name: string;
-  template: Template;
-  isSelected: boolean;
-  onSelect: () => void;
-}
-
-const TemplateCard: React.FC<TemplateCardProps> = ({ 
-  name, 
-  template, 
-  isSelected, 
-  onSelect 
-}) => {
-  const Icon = templateIcons[name as keyof typeof templateIcons] || FileCode;
-  const routeCount = template.routes.length;
-  const methods = [...new Set(template.routes.map(r => r.method))];
-
-  return (
-    <motion.div
-      whileHover={{ scale: 1.02, y: -2 }}
-      whileTap={{ scale: 0.98 }}
-      className={cn(
-        "relative p-4 border-2 rounded-lg cursor-pointer transition-all duration-200",
-        "bg-white hover:shadow-md",
-        isSelected 
-          ? "border-primary-500 bg-primary-50 shadow-md" 
-          : "border-gray-200 hover:border-gray-300"
-      )}
-      onClick={onSelect}
-    >
-      <div className="flex items-start gap-3">
-        <div className={cn(
-          "w-10 h-10 rounded-lg flex items-center justify-center",
-          isSelected ? "bg-primary-500 text-white" : "bg-gray-100 text-gray-600"
-        )}>
-          <Icon className="w-5 h-5" />
-        </div>
-        
-        <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-gray-900 mb-1">{formatTemplateName(name)}</h3>
-          <p className="text-sm text-gray-500 mb-2">
-            {routeCount} route{routeCount !== 1 ? 's' : ''}
-          </p>
-          
-          <div className="flex items-center gap-1 flex-wrap">
-            {methods.map(method => (
-              <MethodBadge key={method} method={method as any} className="text-xs" />
-            ))}
-          </div>
-        </div>
-        
-        <ChevronRight className={cn(
-          "w-4 h-4 transition-colors",
-          isSelected ? "text-primary-500" : "text-gray-400"
-        )} />
-      </div>
-      
-      {isSelected && (
-        <motion.div
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-          className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500 origin-left"
-        />
-      )}
-    </motion.div>
-  );
-};
 
 interface RoutePreviewProps {
-  routes: TemplateRoute[];
+  routes: any[];
 }
 
 const RoutePreview: React.FC<RoutePreviewProps> = ({ routes }) => {
@@ -113,9 +34,23 @@ const RoutePreview: React.FC<RoutePreviewProps> = ({ routes }) => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.05 }}
-            className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
+            className={cn(
+              "flex items-center gap-3 p-3 rounded-lg border",
+              route.routeType === 'websocket' 
+                ? "bg-purple-50 border-purple-200" 
+                : "bg-gray-50 border-gray-200"
+            )}
           >
-            <MethodBadge method={route.method} />
+            {route.routeType === 'websocket' ? (
+              <div className="flex items-center gap-1">
+                <MessageSquare className="w-4 h-4 text-purple-600" />
+                <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                  WS
+                </span>
+              </div>
+            ) : (
+              <MethodBadge method={route.method} />
+            )}
             
             <div className="flex-1 min-w-0">
               <div className="font-mono text-sm font-medium text-gray-900 truncate">
@@ -124,9 +59,22 @@ const RoutePreview: React.FC<RoutePreviewProps> = ({ routes }) => {
               {route.name && (
                 <div className="text-xs text-gray-500 mt-1">{route.name}</div>
               )}
+              {route.routeType === 'websocket' && (
+                <div className="text-xs text-purple-600 mt-1">
+                  {(route.incomingRules?.length || 0) + (route.outgoingRules?.length || 0)} rules
+                </div>
+              )}
             </div>
             
-            <StatusBadge status={route.status} />
+            {route.routeType !== 'websocket' && route.status && (
+              <StatusBadge status={route.status} />
+            )}
+            
+            {route.headersOnly && (
+              <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                Headers-Only
+              </span>
+            )}
           </motion.div>
         ))}
       </AnimatePresence>
@@ -136,23 +84,11 @@ const RoutePreview: React.FC<RoutePreviewProps> = ({ routes }) => {
 
 const TemplatesTab: React.FC = () => {
   const { addNotification, setActiveTab, addRoute } = useAppStore();
-  
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+
   const [schemaInput, setSchemaInput] = useState('');
-  const [parsedRoutes, setParsedRoutes] = useState<TemplateRoute[]>([]);
+  const [parsedRoutes, setParsedRoutes] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-
-  const handleTemplateSelect = (templateName: string) => {
-    setSelectedTemplate(templateName);
-    const template = templates[templateName];
-    if (template) {
-      const formattedSchema = formatJson({ routes: template.routes });
-      setSchemaInput(formattedSchema);
-      setParsedRoutes(template.routes);
-      setShowPreview(true);
-    }
-  };
 
   const handleParseSchema = () => {
     if (!schemaInput.trim()) {
@@ -172,8 +108,24 @@ const TemplatesTab: React.FC = () => {
       return;
     }
 
+    // Enhanced validation for both HTTP and WebSocket routes
     const validRoutes = schema.routes.filter((route: any) => {
-      return route.method && route.url && route.response !== undefined;
+      if (route.routeType === 'websocket') {
+        // WebSocket route validation
+        return route.url && (
+          (route.incomingRules && route.incomingRules.length > 0) ||
+          (route.outgoingRules && route.outgoingRules.length > 0)
+        );
+      } else {
+        // HTTP route validation
+        return route.method && route.url && (
+          route.response !== undefined || 
+          route.headersOnly === true ||
+          (route.responseHeaders && Object.keys(route.responseHeaders).length > 0) ||
+          (route.requestHeaders && Object.keys(route.requestHeaders).length > 0) ||
+          (route.removeRequestHeaders && route.removeRequestHeaders.length > 0)
+        );
+      }
     });
 
     if (validRoutes.length === 0) {
@@ -183,7 +135,6 @@ const TemplatesTab: React.FC = () => {
 
     setParsedRoutes(validRoutes);
     setShowPreview(true);
-    setSelectedTemplate(null);
     addNotification('Success', `Parsed ${validRoutes.length} routes successfully`);
   };
 
@@ -199,19 +150,43 @@ const TemplatesTab: React.FC = () => {
       let importedCount = 0;
 
       for (const route of parsedRoutes) {
-        const routeKey = route.name 
-          ? `${route.method}:${route.url}|${route.name}`
-          : `${route.method}:${route.url}`;
+        let routeKey: string;
+        let routeConfig: RouteConfig | WebSocketConfig;
 
-        const routeConfig = {
-          status: route.status || 200,
-          delay: route.delay || 0,
-          contentType: route.contentType || 'application/json',
-          response: route.response,
-          enabled: route.enabled !== false,
-          timestamp: Date.now(),
-          name: route.name
-        };
+        if (route.routeType === 'websocket') {
+          // WebSocket route
+          routeKey = route.name 
+            ? `WS:${route.url}|${route.name}`
+            : `WS:${route.url}`;
+
+          routeConfig = {
+            enabled: route.enabled !== false,
+            timestamp: Date.now(),
+            name: route.name,
+            incomingRules: route.incomingRules || [],
+            outgoingRules: route.outgoingRules || [],
+            delay: route.delay || 0
+          } as WebSocketConfig;
+        } else {
+          // HTTP route
+          routeKey = route.name 
+            ? `${route.method}:${route.url}|${route.name}`
+            : `${route.method}:${route.url}`;
+
+          routeConfig = {
+            status: route.status || 200,
+            delay: route.delay || 0,
+            contentType: route.contentType || 'application/json',
+            response: route.response,
+            enabled: route.enabled !== false,
+            timestamp: Date.now(),
+            name: route.name,
+            responseHeaders: route.responseHeaders || {},
+            requestHeaders: route.requestHeaders || {},
+            removeRequestHeaders: route.removeRequestHeaders || [],
+            headersOnly: route.headersOnly || false
+          } as RouteConfig;
+        }
 
         try {
           await chromeApi.addRoute(routeKey, routeConfig, route.name);
@@ -231,7 +206,6 @@ const TemplatesTab: React.FC = () => {
       setSchemaInput('');
       setParsedRoutes([]);
       setShowPreview(false);
-      setSelectedTemplate(null);
       setActiveTab('routes');
       
     } catch (error) {
@@ -269,29 +243,6 @@ const TemplatesTab: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Template Selection */}
-      <Card>
-        <Card.Header>
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary-500" />
-            <span>Quick Start Templates</span>
-          </div>
-        </Card.Header>
-        
-        <Card.Body>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(templates).map(([name, template]) => (
-              <TemplateCard
-                key={name}
-                name={name}
-                template={template}
-                isSelected={selectedTemplate === name}
-                onSelect={() => handleTemplateSelect(name)}
-              />
-            ))}
-          </div>
-        </Card.Body>
-      </Card>
 
       {/* Schema Import */}
       <Card>
@@ -352,6 +303,20 @@ const TemplatesTab: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-primary-500 rounded-full animate-pulse-dot" />
                     <span>{parsedRoutes.length} routes ready to import</span>
+                    
+                    {/* Route type breakdown */}
+                    <div className="flex items-center gap-2 ml-4">
+                      {parsedRoutes.some(r => r.routeType !== 'websocket') && (
+                        <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
+                          {parsedRoutes.filter(r => r.routeType !== 'websocket').length} HTTP
+                        </span>
+                      )}
+                      {parsedRoutes.some(r => r.routeType === 'websocket') && (
+                        <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                          {parsedRoutes.filter(r => r.routeType === 'websocket').length} WebSocket
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <Button
                     variant="ghost"
@@ -359,7 +324,6 @@ const TemplatesTab: React.FC = () => {
                     onClick={() => {
                       setShowPreview(false);
                       setParsedRoutes([]);
-                      setSelectedTemplate(null);
                     }}
                   >
                     <X className="w-4 h-4" />
@@ -385,15 +349,21 @@ const TemplatesTab: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Schema Format Example */}
+      {/* Schema Format Examples */}
       <Card>
         <Card.Header>
-          <span>Schema Format Example</span>
+          <span>Schema Format Examples</span>
         </Card.Header>
         
-        <Card.Body>
-          <div className="bg-gray-50 rounded-lg p-4 overflow-auto">
-            <CodeHighlighter code={`{
+        <Card.Body className="space-y-6">
+          {/* HTTP Route Example */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-green-600" />
+              HTTP Route Example
+            </h4>
+            <div className="bg-gray-50 rounded-lg p-4 overflow-auto">
+              <CodeHighlighter code={`{
   "routes": [
     {
       "method": "GET",
@@ -408,10 +378,91 @@ const TemplatesTab: React.FC = () => {
           {"id": 1, "name": "John Doe"},
           {"id": 2, "name": "Jane Smith"}
         ]
-      }
+      },
+      "responseHeaders": {
+        "Access-Control-Allow-Origin": "*",
+        "X-API-Version": "1.0"
+      },
+      "requestHeaders": {
+        "Authorization": "Bearer test-token"
+      },
+      "removeRequestHeaders": ["Cookie"]
     }
   ]
 }`} language="json" />
+            </div>
+          </div>
+
+          {/* Headers-Only Example */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <Filter className="w-4 h-4 text-blue-600" />
+              Headers-Only Route Example
+            </h4>
+            <div className="bg-gray-50 rounded-lg p-4 overflow-auto">
+              <CodeHighlighter code={`{
+  "routes": [
+    {
+      "method": "GET",
+      "url": "/api/*",
+      "name": "CORS Headers",
+      "headersOnly": true,
+      "enabled": true,
+      "responseHeaders": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE"
+      },
+      "requestHeaders": {
+        "X-Test-Mode": "true"
+      },
+      "removeRequestHeaders": ["Authorization"]
+    }
+  ]
+}`} language="json" />
+            </div>
+          </div>
+
+          {/* WebSocket Example */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-purple-600" />
+              WebSocket Route Example
+            </h4>
+            <div className="bg-gray-50 rounded-lg p-4 overflow-auto">
+              <CodeHighlighter code={`{
+  "routes": [
+    {
+      "routeType": "websocket",
+      "url": "wss://api.example.com/chat",
+      "name": "Chat Filter",
+      "delay": 100,
+      "enabled": true,
+      "incomingRules": [
+        {
+          "id": "replace-username",
+          "enabled": true,
+          "type": "replace",
+          "matchType": "regex",
+          "match": "\\"username\\":\\"([^\"]+)\\"",
+          "replacement": "\\"username\\":\\"TestUser\\"",
+          "flags": "g",
+          "description": "Replace usernames with TestUser"
+        }
+      ],
+      "outgoingRules": [
+        {
+          "id": "block-spam",
+          "enabled": true,
+          "type": "block",
+          "matchType": "contains",
+          "match": "SPAM",
+          "description": "Block spam messages"
+        }
+      ]
+    }
+  ]
+}`} language="json" />
+            </div>
           </div>
         </Card.Body>
       </Card>

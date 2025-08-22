@@ -1,6 +1,6 @@
 import React from 'react';
-import SyntaxHighlighter  from 'react-syntax-highlighter';
-import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import SyntaxHighlighter from 'react-syntax-highlighter';
+import tomorrowNightBright  from 'react-syntax-highlighter/dist/cjs/styles/hljs/tomorrow-night-bright';
 
 interface CodeHighlighterProps {
     code: string;
@@ -12,7 +12,7 @@ const CodeHighlighter: React.FC<CodeHighlighterProps> = ({
     language = 'javascript' 
 }) => {
     return (
-        <SyntaxHighlighter language={language} style={docco}>
+        <SyntaxHighlighter language={language} style={tomorrowNightBright}>
             {code}
         </SyntaxHighlighter>
     );

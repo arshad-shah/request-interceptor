@@ -1,7 +1,26 @@
+// Complete types for the Request Interceptor extension
+
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+export type RouteType = 'http' | 'websocket';
+export type MessageDirection = 'incoming' | 'outgoing';
+export type MatchType = 'exact' | 'contains' | 'regex';
+export type RuleType = 'replace' | 'block' | 'inject';
+
 export interface HeaderConfig {
   [key: string]: string;
 }
+
+export interface WebSocketRule {
+  id: string;
+  enabled: boolean;
+  type: RuleType;
+  matchType: MatchType;
+  match: string;
+  replacement?: string;
+  flags?: string; // For regex flags
+  description?: string;
+}
+
 export interface RouteConfig {
   status: number;
   delay: number;
@@ -13,22 +32,35 @@ export interface RouteConfig {
   responseHeaders?: HeaderConfig;
   requestHeaders?: HeaderConfig;
   removeRequestHeaders?: string[];
-  headersOnly?: boolean; // NEW: Flag to enable headers-only mode
+  headersOnly?: boolean;
 }
 
+export interface WebSocketConfig {
+  enabled: boolean;
+  timestamp: number;
+  name?: string;
+  incomingRules: WebSocketRule[];
+  outgoingRules: WebSocketRule[];
+  delay?: number;
+}
 
 export interface Route {
   key: string;
-  config: RouteConfig;
+  config: RouteConfig | WebSocketConfig;
 }
 
 export interface AppState {
   enabled: boolean;
-  routes: Record<string, RouteConfig>;
+  routes: Record<string, RouteConfig | WebSocketConfig>;
 }
 
 export interface ParsedRoute {
   method: HttpMethod;
+  url: string;
+  name?: string;
+}
+
+export interface ParsedWebSocketRoute {
   url: string;
   name?: string;
 }
@@ -46,9 +78,23 @@ export interface TemplateRoute {
   contentType: string;
   enabled?: boolean;
   response: any;
-    responseHeaders?: HeaderConfig;
+  responseHeaders?: HeaderConfig;
   requestHeaders?: HeaderConfig;
   removeRequestHeaders?: string[];
+  headersOnly?: boolean;
+}
+
+export interface WebSocketTemplate {
+  routes: WebSocketTemplateRoute[];
+}
+
+export interface WebSocketTemplateRoute {
+  routeType: 'websocket';
+  url: string;
+  name?: string;
+  delay?: number;
+  incomingRules: WebSocketRule[];
+  outgoingRules: WebSocketRule[];
 }
 
 export type NotificationType = 'success' | 'error' | 'info' | 'warning';
@@ -69,6 +115,7 @@ export interface ChromeMessage {
 export type TabId = 'routes' | 'add' | 'templates';
 
 export interface RouteFormData {
+  routeType: RouteType;
   name: string;
   url: string;
   method: HttpMethod;
@@ -79,10 +126,22 @@ export interface RouteFormData {
   responseHeaders: HeaderConfig;
   requestHeaders: HeaderConfig;
   removeRequestHeaders: string[];
-  headersOnly: boolean; // NEW: Flag for headers-only mode
+  headersOnly: boolean;
+  // WebSocket specific
+  incomingRules: WebSocketRule[];
+  outgoingRules: WebSocketRule[];
+}
+
+export interface WebSocketFormData {
+  name: string;
+  url: string;
+  incomingRules: WebSocketRule[];
+  outgoingRules: WebSocketRule[];
+  delay: number;
 }
 
 export interface FilterState {
   search: string;
   method: 'all' | HttpMethod;
+  routeType?: 'all' | RouteType;
 }

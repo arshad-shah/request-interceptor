@@ -1,4 +1,4 @@
-// Enhanced injected script with headers-only interception mode
+// Complete injected script with HTTP, Headers-Only, and WebSocket interception
 
 (function() {
   const RequestInterceptor = (function() {
@@ -7,10 +7,13 @@
     const originalXHROpen = XMLHttpRequest.prototype.open;
     const originalXHRSend = XMLHttpRequest.prototype.send;
     const originalXHRSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+    const originalWebSocket = window.WebSocket;
     
     // Internal state
     let isActive = false;
     let interceptedRoutes: Record<string, any> = {};
+    let interceptedWebSockets: Record<string, any> = {};
+    let activeWebSockets: Map<WebSocket, any> = new Map();
     
     /**
      * Log a message to the console and notify the content script
@@ -42,6 +45,23 @@
       const name = remaining.substring(pipeIndex + 1);
       
       return { method, url, name };
+    }
+
+    /**
+     * Parse WebSocket route key
+     */
+    function parseWebSocketKey(routeKey: string) {
+      const remaining = routeKey.substring(3); // Remove 'WS:'
+      const pipeIndex = remaining.indexOf('|');
+      
+      if (pipeIndex === -1) {
+        return { url: remaining, name: '' };
+      }
+      
+      const url = remaining.substring(0, pipeIndex);
+      const name = remaining.substring(pipeIndex + 1);
+      
+      return { url, name };
     }
 
     /**
@@ -123,6 +143,137 @@
     }
     
     /**
+     * Check if a WebSocket should be intercepted
+     */
+    function shouldInterceptWebSocket(url: string): string | null {
+      log(`Checking WebSocket interception for: ${url}`);
+      log(`Available WebSocket routes: ${Object.keys(interceptedWebSockets).length}`);
+      
+      // Find enabled WebSocket routes
+      const enabledRoutes = Object.keys(interceptedWebSockets).filter(key => {
+        const config = interceptedWebSockets[key];
+        const isEnabled = config.enabled === true || config.enabled === undefined || config.enabled !== false;
+        return isEnabled && key.startsWith('WS:');
+      });
+      
+      log(`Enabled WebSocket routes: ${enabledRoutes.length}`);
+      
+      // Find matching routes
+      for (const routeKey of enabledRoutes) {
+        const { url: routeUrl } = parseWebSocketKey(routeKey);
+        
+        log(`Checking WebSocket route: ${routeUrl} (${routeKey})`);
+        
+        if (urlMatches(url, routeUrl)) {
+          log(`✓ Found matching WebSocket route: ${routeKey}`);
+          return routeKey;
+        } else {
+          log(`WebSocket URL mismatch: ${url} does not match ${routeUrl}`);
+        }
+      }
+      
+      log(`No matching WebSocket route found for: ${url}`);
+      return null;
+    }
+
+    /**
+     * Process message based on configuration
+     */
+    function processMessage(message: any, config: any, direction: 'incoming' | 'outgoing'): any {
+      if (!config) return message;
+      
+      const rules = direction === 'incoming' ? config.incomingRules : config.outgoingRules;
+      if (!rules || rules.length === 0) return message;
+      
+      let processedMessage = message;
+      
+      // Convert message to string if it's not already
+      if (typeof processedMessage !== 'string') {
+        if (processedMessage instanceof ArrayBuffer) {
+          processedMessage = new TextDecoder().decode(processedMessage);
+        } else if (processedMessage instanceof Blob) {
+          // For Blob, we'll need to handle this asynchronously, but for now return as-is
+          return processedMessage;
+        } else {
+          processedMessage = String(processedMessage);
+        }
+      }
+      
+      // Apply each rule
+      for (const rule of rules) {
+        if (!rule.enabled) continue;
+        
+        try {
+          switch (rule.type) {
+            case 'replace':
+              if (rule.matchType === 'exact') {
+                if (processedMessage === rule.match) {
+                  processedMessage = rule.replacement;
+                  log(`WebSocket ${direction} message replaced (exact match)`);
+                }
+              } else if (rule.matchType === 'contains') {
+                if (processedMessage.includes(rule.match)) {
+                  processedMessage = processedMessage.replace(new RegExp(escapeRegExp(rule.match), 'g'), rule.replacement);
+                  log(`WebSocket ${direction} message replaced (contains match)`);
+                }
+              } else if (rule.matchType === 'regex') {
+                const regex = new RegExp(rule.match, rule.flags || 'g');
+                if (regex.test(processedMessage)) {
+                  processedMessage = processedMessage.replace(regex, rule.replacement);
+                  log(`WebSocket ${direction} message replaced (regex match)`);
+                }
+              }
+              break;
+              
+            case 'block':
+              if (rule.matchType === 'exact' && processedMessage === rule.match) {
+                log(`WebSocket ${direction} message blocked (exact match)`);
+                return null; // Block the message
+              } else if (rule.matchType === 'contains' && processedMessage.includes(rule.match)) {
+                log(`WebSocket ${direction} message blocked (contains match)`);
+                return null; // Block the message
+              } else if (rule.matchType === 'regex') {
+                const regex = new RegExp(rule.match, rule.flags || 'g');
+                if (regex.test(processedMessage)) {
+                  log(`WebSocket ${direction} message blocked (regex match)`);
+                  return null; // Block the message
+                }
+              }
+              break;
+              
+            case 'inject':
+              // For inject, we send the replacement message and continue with original
+              if (rule.matchType === 'exact' && processedMessage === rule.match) {
+                log(`WebSocket ${direction} message injection triggered (exact match)`);
+                (processedMessage as any).__inject = rule.replacement;
+              } else if (rule.matchType === 'contains' && processedMessage.includes(rule.match)) {
+                log(`WebSocket ${direction} message injection triggered (contains match)`);
+                (processedMessage as any).__inject = rule.replacement;
+              } else if (rule.matchType === 'regex') {
+                const regex = new RegExp(rule.match, rule.flags || 'g');
+                if (regex.test(processedMessage)) {
+                  log(`WebSocket ${direction} message injection triggered (regex match)`);
+                  (processedMessage as any).__inject = rule.replacement;
+                }
+              }
+              break;
+          }
+        } catch (error) {
+          log(`Error processing WebSocket rule: ${error}`);
+        }
+      }
+      
+      return processedMessage;
+    }
+    
+    /**
+     * Escape string for use in regex
+     */
+    function escapeRegExp(string: string): string {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    
+    /**
      * Check if a request should be intercepted based on configured routes
      */
     function shouldIntercept(method: string, url: string): { routeKey: string; mode: 'full' | 'headers-only' } | null {
@@ -190,7 +341,6 @@
                         (config.requestHeaders && Object.keys(config.requestHeaders).length > 0) ||
                         (config.removeRequestHeaders && config.removeRequestHeaders.length > 0);
       
-      // NEW: Headers-only mode logic
       const mode = config.headersOnly || (!hasResponse && hasHeaders) ? 'headers-only' : 'full';
       
       log(`Interception mode: ${mode} (hasResponse: ${hasResponse}, hasHeaders: ${hasHeaders}, headersOnly: ${config.headersOnly})`);
@@ -318,12 +468,205 @@
     }
     
     /**
+     * Set up WebSocket interception
+     */
+    function setupWebSocketInterceptor() {
+      (window as any).WebSocket = function(url: string | URL, protocols?: string | string[]) {
+        const wsUrl = String(url);
+        const routeKey = shouldInterceptWebSocket(wsUrl);
+        
+        if (routeKey) {
+          log(`✓ Intercepting WebSocket: ${wsUrl} with route: ${routeKey}`);
+          const config = interceptedWebSockets[routeKey];
+          
+          // Create the actual WebSocket connection
+          const realWs = new originalWebSocket(wsUrl, protocols);
+          const interceptedWs = Object.create(originalWebSocket.prototype);
+          
+          // Store the config for this WebSocket
+          activeWebSockets.set(interceptedWs, { config, realWs, url: wsUrl });
+          
+          // Proxy all properties and methods
+          const propertiesToProxy = [
+            'url', 'readyState', 'bufferedAmount', 'extensions', 'protocol'
+          ];
+          
+          propertiesToProxy.forEach(prop => {
+            Object.defineProperty(interceptedWs, prop, {
+              get() { return (realWs as any)[prop]; },
+              configurable: true
+            });
+          });
+          
+          // Proxy methods
+          interceptedWs.send = function(data: any) {
+            log(`WebSocket outgoing message: ${data}`);
+            
+            const processedData = processMessage(data, config, 'outgoing');
+            
+            if (processedData === null) {
+              log(`WebSocket outgoing message blocked`);
+              return; // Block the message
+            }
+            
+            // Handle injection
+            if (processedData && (processedData as any).__inject) {
+              const injectedMessage = (processedData as any).__inject;
+              delete (processedData as any).__inject;
+              
+              // Send injected message first
+              log(`WebSocket injecting outgoing message: ${injectedMessage}`);
+              realWs.send(injectedMessage);
+            }
+            
+            // Send the processed message
+            realWs.send(processedData);
+          };
+          
+          interceptedWs.close = function(code?: number, reason?: string) {
+            activeWebSockets.delete(interceptedWs);
+            return realWs.close(code, reason);
+          };
+          
+          // Proxy event handlers
+          const eventProperties = ['onopen', 'onclose', 'onerror', 'onmessage'];
+          eventProperties.forEach(prop => {
+            Object.defineProperty(interceptedWs, prop, {
+              get() { return (realWs as Record<string, any>)[prop]; },
+              set(handler) {
+                if (prop === 'onmessage' && handler) {
+                  // Intercept incoming messages
+                  realWs[prop] = function(event: MessageEvent) {
+                    log(`WebSocket incoming message: ${event.data}`);
+                    
+                    const processedData = processMessage(event.data, config, 'incoming');
+                    
+                    if (processedData === null) {
+                      log(`WebSocket incoming message blocked`);
+                      return; // Block the message
+                    }
+                    
+                    // Handle injection
+                    if (processedData && (processedData as any).__inject) {
+                      const injectedMessage = (processedData as any).__inject;
+                      delete (processedData as any).__inject;
+                      
+                      // Create and dispatch injected message event
+                      log(`WebSocket injecting incoming message: ${injectedMessage}`);
+                      const injectedEvent = new MessageEvent('message', {
+                        data: injectedMessage,
+                        origin: event.origin,
+                        lastEventId: event.lastEventId,
+                        source: event.source,
+                        ports: [...event.ports]
+                      });
+                      handler.call(interceptedWs, injectedEvent);
+                    }
+                    
+                    // Create new event with processed data
+                    const newEvent = new MessageEvent('message', {
+                      data: processedData,
+                      origin: event.origin,
+                      lastEventId: event.lastEventId,
+                      source: event.source,
+                      ports: [...event.ports]
+                    });
+                    
+                    handler.call(interceptedWs, newEvent);
+                  };
+                } else {
+                  (realWs as any)[prop] = handler ? handler.bind(interceptedWs) : handler;
+                }
+              },
+              configurable: true
+            });
+          });
+          
+          // Proxy addEventListener and removeEventListener
+          interceptedWs.addEventListener = function(type: string, listener: any, options?: any) {
+            if (type === 'message' && listener) {
+              const wrappedListener = function(event: MessageEvent) {
+                log(`WebSocket incoming message (addEventListener): ${event.data}`);
+                
+                const processedData = processMessage(event.data, config, 'incoming');
+                
+                if (processedData === null) {
+                  log(`WebSocket incoming message blocked (addEventListener)`);
+                  return; // Block the message
+                }
+                
+                // Handle injection
+                if (processedData && (processedData as any).__inject) {
+                  const injectedMessage = (processedData as any).__inject;
+                  delete (processedData as any).__inject;
+                  
+                  // Create and dispatch injected message event
+                  log(`WebSocket injecting incoming message (addEventListener): ${injectedMessage}`);
+                  const injectedEvent = new MessageEvent('message', {
+                    data: injectedMessage,
+                    origin: event.origin,
+                    lastEventId: event.lastEventId,
+                    source: event.source,
+                    ports: [...event.ports]
+                  });
+                  listener.call(interceptedWs, injectedEvent);
+                }
+                
+                // Create new event with processed data
+                const newEvent = new MessageEvent('message', {
+                  data: processedData,
+                  origin: event.origin,
+                  lastEventId: event.lastEventId,
+                  source: event.source,
+                  ports: [...event.ports]
+                });
+                
+                listener.call(interceptedWs, newEvent);
+              };
+              
+              return realWs.addEventListener(type, wrappedListener, options);
+            } else {
+              return realWs.addEventListener(type, listener ? listener.bind(interceptedWs) : listener, options);
+            }
+          };
+          
+          interceptedWs.removeEventListener = function(type: string, listener: any, options?: any) {
+            return realWs.removeEventListener(type, listener, options);
+          };
+          
+          interceptedWs.dispatchEvent = function(event: Event) {
+            return realWs.dispatchEvent(event);
+          };
+          
+          // Set up constants
+          Object.defineProperty(interceptedWs, 'CONNECTING', { value: 0, writable: false });
+          Object.defineProperty(interceptedWs, 'OPEN', { value: 1, writable: false });
+          Object.defineProperty(interceptedWs, 'CLOSING', { value: 2, writable: false });
+          Object.defineProperty(interceptedWs, 'CLOSED', { value: 3, writable: false });
+          
+          return interceptedWs;
+        }
+        
+        // If not intercepted, create normal WebSocket
+        log(`→ Not intercepting WebSocket: ${wsUrl}`);
+        return new originalWebSocket(url, protocols);
+      };
+      
+      // Copy static properties
+      (window as any).WebSocket.CONNECTING = 0;
+      (window as any).WebSocket.OPEN = 1;
+      (window as any).WebSocket.CLOSING = 2;
+      (window as any).WebSocket.CLOSED = 3;
+    }
+    
+    /**
      * Initialize the interceptor
      */
     function init() {
       setupFetchInterceptor();
       setupXHRInterceptor();
-      log('Request Interceptor initialized with headers-only support');
+      setupWebSocketInterceptor();
+      log('Request Interceptor initialized with full support');
     }
     
     /**
@@ -522,9 +865,9 @@
               }
               
               // Re-apply all headers to the XHR
-                currentHeaders.forEach((value: string, key: string) => {
+              currentHeaders.forEach((value: string, key: string) => {
                 originalXHRSetRequestHeader.call(this, key, value);
-                });
+              });
             }
             
             // If we need to modify response headers, intercept the response
@@ -588,6 +931,11 @@
       XMLHttpRequest.prototype.open = originalXHROpen;
       XMLHttpRequest.prototype.send = originalXHRSend;
       XMLHttpRequest.prototype.setRequestHeader = originalXHRSetRequestHeader;
+      (window as any).WebSocket = originalWebSocket;
+      
+      // Close all active WebSocket connections
+      activeWebSockets.clear();
+      
       isActive = false;
       log('Request Interceptor destroyed');
     }
@@ -595,12 +943,26 @@
     // Public API
     return {
       initialize: function(routes: Record<string, any>) {
-        interceptedRoutes = routes || {};
+        interceptedRoutes = {};
+        interceptedWebSockets = {};
+        
+        // Separate HTTP routes and WebSocket routes
+        Object.keys(routes || {}).forEach(key => {
+          if (key.startsWith('WS:')) {
+            interceptedWebSockets[key] = routes[key];
+          } else {
+            interceptedRoutes[key] = routes[key];
+          }
+        });
+        
         isActive = true;
         init();
-        log(`Request Interceptor activated with ${Object.keys(interceptedRoutes).length} routes`);
         
-        // Debug: Log all routes with their enabled status and mode
+        const httpRoutes = Object.keys(interceptedRoutes).length;
+        const wsRoutes = Object.keys(interceptedWebSockets).length;
+        log(`Request Interceptor activated with ${httpRoutes} HTTP routes and ${wsRoutes} WebSocket routes`);
+        
+        // Debug: Log all routes
         Object.keys(interceptedRoutes).forEach(key => {
           const config = interceptedRoutes[key];
           const { method, url, name } = parseRouteKey(key);
@@ -611,27 +973,19 @@
                             (config.removeRequestHeaders && config.removeRequestHeaders.length > 0);
           const mode = config.headersOnly || (!hasResponse && hasHeaders) ? 'headers-only' : 'full';
           
-          log(`Route: ${method} ${url} ${name ? `(${name})` : ''} - ${isEnabled ? 'ENABLED' : 'DISABLED'} - Mode: ${mode}`);
+          log(`HTTP Route: ${method} ${url} ${name ? `(${name})` : ''} - ${isEnabled ? 'ENABLED' : 'DISABLED'} - Mode: ${mode}`);
+        });
+        
+        Object.keys(interceptedWebSockets).forEach(key => {
+          const config = interceptedWebSockets[key];
+          const { url, name } = parseWebSocketKey(key);
+          const isEnabled = config.enabled === true || config.enabled === undefined || config.enabled !== false;
+          log(`WebSocket Route: ${url} ${name ? `(${name})` : ''} - ${isEnabled ? 'ENABLED' : 'DISABLED'}`);
         });
       },
       
       updateRoutes: function(routes: Record<string, any>) {
-        interceptedRoutes = routes || {};
-        log(`Updated routes. Now intercepting ${Object.keys(interceptedRoutes).length} routes`);
-        
-        // Debug: Log all routes with their enabled status and mode
-        Object.keys(interceptedRoutes).forEach(key => {
-          const config = interceptedRoutes[key];
-          const { method, url, name } = parseRouteKey(key);
-          const isEnabled = config.enabled === true || config.enabled === undefined || config.enabled !== false;
-          const hasResponse = config.response !== undefined && config.response !== null && config.response !== '';
-          const hasHeaders = (config.responseHeaders && Object.keys(config.responseHeaders).length > 0) ||
-                            (config.requestHeaders && Object.keys(config.requestHeaders).length > 0) ||
-                            (config.removeRequestHeaders && config.removeRequestHeaders.length > 0);
-          const mode = config.headersOnly || (!hasResponse && hasHeaders) ? 'headers-only' : 'full';
-          
-          log(`Route: ${method} ${url} ${name ? `(${name})` : ''} - ${isEnabled ? 'ENABLED' : 'DISABLED'} - Mode: ${mode}`);
-        });
+        this.initialize(routes);
       },
       
       enable: function() {
@@ -676,7 +1030,7 @@
     }
   });
   
-  console.log('[Request Interceptor] Enhanced script injected with headers-only mode support');
+  console.log('[Request Interceptor] Complete script injected with HTTP, Headers-Only, and WebSocket support');
 })();
 
 export {};
