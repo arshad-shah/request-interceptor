@@ -208,3 +208,18 @@ export const formatTemplateName = (templateName: string): string => {
     .replace(/_/g, ' ')
     .replace(/^./, str => str.toUpperCase());
 };
+
+
+export const parseWebSocketKey = (routeKey: string) => {
+  const remaining = routeKey.substring(3); // Remove 'WS:'
+  const pipeIndex = remaining.indexOf('|');
+  
+  if (pipeIndex === -1) {
+    return { url: remaining, name: '' };
+  }
+  
+  const url = remaining.substring(0, pipeIndex);
+  const name = remaining.substring(pipeIndex + 1);
+  
+  return { url, name };
+}

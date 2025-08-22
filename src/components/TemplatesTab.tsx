@@ -110,21 +110,35 @@ const TemplatesTab: React.FC = () => {
 
     // Enhanced validation for both HTTP and WebSocket routes
     const validRoutes = schema.routes.filter((route: any) => {
+      // Set default routeType if not specified
+      if (!route.routeType) {
+        // If it has WebSocket-specific fields, treat as WebSocket
+        if (route.incomingRules || route.outgoingRules) {
+          route.routeType = 'websocket';
+        } else {
+          route.routeType = 'http';
+        }
+      }
+
       if (route.routeType === 'websocket') {
         // WebSocket route validation
-        return route.url && (
-          (route.incomingRules && route.incomingRules.length > 0) ||
-          (route.outgoingRules && route.outgoingRules.length > 0)
+        const hasValidRules = (
+          (route.incomingRules && Array.isArray(route.incomingRules) && route.incomingRules.length > 0) ||
+          (route.outgoingRules && Array.isArray(route.outgoingRules) && route.outgoingRules.length > 0)
         );
+        
+        return route.url && hasValidRules;
       } else {
         // HTTP route validation
-        return route.method && route.url && (
-          route.response !== undefined || 
-          route.headersOnly === true ||
+        const hasValidResponse = route.response !== undefined;
+        const hasHeaders = (
           (route.responseHeaders && Object.keys(route.responseHeaders).length > 0) ||
           (route.requestHeaders && Object.keys(route.requestHeaders).length > 0) ||
-          (route.removeRequestHeaders && route.removeRequestHeaders.length > 0)
+          (route.removeRequestHeaders && Array.isArray(route.removeRequestHeaders) && route.removeRequestHeaders.length > 0)
         );
+        const isHeadersOnly = route.headersOnly === true;
+        
+        return route.method && route.url && (hasValidResponse || isHeadersOnly || hasHeaders);
       }
     });
 
@@ -159,12 +173,26 @@ const TemplatesTab: React.FC = () => {
             ? `WS:${route.url}|${route.name}`
             : `WS:${route.url}`;
 
+          // Ensure rules have proper structure with IDs
+          const processRules = (rules: any[] = []) => {
+            return rules.map((rule, index) => ({
+              id: rule.id || `rule-${Date.now()}-${index}`,
+              enabled: rule.enabled !== false,
+              type: rule.type || 'replace',
+              matchType: rule.matchType || 'contains',
+              match: rule.match || '',
+              replacement: rule.replacement || '',
+              flags: rule.flags || '',
+              description: rule.description || ''
+            }));
+          };
+
           routeConfig = {
             enabled: route.enabled !== false,
             timestamp: Date.now(),
             name: route.name,
-            incomingRules: route.incomingRules || [],
-            outgoingRules: route.outgoingRules || [],
+            incomingRules: processRules(route.incomingRules),
+            outgoingRules: processRules(route.outgoingRules),
             delay: route.delay || 0
           } as WebSocketConfig;
         } else {
@@ -356,6 +384,74 @@ const TemplatesTab: React.FC = () => {
         </Card.Header>
         
         <Card.Body className="space-y-6">
+          {/* Complete Export Example */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <FileCode className="w-4 h-4 text-blue-600" />
+              Complete Export/Import Schema
+            </h4>
+            <div className="bg-gray-50 rounded-lg p-4 overflow-auto">
+              <CodeHighlighter code={`{
+  "routes": [
+    {
+      "routeType": "http",
+      "method": "GET",
+      "url": "/api/users",
+      "name": "Get Users",
+      "status": 200,
+      "delay": 300,
+      "contentType": "application/json",
+      "enabled": true,
+      "headersOnly": false,
+      "response": {
+        "users": [
+          {"id": 1, "name": "John Doe"},
+          {"id": 2, "name": "Jane Smith"}
+        ]
+      },
+      "responseHeaders": {
+        "Access-Control-Allow-Origin": "*",
+        "X-API-Version": "1.0"
+      },
+      "requestHeaders": {
+        "Authorization": "Bearer test-token"
+      },
+      "removeRequestHeaders": ["Cookie"]
+    },
+    {
+      "routeType": "websocket",
+      "url": "wss://api.example.com/chat",
+      "name": "Chat Filter",
+      "delay": 100,
+      "enabled": true,
+      "incomingRules": [
+        {
+          "id": "replace-username",
+          "enabled": true,
+          "type": "replace",
+          "matchType": "regex",
+          "match": "\\"username\\":\\"([^\"]+)\\"",
+          "replacement": "\\"username\\":\\"TestUser\\"",
+          "flags": "g",
+          "description": "Replace usernames with TestUser"
+        }
+      ],
+      "outgoingRules": [
+        {
+          "id": "block-spam",
+          "enabled": true,
+          "type": "block",
+          "matchType": "contains",
+          "match": "SPAM",
+          "description": "Block spam messages"
+        }
+      ]
+    }
+  ]
+}`} language="json" />
+            </div>
+          </div>
+
           {/* HTTP Route Example */}
           <div>
             <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
@@ -366,6 +462,7 @@ const TemplatesTab: React.FC = () => {
               <CodeHighlighter code={`{
   "routes": [
     {
+      "routeType": "http",
       "method": "GET",
       "url": "/api/users",
       "status": 200,
@@ -403,6 +500,7 @@ const TemplatesTab: React.FC = () => {
               <CodeHighlighter code={`{
   "routes": [
     {
+      "routeType": "http",
       "method": "GET",
       "url": "/api/*",
       "name": "CORS Headers",
@@ -463,6 +561,18 @@ const TemplatesTab: React.FC = () => {
   ]
 }`} language="json" />
             </div>
+          </div>
+
+          {/* Import Notes */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-blue-800 mb-2">Import Notes</h4>
+            <ul className="text-sm text-blue-700 space-y-1">
+              <li>• <code>routeType</code> field is optional - will be auto-detected based on route structure</li>
+              <li>• WebSocket routes require at least one rule in <code>incomingRules</code> or <code>outgoingRules</code></li>
+              <li>• HTTP routes need either a <code>response</code>, <code>headersOnly: true</code>, or header modifications</li>
+              <li>• Rule IDs will be auto-generated if not provided</li>
+              <li>• All routes default to <code>enabled: true</code> if not specified</li>
+            </ul>
           </div>
         </Card.Body>
       </Card>

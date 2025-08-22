@@ -383,44 +383,68 @@ class StateManager {
     });
   }
 
-  exportRoutes(): { routes: any[] } {
-    console.log('[Background] Exporting routes with headers');
+exportRoutes(): { routes: any[] } {
+    console.log('[Background] Exporting routes with WebSocket support');
     
     return {
       routes: Object.entries(this.state.routes).map(([key, config]) => {
-        // Parse the route key
-        const firstColonIndex = key.indexOf(':');
-        const method = key.substring(0, firstColonIndex);
-        const remaining = key.substring(firstColonIndex + 1);
+        if (key.startsWith('WS:')) {
+          // WebSocket route parsing
+          const remaining = key.substring(3); // Remove 'WS:'
+          const pipeIndex = remaining.indexOf('|');
+          
+          let url: string, name: string;
+          if (pipeIndex !== -1) {
+            url = remaining.substring(0, pipeIndex);
+            name = remaining.substring(pipeIndex + 1);
+          } else {
+            url = remaining;
+            name = config.name || '';
+          }
 
-        // Check if route has a name (method:url|name format)
-        let url: string, name: string;
-        const pipeIndex = remaining.indexOf('|');
-        if (pipeIndex !== -1) {
-          // The part before pipe is the URL
-          url = remaining.substring(0, pipeIndex);
-          // The part after pipe is the name
-          name = remaining.substring(pipeIndex + 1);
+          return {
+            routeType: 'websocket',
+            url,
+            name,
+            enabled: config.enabled !== false,
+            delay: config.delay || 0,
+            // Include WebSocket-specific fields
+            incomingRules: (config as any).incomingRules || [],
+            outgoingRules: (config as any).outgoingRules || []
+          };
         } else {
-          // No name, just method:url format
-          url = remaining;
-          name = config.name || '';
-        }
+          // HTTP route parsing (existing logic)
+          const firstColonIndex = key.indexOf(':');
+          const method = key.substring(0, firstColonIndex);
+          const remaining = key.substring(firstColonIndex + 1);
 
-        return {
-          method,
-          url,
-          name,
-          status: config.status || 200,
-          delay: config.delay || 0,
-          contentType: config.contentType,
-          response: config.response,
-          enabled: config.enabled !== false,
-          // Include header fields in export
-          responseHeaders: config.responseHeaders || {},
-          requestHeaders: config.requestHeaders || {},
-          removeRequestHeaders: config.removeRequestHeaders || []
-        };
+          let url: string, name: string;
+          const pipeIndex = remaining.indexOf('|');
+          if (pipeIndex !== -1) {
+            url = remaining.substring(0, pipeIndex);
+            name = remaining.substring(pipeIndex + 1);
+          } else {
+            url = remaining;
+            name = config.name || '';
+          }
+
+          return {
+            routeType: 'http',
+            method,
+            url,
+            name,
+            status: (config as any).status || 200,
+            delay: config.delay || 0,
+            contentType: (config as any).contentType,
+            response: (config as any).response,
+            enabled: config.enabled !== false,
+            // Include header fields in export
+            responseHeaders: (config as any).responseHeaders || {},
+            requestHeaders: (config as any).requestHeaders || {},
+            removeRequestHeaders: (config as any).removeRequestHeaders || [],
+            headersOnly: (config as any).headersOnly || false
+          };
+        }
       })
     };
   }

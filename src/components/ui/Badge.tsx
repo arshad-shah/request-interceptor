@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { HttpMethod } from '@/types';
+import { MessageSquare, Filter, Code } from 'lucide-react';
 
 interface BadgeProps {
   children: React.ReactNode;
@@ -16,6 +17,13 @@ interface MethodBadgeProps {
 
 interface StatusBadgeProps {
   status: number;
+  className?: string;
+}
+
+interface ModeBadgeProps {
+  headersOnly?: boolean;
+  isWebSocket?: boolean;
+  ruleCount?: number;
   className?: string;
 }
 
@@ -102,5 +110,54 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) => {
   );
 };
 
+const ModeBadge: React.FC<ModeBadgeProps> = ({ 
+  headersOnly, 
+  isWebSocket, 
+  ruleCount = 0, 
+  className 
+}) => {
+  if (isWebSocket) {
+    return (
+      <span className={cn(
+        'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded border',
+        'bg-purple-100 text-purple-800 border-purple-200',
+        className
+      )}>
+        <MessageSquare className="w-3 h-3" />
+        <span>WebSocket</span>
+        {ruleCount > 0 && (
+          <span className="ml-1 px-1.5 py-0.5 bg-purple-200 text-purple-900 rounded-full text-xs font-bold min-w-[18px] text-center">
+            {ruleCount}
+          </span>
+        )}
+      </span>
+    );
+  }
+  
+  if (headersOnly) {
+    return (
+      <span className={cn(
+        'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded border',
+        'bg-blue-100 text-blue-800 border-blue-200',
+        className
+      )}>
+        <Filter className="w-3 h-3" />
+        <span>Headers-Only</span>
+      </span>
+    );
+  }
+  
+  return (
+    <span className={cn(
+      'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded border',
+      'bg-green-100 text-green-800 border-green-200',
+      className
+    )}>
+      <Code className="w-3 h-3" />
+      <span>Full Response</span>
+    </span>
+  );
+};
+
 export default Badge;
-export { MethodBadge, StatusBadge };
+export { MethodBadge, StatusBadge, ModeBadge };

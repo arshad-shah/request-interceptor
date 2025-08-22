@@ -1,47 +1,11 @@
 import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, addMessageListener } from '@/lib/chrome-api';
-import RouteList from '@/components/RouteList';
-import AddRouteForm from '@/components/AddRouteForm';
-import TemplatesTab from '@/components/TemplatesTab';
 import NotificationContainer from '@/components/Notification';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
 import { RouteConfig, WebSocketConfig } from '@/types';
-import RouteControls from '@/components/RouteControls';
-
-const TabContent: React.FC = () => {
-  const { activeTab } = useAppStore();
-
-  return (
-    <div className="flex-1 overflow-auto">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.2 }}
-          className="p-2"
-        >
-          {activeTab === 'routes' && (
-            <>
-              <RouteControls />
-              <div className="mt-6">
-                <RouteList />
-              </div>
-            </>
-          )}
-          
-          {activeTab === 'add' && <AddRouteForm />}
-          
-          {activeTab === 'templates' && <TemplatesTab />}
-        </motion.div>
-      </AnimatePresence>
-    </div>
-  );
-};
+import TabContent from '@/components/TabContent';
 
 const App: React.FC = () => {
   const { setEnabled, setRoutes } = useAppStore();
@@ -56,7 +20,7 @@ const App: React.FC = () => {
         if (isComponentMounted) {
           setEnabled(state.enabled);
           // Updated to handle both RouteConfig and WebSocketConfig
-          setRoutes(state.routes as Record<string, RouteConfig | WebSocketConfig> || {});
+          setRoutes(state.routes || {});
         }
       } catch (error) {
         console.error('Failed to load initial state:', error);

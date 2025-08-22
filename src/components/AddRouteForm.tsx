@@ -3,28 +3,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Tag, 
   Link, 
-  Code, 
   Check, 
   Clock, 
-  FileText, 
   X, 
   Settings2, 
   Filter,
-  Zap,
   ArrowDownLeft,
   ArrowUpRight,
   Plus,
   Trash2,
-  Edit3,
-  MessageSquare
+  Edit3
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, parseRouteKey, createRouteKey, validateJson, formatJson } from '@/lib/chrome-api';
 import { 
   HttpMethod, 
-  RouteFormData, 
-  HeaderConfig, 
-  RouteType, 
+  RouteFormData,
   WebSocketRule, 
   RuleType, 
   MatchType 
@@ -37,6 +31,7 @@ import Toggle from './ui/Toggle';
 import ReactAceEditor from '@/components/ReactAceEditor';
 import HeaderEditor from '@/components/HeaderEditor';
 import RemoveHeadersEditor from '@/components/RemoveHeaderEditor';
+import RouteTypeSelection from '@/components/RouteTypeSelection';
 
 const defaultWebSocketRule: Omit<WebSocketRule, 'id'> = {
   enabled: true,
@@ -703,49 +698,11 @@ const AddRouteForm: React.FC = () => {
       </Card.Header>
 
       <Card.Body className="space-y-6">
-        {/* Route Type Selection */}
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-gray-600" />
-              <span className="font-medium text-gray-900">Route Type</span>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="routeType"
-                  value="http"
-                  checked={formData.routeType === 'http'}
-                  onChange={(e) => handleInputChange('routeType', e.target.value as RouteType)}
-                  className="text-primary-600"
-                />
-                <span className="text-sm">HTTP/HTTPS</span>
-              </label>
-              
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="routeType"
-                  value="websocket"
-                  checked={formData.routeType === 'websocket'}
-                  onChange={(e) => handleInputChange('routeType', e.target.value as RouteType)}
-                  className="text-primary-600"
-                />
-                <span className="text-sm">WebSocket</span>
-              </label>
-            </div>
-          </div>
-          
-          <div className="mt-2 text-sm text-gray-600">
-            {isWebSocket 
-              ? 'Intercept and modify WebSocket messages in real-time'
-              : 'Intercept HTTP requests and modify responses or headers'
-            }
-          </div>
-        </div>
 
+      <RouteTypeSelection
+              formData={formData}
+              handleInputChange={(field: string, value: string) => handleInputChange(field as keyof RouteFormData, value)}
+            />
         {/* Route Name */}
         <Input
           label="Route Name (optional)"
