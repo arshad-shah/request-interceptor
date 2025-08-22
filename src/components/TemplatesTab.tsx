@@ -286,15 +286,8 @@ const TemplatesTab: React.FC = () => {
             value={schemaInput}
             onChange={setSchemaInput}
             language="json"
-            theme="github"
             height={250}
             placeholder="Paste your JSON schema here..."
-            showLineNumbers={true}
-            tabSize={2}
-            fontSize={14}
-            wordWrap={true}
-            enableBasicAutocompletion={true}
-            enableLiveAutocompletion={true}
           />
           
           <div className="flex items-center gap-3">
@@ -347,7 +340,7 @@ const TemplatesTab: React.FC = () => {
                     </div>
                   </div>
                   <Button
-                    variant="ghost"
+                    variant="icon"
                     size="sm"
                     onClick={() => {
                       setShowPreview(false);

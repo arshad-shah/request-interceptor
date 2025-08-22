@@ -147,7 +147,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       </Dialog.Header>
       
       <Dialog.Body>
-        <p className="text-gray-700 leading-relaxed">{message}</p>
+        <p className="text-gray-700 leading-relaxed text-lg">{message}</p>
       </Dialog.Body>
       
       <Dialog.Footer>
