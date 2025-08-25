@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Zap, Settings, ExternalLink } from 'lucide-react';
+import { Zap, ExternalLink } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, addMessageListener } from '@/lib/chrome-api';
 import { cn } from '@/lib/utils';
@@ -126,14 +126,11 @@ const Popup: React.FC = () => {
                   )} />
                   {enabled ? 'Active' : 'Inactive'}
                 </Badge>
-                <span className="text-sm font-medium text-gray-700">
-                  Interception {enabled ? 'Enabled' : 'Disabled'}
-                </span>
               </div>
               <Toggle 
                 checked={enabled} 
                 onChange={handleToggle}
-                size="sm"
+                size="md"
               />
             </div>
           </Card.Body>
