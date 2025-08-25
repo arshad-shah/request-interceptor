@@ -104,7 +104,17 @@ export interface Notification {
   title: string;
   message: string;
   type: NotificationType;
+  timestamp: number;
   duration?: number;
+  persistent?: boolean;
+  icon?: string;
+  actions?: NotificationAction[];
+}
+
+export interface NotificationAction {
+  id: string;
+  label: string;
+  action: () => void;
 }
 
 export interface ChromeMessage {

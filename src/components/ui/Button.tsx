@@ -94,7 +94,7 @@ const Button: React.FC<ButtonProps> = ({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
       className={cn(
-        "group relative inline-flex items-center justify-center",
+        "group relative inline-flex items-center justify-center hover:cursor-pointer",
         "font-medium rounded-xl transition-all duration-200",
         "focus:outline-none overflow-hidden",
         "transform-gpu", // Enable hardware acceleration

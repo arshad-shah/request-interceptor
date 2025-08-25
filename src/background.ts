@@ -1,7 +1,18 @@
-// Enhanced Background script for Request Interceptor Chrome Extension with Headers Support and Named Routes Fix
+// Enhanced Background script for Request Interceptor Chrome Extension with WebSocket Support - FIXED
 
 interface HeaderConfig {
   [key: string]: string;
+}
+
+interface WebSocketRule {
+  id: string;
+  enabled: boolean;
+  type: 'replace' | 'block' | 'inject';
+  matchType: 'exact' | 'contains' | 'regex';
+  match: string;
+  replacement?: string;
+  flags?: string;
+  description?: string;
 }
 
 interface RouteConfig {
@@ -12,15 +23,25 @@ interface RouteConfig {
   enabled: boolean;
   timestamp: number;
   name?: string;
-  // New header fields
+  // Header fields
   responseHeaders?: HeaderConfig;
   requestHeaders?: HeaderConfig;
   removeRequestHeaders?: string[];
+  headersOnly?: boolean;
+}
+
+interface WebSocketConfig {
+  enabled: boolean;
+  timestamp: number;
+  name?: string;
+  incomingRules: WebSocketRule[];
+  outgoingRules: WebSocketRule[];
+  delay?: number;
 }
 
 interface AppState {
   enabled: boolean;
-  routes: Record<string, RouteConfig>;
+  routes: Record<string, RouteConfig | WebSocketConfig>;
 }
 
 interface ChromeMessage {
@@ -50,7 +71,7 @@ class StateManager {
       this.migrateRoutesToIncludeHeaders();
       
       this.updateIcon();
-      console.log('[Background] State loaded with headers support:', this.state);
+      console.log('[Background] State loaded with WebSocket support:', this.state);
     } catch (error) {
       console.error('[Background] Error loading state:', error);
     }
@@ -62,31 +83,84 @@ class StateManager {
     Object.keys(this.state.routes).forEach(key => {
       const route = this.state.routes[key];
       
-      // Add default header fields if they don't exist
-      if (!route.hasOwnProperty('responseHeaders')) {
-        route.responseHeaders = {};
-        needsSave = true;
+      if (key.startsWith('WS:')) {
+        // WebSocket route migration
+        const wsRoute = route as WebSocketConfig;
+        if (!wsRoute.hasOwnProperty('incomingRules')) {
+          (wsRoute as any).incomingRules = [];
+          needsSave = true;
+        }
+        if (!wsRoute.hasOwnProperty('outgoingRules')) {
+          (wsRoute as any).outgoingRules = [];
+          needsSave = true;
+        }
+        if (!wsRoute.hasOwnProperty('delay')) {
+          (wsRoute as any).delay = 0;
+          needsSave = true;
+        }
+        
+        // Migrate rules to ensure they have proper structure
+        ['incomingRules', 'outgoingRules'].forEach(ruleType => {
+          const rules = (wsRoute as any)[ruleType];
+          if (Array.isArray(rules)) {
+            rules.forEach((rule: any, index: number) => {
+              if (!rule.id) {
+                rule.id = `migrated-rule-${Date.now()}-${index}`;
+                needsSave = true;
+              }
+              if (rule.enabled === undefined) {
+                rule.enabled = true;
+                needsSave = true;
+              }
+              if (!rule.type) {
+                rule.type = 'replace';
+                needsSave = true;
+              }
+              if (!rule.matchType) {
+                rule.matchType = 'contains';
+                needsSave = true;
+              }
+            });
+          }
+        });
+      } else {
+        // HTTP route migration
+        const httpRoute = route as RouteConfig;
+        if (!httpRoute.hasOwnProperty('responseHeaders')) {
+          (httpRoute as any).responseHeaders = {};
+          needsSave = true;
+        }
+        if (!httpRoute.hasOwnProperty('requestHeaders')) {
+          (httpRoute as any).requestHeaders = {};
+          needsSave = true;
+        }
+        if (!httpRoute.hasOwnProperty('removeRequestHeaders')) {
+          (httpRoute as any).removeRequestHeaders = [];
+          needsSave = true;
+        }
+        if (!httpRoute.hasOwnProperty('headersOnly')) {
+          (httpRoute as any).headersOnly = false;
+          needsSave = true;
+        }
       }
-      if (!route.hasOwnProperty('requestHeaders')) {
-        route.requestHeaders = {};
-        needsSave = true;
-      }
-      if (!route.hasOwnProperty('removeRequestHeaders')) {
-        route.removeRequestHeaders = [];
+      
+      // Ensure all routes have explicit enabled property (both HTTP and WebSocket)
+      if (!route.hasOwnProperty('enabled')) {
+        (route as any).enabled = true; // Default existing routes to enabled
         needsSave = true;
       }
     });
     
     if (needsSave) {
       this.saveState();
-      console.log('[Background] Migrated routes to include header fields');
+      console.log('[Background] Migrated routes to include WebSocket and header fields');
     }
   }
 
   async saveState(): Promise<void> {
     try {
       await chrome.storage.local.set(this.state);
-      console.log('[Background] State saved with headers:', this.state);
+      console.log('[Background] State saved with WebSocket support:', this.state);
     } catch (error) {
       console.error('[Background] Error saving state:', error);
     }
@@ -114,6 +188,7 @@ class StateManager {
   }
 
   notifyAllTabs(message: ChromeMessage): void {
+    // Notify webpage tabs with content scripts
     chrome.tabs.query({}, (tabs) => {
       tabs.forEach(tab => {
         if (tab.id && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
@@ -124,6 +199,26 @@ class StateManager {
         }
       });
     });
+  }
+
+  notifyExtensionUIs(message: ChromeMessage): void {
+    // Notify extension contexts (popup, sidepanel, etc.)
+    // This uses chrome.runtime.sendMessage to broadcast to all extension contexts
+    try {
+      // Send message to all extension contexts
+      chrome.runtime.sendMessage(message).catch(() => {
+        // Extension UIs may not be open, which is normal
+        console.log('[Background] Could not send message to extension UIs (may be closed)');
+      });
+    } catch (error) {
+      console.log('[Background] Error sending message to extension UIs:', error);
+    }
+  }
+
+  notifyAll(message: ChromeMessage): void {
+    // Notify both tabs and extension UIs
+    this.notifyAllTabs(message);
+    this.notifyExtensionUIs(message);
   }
 
   setupMessageHandlers(): void {
@@ -217,37 +312,138 @@ class StateManager {
     await this.saveState();
     this.updateIcon();
     
-    this.notifyAllTabs({
+    this.notifyAll({
       action: 'stateChanged',
       enabled: this.state.enabled,
       routes: this.state.routes
     });
   }
 
-  async addRoute(route: string, config: RouteConfig, name?: string): Promise<boolean> {
-    console.log('[Background] Adding route with headers:', route, config);
+  private isWebSocketRoute(routeKey: string): boolean {
+    return routeKey.startsWith('WS:');
+  }
+
+  private validateWebSocketConfig(config: any): { valid: boolean; error?: string } {
+    if (!config.incomingRules && !config.outgoingRules) {
+      return { valid: false, error: 'WebSocket route must have at least one rule set' };
+    }
     
-    // Ensure header fields exist with defaults
-    const enhancedConfig: RouteConfig = {
-      ...config,
-      responseHeaders: config.responseHeaders || {},
-      requestHeaders: config.requestHeaders || {},
-      removeRequestHeaders: config.removeRequestHeaders || []
+    const validateRules = (rules: any[], ruleType: string) => {
+      if (!Array.isArray(rules)) return { valid: false, error: `${ruleType} must be an array` };
+      
+      for (let i = 0; i < rules.length; i++) {
+        const rule = rules[i];
+        if (!rule.id) return { valid: false, error: `Rule ${i} in ${ruleType} missing id` };
+        if (!rule.match) return { valid: false, error: `Rule ${i} in ${ruleType} missing match pattern` };
+        if (rule.type !== 'block' && !rule.replacement) {
+          return { valid: false, error: `Rule ${i} in ${ruleType} missing replacement text` };
+        }
+        if (rule.matchType === 'regex') {
+          try {
+            new RegExp(rule.match, rule.flags || '');
+          } catch (error) {
+            return { valid: false, error: `Rule ${i} in ${ruleType} has invalid regex: ${error}` };
+          }
+        }
+      }
+      return { valid: true };
     };
+    
+    if (config.incomingRules) {
+      const result = validateRules(config.incomingRules, 'incomingRules');
+      if (!result.valid) return result;
+    }
+    
+    if (config.outgoingRules) {
+      const result = validateRules(config.outgoingRules, 'outgoingRules');
+      if (!result.valid) return result;
+    }
+    
+    return { valid: true };
+  }
+
+  private validateHttpConfig(config: any): { valid: boolean; error?: string } {
+    if (config.headersOnly) {
+      const hasResponseHeaders = config.responseHeaders && Object.keys(config.responseHeaders).length > 0;
+      const hasRequestHeaders = config.requestHeaders && Object.keys(config.requestHeaders).length > 0;
+      const hasRemoveHeaders = config.removeRequestHeaders && config.removeRequestHeaders.length > 0;
+      
+      if (!hasResponseHeaders && !hasRequestHeaders && !hasRemoveHeaders) {
+        return { valid: false, error: 'Headers-only route must have at least one header modification' };
+      }
+    } else {
+      if (config.response === undefined || config.response === null) {
+        return { valid: false, error: 'Full interception route must have a response' };
+      }
+    }
+    
+    if (config.status && (config.status < 100 || config.status > 599)) {
+      return { valid: false, error: 'Status code must be between 100 and 599' };
+    }
+    
+    return { valid: true };
+  }
+
+  async addRoute(route: string, config: RouteConfig | WebSocketConfig, name?: string): Promise<boolean> {
+    console.log('[Background] Adding route with WebSocket support:', route, config);
+    
+    // Validate route configuration
+    let validation: { valid: boolean; error?: string };
+    if (this.isWebSocketRoute(route)) {
+      validation = this.validateWebSocketConfig(config);
+    } else {
+      validation = this.validateHttpConfig(config);
+    }
+    
+    if (!validation.valid) {
+      throw new Error(`Invalid route configuration: ${validation.error}`);
+    }
+    
+    // Ensure proper structure for WebSocket routes
+    if (this.isWebSocketRoute(route)) {
+      const wsConfig = config as WebSocketConfig;
+      wsConfig.incomingRules = wsConfig.incomingRules || [];
+      wsConfig.outgoingRules = wsConfig.outgoingRules || [];
+      wsConfig.delay = wsConfig.delay || 0;
+      
+      // Ensure all rules have proper IDs
+      const ensureRuleIds = (rules: WebSocketRule[]) => {
+        rules.forEach((rule, index) => {
+          if (!rule.id) {
+            rule.id = `rule-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 5)}`;
+          }
+        });
+      };
+      
+      ensureRuleIds(wsConfig.incomingRules);
+      ensureRuleIds(wsConfig.outgoingRules);
+    } else {
+      // Ensure header fields exist with defaults for HTTP routes
+      const httpConfig = config as RouteConfig;
+      httpConfig.responseHeaders = httpConfig.responseHeaders || {};
+      httpConfig.requestHeaders = httpConfig.requestHeaders || {};
+      httpConfig.removeRequestHeaders = httpConfig.removeRequestHeaders || [];
+      httpConfig.headersOnly = httpConfig.headersOnly || false;
+    }
     
     // Store the name in the config if provided
     if (name) {
-      enhancedConfig.name = name;
+      (config as any).name = name;
+    }
+    
+    // Ensure enabled property is explicitly set (default to true for new routes)
+    if ((config as any).enabled === undefined) {
+      (config as any).enabled = true;
     }
 
     // Check if this route already exists
     const isUpdate = this.state.routes.hasOwnProperty(route);
 
-    // FIXED: Only disable conflicting routes for simple routes (no names) or when updating
-    if (enhancedConfig.enabled) {
+    // Handle route conflicts for HTTP routes only
+    if (!this.isWebSocketRoute(route) && (config as any).enabled) {
       const [method, ...urlParts] = route.split(':');
       const urlWithName = urlParts.join(':');
-      const hasName = urlWithName.includes('|'); // Check if route has a name
+      const hasName = urlWithName.includes('|');
       const url = hasName ? urlWithName.split('|')[0] : urlWithName;
 
       // Only disable conflicting routes if:
@@ -255,27 +451,29 @@ class StateManager {
       // 2. We're updating an existing route
       if (!hasName || isUpdate) {
         Object.keys(this.state.routes).forEach(key => {
+          if (this.isWebSocketRoute(key)) return; // Skip WebSocket routes
+          
           const [otherMethod, ...otherUrlParts] = key.split(':');
           const otherUrlWithName = otherUrlParts.join(':');
-          const otherUrl = otherUrlWithName.split('|')[0]; // Remove name part if present
+          const otherUrl = otherUrlWithName.split('|')[0];
 
-          // If same URL and method but different route, disable it
           if (otherUrl === url && otherMethod === method && key !== route) {
-            this.state.routes[key].enabled = false;
+            (this.state.routes[key] as any).enabled = false;
             console.log('[Background] Disabled conflicting route:', key);
           }
         });
       } else {
         // For new named routes, only disable simple routes (without names) that conflict
         Object.keys(this.state.routes).forEach(key => {
+          if (this.isWebSocketRoute(key)) return; // Skip WebSocket routes
+          
           const [otherMethod, ...otherUrlParts] = key.split(':');
           const otherUrlWithName = otherUrlParts.join(':');
           const otherHasName = otherUrlWithName.includes('|');
           const otherUrl = otherHasName ? otherUrlWithName.split('|')[0] : otherUrlWithName;
 
-          // Only disable simple routes (without names) when adding a named route
           if (otherUrl === url && otherMethod === method && !otherHasName && key !== route) {
-            this.state.routes[key].enabled = false;
+            (this.state.routes[key] as any).enabled = false;
             console.log('[Background] Disabled simple conflicting route:', key);
           }
         });
@@ -283,10 +481,10 @@ class StateManager {
     }
 
     // Update or add the route
-    this.state.routes[route] = enhancedConfig;
+    this.state.routes[route] = config;
     await this.saveState();
 
-    this.notifyAllTabs({
+    this.notifyAll({
       action: 'routesChanged',
       routes: this.state.routes,
       enabled: this.state.enabled
@@ -302,7 +500,7 @@ class StateManager {
       delete this.state.routes[route];
       await this.saveState();
       
-      this.notifyAllTabs({
+      this.notifyAll({
         action: 'routesChanged',
         routes: this.state.routes,
         enabled: this.state.enabled
@@ -316,51 +514,50 @@ class StateManager {
     console.log('[Background] Toggling route:', route, enabled);
     
     if (this.state.routes[route]) {
-      // Get the URL part from the route key
-      const [method, ...urlParts] = route.split(':');
-      const urlWithName = urlParts.join(':');
-      const hasName = urlWithName.includes('|'); // Check if route has a name
-      const url = hasName ? urlWithName.split('|')[0] : urlWithName;
+      // Handle route conflicts for HTTP routes only when enabling
+      if (!this.isWebSocketRoute(route) && enabled) {
+        const [method, ...urlParts] = route.split(':');
+        const urlWithName = urlParts.join(':');
+        const hasName = urlWithName.includes('|');
+        const url = hasName ? urlWithName.split('|')[0] : urlWithName;
 
-      // FIXED: Only disable conflicting routes under specific conditions
-      if (enabled) {
-        // For simple routes (no names), disable all conflicting routes
-        // For named routes, only disable simple routes that conflict
         if (!hasName) {
           // Simple route - disable all conflicting routes
           Object.keys(this.state.routes).forEach(key => {
+            if (this.isWebSocketRoute(key)) return; // Skip WebSocket routes
+            
             const [otherMethod, ...otherUrlParts] = key.split(':');
             const otherUrlWithName = otherUrlParts.join(':');
             const otherUrl = otherUrlWithName.split('|')[0];
 
             if (otherUrl === url && otherMethod === method && key !== route) {
-              this.state.routes[key].enabled = false;
+              (this.state.routes[key] as any).enabled = false;
               console.log('[Background] Disabled conflicting route:', key);
             }
           });
         } else {
           // Named route - only disable simple routes (without names) that conflict
           Object.keys(this.state.routes).forEach(key => {
+            if (this.isWebSocketRoute(key)) return; // Skip WebSocket routes
+            
             const [otherMethod, ...otherUrlParts] = key.split(':');
             const otherUrlWithName = otherUrlParts.join(':');
             const otherHasName = otherUrlWithName.includes('|');
             const otherUrl = otherHasName ? otherUrlWithName.split('|')[0] : otherUrlWithName;
 
-            // Only disable simple routes when enabling a named route
             if (otherUrl === url && otherMethod === method && !otherHasName && key !== route) {
-              this.state.routes[key].enabled = false;
+              (this.state.routes[key] as any).enabled = false;
               console.log('[Background] Disabled simple conflicting route:', key);
             }
           });
-          // Allow multiple named routes to be enabled simultaneously
         }
       }
 
       // Update the enabled state of the specific route
-      this.state.routes[route].enabled = enabled;
+      (this.state.routes[route] as any).enabled = enabled;
       await this.saveState();
       
-      this.notifyAllTabs({
+      this.notifyAll({
         action: 'routesChanged',
         routes: this.state.routes,
         enabled: this.state.enabled
@@ -376,14 +573,14 @@ class StateManager {
     this.state.routes = {};
     await this.saveState();
     
-    this.notifyAllTabs({
+    this.notifyAll({
       action: 'routesChanged',
       routes: {},
       enabled: this.state.enabled
     });
   }
 
-exportRoutes(): { routes: any[] } {
+  exportRoutes(): { routes: any[] } {
     console.log('[Background] Exporting routes with WebSocket support');
     
     return {
@@ -399,18 +596,17 @@ exportRoutes(): { routes: any[] } {
             name = remaining.substring(pipeIndex + 1);
           } else {
             url = remaining;
-            name = config.name || '';
+            name = (config as any).name || '';
           }
 
           return {
             routeType: 'websocket',
             url,
             name,
-            enabled: config.enabled !== false,
-            delay: config.delay || 0,
-            // Include WebSocket-specific fields
-            incomingRules: (config as any).incomingRules || [],
-            outgoingRules: (config as any).outgoingRules || []
+            enabled: (config as any).enabled !== false,
+            delay: (config as any).delay || 0,
+            incomingRules: (config as WebSocketConfig).incomingRules || [],
+            outgoingRules: (config as WebSocketConfig).outgoingRules || []
           };
         } else {
           // HTTP route parsing (existing logic)
@@ -425,7 +621,7 @@ exportRoutes(): { routes: any[] } {
             name = remaining.substring(pipeIndex + 1);
           } else {
             url = remaining;
-            name = config.name || '';
+            name = (config as any).name || '';
           }
 
           return {
@@ -433,16 +629,15 @@ exportRoutes(): { routes: any[] } {
             method,
             url,
             name,
-            status: (config as any).status || 200,
-            delay: config.delay || 0,
-            contentType: (config as any).contentType,
-            response: (config as any).response,
-            enabled: config.enabled !== false,
-            // Include header fields in export
-            responseHeaders: (config as any).responseHeaders || {},
-            requestHeaders: (config as any).requestHeaders || {},
-            removeRequestHeaders: (config as any).removeRequestHeaders || [],
-            headersOnly: (config as any).headersOnly || false
+            status: (config as RouteConfig).status || 200,
+            delay: (config as any).delay || 0,
+            contentType: (config as RouteConfig).contentType,
+            response: (config as RouteConfig).response,
+            enabled: (config as any).enabled !== false,
+            responseHeaders: (config as RouteConfig).responseHeaders || {},
+            requestHeaders: (config as RouteConfig).requestHeaders || {},
+            removeRequestHeaders: (config as RouteConfig).removeRequestHeaders || [],
+            headersOnly: (config as RouteConfig).headersOnly || false
           };
         }
       })
@@ -473,7 +668,7 @@ exportRoutes(): { routes: any[] } {
 }
 
 // Initialize the state manager
-console.log('[Background] Initializing Request Interceptor with Headers Support and Named Routes Fix');
+console.log('[Background] Initializing Request Interceptor with WebSocket Support');
 const stateManager = new StateManager();
 
 // Handle extension installation

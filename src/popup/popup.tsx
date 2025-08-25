@@ -1,32 +1,14 @@
 import React, { useEffect } from 'react';
-import { Zap, Settings } from 'lucide-react';
+import { Zap, Settings, ExternalLink } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, addMessageListener } from '@/lib/chrome-api';
 import { cn } from '@/lib/utils';
 
-const Toggle: React.FC<{ checked: boolean; onChange: (checked: boolean) => void }> = ({ 
-  checked, 
-  onChange 
-}) => (
-  <label className="relative inline-flex items-center cursor-pointer">
-    <input
-      type="checkbox"
-      className="sr-only peer"
-      checked={checked}
-      onChange={(e) => onChange(e.target.checked)}
-    />
-    <div className={cn(
-      "relative w-12 h-6 rounded-full transition-colors duration-300",
-      "peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300",
-      checked ? "bg-green-500" : "bg-gray-300"
-    )}>
-      <div className={cn(
-        "absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-300",
-        checked ? "left-6" : "left-0.5"
-      )} />
-    </div>
-  </label>
-);
+// Import custom UI components
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import Toggle from '@/components/ui/Toggle';
+import Badge from '@/components/ui/Badge';
 
 const Popup: React.FC = () => {
   const { enabled, routes, setEnabled, setRoutes, addNotification } = useAppStore();
@@ -53,7 +35,10 @@ const Popup: React.FC = () => {
       }
     };
 
-    addMessageListener(messageListener);
+    const cleanup = addMessageListener(messageListener);
+    
+    // Cleanup on unmount
+    return cleanup;
   }, [setEnabled, setRoutes]);
 
   const handleToggle = async (isEnabled: boolean) => {
@@ -63,59 +48,151 @@ const Popup: React.FC = () => {
         setEnabled(isEnabled);
       }
     } catch (error) {
-      addNotification('Error', 'Failed to toggle interceptor', 'error');
+      addNotification({
+        title: 'Error',
+        message: 'Failed to toggle interceptor',
+        type: 'error',
+        timestamp: Date.now()
+      });
     }
   };
 
   const routeCount = Object.keys(routes).length;
-  const enabledRoutes = Object.values(routes).filter(route => route.enabled !== false).length;
+  const enabledRoutes = Object.values(routes).filter(route => route.enabled === true).length;
+
+  const handleOpenSidePanel = async () => {
+    try {
+      // Get the current window first
+      const currentWindow = await chrome.windows.getCurrent();
+      
+      if (currentWindow?.id && chrome.sidePanel) {
+        //@ts-ignore
+        await chrome.sidePanel.open({ windowId: currentWindow.id });
+      } else {
+        // Alternative: open the extension page in a new tab
+        await chrome.tabs.create({
+          url: chrome.runtime.getURL('sidepanel.html')
+        });
+      }
+    } catch (error) {
+      console.error('Failed to open side panel:', error);
+      
+      // Fallback: open extension page in new tab
+      try {
+        await chrome.tabs.create({
+          url: chrome.runtime.getURL('sidepanel.html')
+        });
+      } catch (fallbackError) {
+        console.error('Failed to open fallback tab:', fallbackError);
+        addNotification({
+          title: 'Error',
+          message: 'Failed to open side panel. Please open it manually from the browser toolbar.',
+          type: 'error',
+          timestamp: Date.now()
+        });
+      }
+    }
+  };
 
   return (
-    <div className="w-80 bg-gray-50 text-gray-900">
+    <div className="w-80 bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900">
       <div className="p-4 space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-center gap-3">
-          <div className="relative w-9 h-9 flex items-center justify-center bg-primary-500 rounded-lg shadow-lg overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
-            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent transform rotate-45 translate-y-[-100%] animate-shine" />
-            <Zap className="w-5 h-5 text-white relative z-10" />
-          </div>
-          <h1 className="text-lg font-semibold text-gray-900">Request Interceptor</h1>
-        </div>
-
-        {/* Status Toggle */}
-        <div className="flex items-center justify-center gap-3 bg-white/80 backdrop-blur-sm rounded-full px-3 py-2 shadow-sm border border-white/20">
-          <span className={cn(
-            "text-sm font-medium transition-colors",
-            enabled ? "text-green-600" : "text-red-500"
-          )}>
-            {enabled ? 'Enabled' : 'Disabled'}
-          </span>
-          <Toggle checked={enabled} onChange={handleToggle} />
-        </div>
-
-        {/* Banner */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-          <p className="text-sm text-amber-800 text-center font-medium">
-            Open the side panel to view and manage intercepted requests.
-          </p>
-        </div>
-
-        {/* Stats */}
-        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-              Active Routes
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold text-gray-900 bg-gray-100 border-2 border-gray-200 rounded px-2 py-1 shadow-sm">
-                {enabledRoutes}
-              </span>
-              <span className="text-sm text-gray-500">
-                / {routeCount}
-              </span>
+        {/* Header Card */}
+        <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-blue-600 text-white" hover={false}>
+          <Card.Body className="py-4">
+            <div className="flex items-center justify-center gap-3">
+              <div className="relative w-10 h-10 flex items-center justify-center bg-white/20 rounded-lg shadow-lg overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent" />
+                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent transform rotate-45 translate-y-[-100%] animate-shine" />
+                <Zap className="w-5 h-5 text-white relative z-10" />
+              </div>
+              <div className="text-center">
+                <h1 className="text-lg font-bold">Request Interceptor</h1>
+                <p className="text-xs text-blue-100 opacity-90">Chrome Extension</p>
+              </div>
             </div>
-          </div>
+          </Card.Body>
+        </Card>
+
+        {/* Status Toggle Card */}
+        <Card>
+          <Card.Body className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Badge variant={enabled ? 'success' : 'error'} size="sm">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full mr-2",
+                    enabled ? "bg-green-500 animate-pulse" : "bg-red-500"
+                  )} />
+                  {enabled ? 'Active' : 'Inactive'}
+                </Badge>
+                <span className="text-sm font-medium text-gray-700">
+                  Interception {enabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              <Toggle 
+                checked={enabled} 
+                onChange={handleToggle}
+                size="sm"
+              />
+            </div>
+          </Card.Body>
+        </Card>
+
+        {/* Stats Card */}
+        <Card>
+          <Card.Body className="py-3">
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-600">
+                  Configured Routes
+                </span>
+                <Badge variant="info" size="sm">
+                  {routeCount}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-600">
+                  Active Routes
+                </span>
+                <Badge variant={enabledRoutes > 0 ? 'success' : 'default'} size="sm">
+                  {enabledRoutes}
+                </Badge>
+              </div>
+              
+              {routeCount > 0 && (
+                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                  <div 
+                    className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(enabledRoutes / routeCount) * 100}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          </Card.Body>
+        </Card>
+
+        {/* Action Buttons */}
+        <div className="space-y-2">
+          <Button 
+            variant="primary" 
+            size="sm" 
+            className="w-full" 
+            leftIcon={<ExternalLink className="w-4 h-4" />}
+            onClick={handleOpenSidePanel}
+          >
+            Open Side Panel
+          </Button>
+          
+          {routeCount === 0 && (
+            <Card className="bg-amber-50 border-amber-200">
+              <Card.Body className="py-3">
+                <p className="text-xs text-amber-700 text-center font-medium">
+                  No routes configured yet. Open the side panel to create your first route interception.
+                </p>
+              </Card.Body>
+            </Card>
+          )}
         </div>
       </div>
     </div>

@@ -16,7 +16,12 @@ const Header: React.FC = () => {
         setEnabled(isEnabled);
       }
     } catch (error) {
-      addNotification('Error', 'Failed to toggle interceptor', 'error');
+      addNotification({
+        title: 'Error',
+        message: 'Failed to toggle interceptor',
+        type: 'error',
+        timestamp: Date.now()
+      });
     }
   };
 
@@ -126,18 +131,11 @@ const Header: React.FC = () => {
               </div>
             </div>
 
-            {/* Toggle */}
-            <motion.div 
-              className="bg-white border border-gray-200 rounded-lg p-2 sm:p-3 shadow-sm hover:shadow-md transition-shadow duration-200"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
               <Toggle
                 checked={enabled} 
                 onChange={handleToggle}
                 size="md"
               />
-            </motion.div>
           </div>
         </div>
       </div>

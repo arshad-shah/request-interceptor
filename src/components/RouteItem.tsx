@@ -52,7 +52,7 @@ const RouteItem: React.FC<RouteItemProps> = ({
   const [isResponseExpanded, setIsResponseExpanded] = useState(false);
   
   const isWebSocket = routeKey.startsWith('WS:');
-  const isEnabled = config.enabled !== false;
+  const isEnabled = config.enabled ?? true; // Default to enabled if undefined
   
   // Parse route information
   let method = '', url = '', name = '';
@@ -62,9 +62,16 @@ const RouteItem: React.FC<RouteItemProps> = ({
     name = parsed.name;
   } else {
     const parsed = parseRouteKey(routeKey);
-    method = parsed.method;
-    url = parsed.url;
-    name = parsed.name;
+    if (!parsed) {
+      // Fallback for invalid route keys
+      method = 'GET';
+      url = routeKey;
+      name = '';
+    } else {
+      method = parsed.method;
+      url = parsed.url;
+      name = parsed.name;
+    }
   }
   
   const timestamp = config.timestamp ? new Date(config.timestamp).toLocaleDateString() : 'N/A';

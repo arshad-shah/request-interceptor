@@ -1,4 +1,4 @@
-// Complete injected script with HTTP, Headers-Only, and WebSocket interception
+// Complete injected script with HTTP, Headers-Only, and WebSocket interception - FIXED
 
 (function() {
   const RequestInterceptor = (function() {
@@ -18,11 +18,26 @@
     /**
      * Log a message to the console and notify the content script
      */
-    function log(message: string) {
-      console.log(`[Request Interceptor] ${message}`);
+    function log(message: string, level: 'info' | 'warn' | 'error' = 'info') {
+      const timestamp = new Date().toISOString();
+      const logMessage = `[${timestamp}] [Request Interceptor] ${message}`;
+      
+      switch (level) {
+        case 'warn':
+          console.warn(logMessage);
+          break;
+        case 'error':
+          console.error(logMessage);
+          break;
+        default:
+          console.log(logMessage);
+      }
+      
       window.postMessage({
         type: 'REQUEST_INTERCEPTOR_LOG',
-        message
+        message,
+        level,
+        timestamp
       }, '*');
     }
     
@@ -48,9 +63,13 @@
     }
 
     /**
-     * Parse WebSocket route key
+     * Parse WebSocket route key - FIXED
      */
-    function parseWebSocketKey(routeKey: string) {
+    function parseWebSocketRouteKey(routeKey: string): { url: string; name: string } {
+      if (!routeKey.startsWith('WS:')) {
+        throw new Error('Invalid WebSocket route key');
+      }
+      
       const remaining = routeKey.substring(3); // Remove 'WS:'
       const pipeIndex = remaining.indexOf('|');
       
@@ -65,7 +84,7 @@
     }
 
     /**
-     * Match a request URL against a pattern URL with regex support
+     * Match a request URL against a pattern URL with regex support - IMPROVED
      */
     function urlMatches(requestUrl: string, patternUrl: string): boolean {
       // Direct string match first (fastest)
@@ -83,21 +102,33 @@
           const regex = new RegExp(pattern, flags);
           return regex.test(requestUrl);
         } catch (e) {
-          console.warn(`[Request Interceptor] Invalid regex pattern: ${patternUrl}`, e);
+          log(`Invalid regex pattern: ${patternUrl}`, 'warn');
         }
+      }
+      
+      // Normalize URLs for comparison
+      let normalizedRequest = requestUrl;
+      let normalizedPattern = patternUrl;
+      
+      // Handle WebSocket protocols
+      if (requestUrl.startsWith('ws://') || requestUrl.startsWith('wss://')) {
+        normalizedRequest = requestUrl.replace(/^wss?:\/\//, 'http://');
+      }
+      if (patternUrl.startsWith('ws://') || patternUrl.startsWith('wss://')) {
+        normalizedPattern = patternUrl.replace(/^wss?:\/\//, 'http://');
       }
       
       // Process URLs for more complex matching
       let requestUrlObj: URL, patternUrlObj: URL;
       
       try {
-        requestUrlObj = new URL(requestUrl);
-        patternUrlObj = new URL(patternUrl);
+        requestUrlObj = new URL(normalizedRequest, window.location.origin);
+        patternUrlObj = new URL(normalizedPattern, window.location.origin);
       } catch (e) {
         // If URL parsing fails, try relative URL handling
         try {
-          requestUrlObj = new URL(requestUrl, window.location.origin);
-          patternUrlObj = new URL(patternUrl, window.location.origin);
+          requestUrlObj = new URL(normalizedRequest, window.location.origin);
+          patternUrlObj = new URL(normalizedPattern, window.location.origin);
         } catch (e2) {
           // Final fallback to simple string comparison
           return requestUrl === patternUrl;
@@ -109,8 +140,11 @@
       const normalizedPatternPath = patternUrlObj.pathname.replace(/\/+$/, '');
       
       // Check if hosts match (for full URLs)
-      if (requestUrlObj.hostname !== patternUrlObj.hostname) {
-        return false;
+      if (patternUrlObj.hostname !== 'localhost' && requestUrlObj.hostname !== patternUrlObj.hostname) {
+        // Allow localhost patterns to match any host for development
+        if (!patternUrlObj.hostname.includes('localhost')) {
+          return false;
+        }
       }
       
       // Direct path match
@@ -136,39 +170,40 @@
           .replace(/\*/g, '.*');
         
         const regex = new RegExp(`^${regexPattern}$`);
-        return regex.test(requestUrl);
+        return regex.test(requestUrl) || regex.test(requestUrlObj.pathname);
       }
       
       return false;
     }
     
     /**
-     * Check if a WebSocket should be intercepted
+     * Check if a WebSocket should be intercepted - FIXED
      */
     function shouldInterceptWebSocket(url: string): string | null {
       log(`Checking WebSocket interception for: ${url}`);
-      log(`Available WebSocket routes: ${Object.keys(interceptedWebSockets).length}`);
       
-      // Find enabled WebSocket routes
-      const enabledRoutes = Object.keys(interceptedWebSockets).filter(key => {
-        const config = interceptedWebSockets[key];
-        const isEnabled = config.enabled === true || config.enabled === undefined || config.enabled !== false;
-        return isEnabled && key.startsWith('WS:');
-      });
+      const enabledRoutes = Object.keys(interceptedWebSockets)
+        .filter(key => {
+          const config = interceptedWebSockets[key];
+          const isEnabled = config.enabled !== false; // Default to enabled
+          return isEnabled && key.startsWith('WS:');
+        });
       
       log(`Enabled WebSocket routes: ${enabledRoutes.length}`);
       
-      // Find matching routes
+      // Try exact matches first, then pattern matches
       for (const routeKey of enabledRoutes) {
-        const { url: routeUrl } = parseWebSocketKey(routeKey);
-        
-        log(`Checking WebSocket route: ${routeUrl} (${routeKey})`);
-        
-        if (urlMatches(url, routeUrl)) {
-          log(`✓ Found matching WebSocket route: ${routeKey}`);
-          return routeKey;
-        } else {
-          log(`WebSocket URL mismatch: ${url} does not match ${routeUrl}`);
+        try {
+          const { url: routeUrl } = parseWebSocketRouteKey(routeKey);
+          
+          log(`Checking WebSocket route: ${routeUrl} (${routeKey})`);
+          
+          if (urlMatches(url, routeUrl)) {
+            log(`✓ Found matching WebSocket route: ${routeKey}`);
+            return routeKey;
+          }
+        } catch (error) {
+          log(`Error parsing WebSocket route key "${routeKey}": ${error}`, 'error');
         }
       }
       
@@ -177,93 +212,162 @@
     }
 
     /**
-     * Process message based on configuration
+     * Validate WebSocket rule - NEW
      */
-    function processMessage(message: any, config: any, direction: 'incoming' | 'outgoing'): any {
-      if (!config) return message;
+    function validateWebSocketRule(rule: any): { valid: boolean; error?: string } {
+      if (!rule || typeof rule !== 'object') {
+        return { valid: false, error: 'Rule must be an object' };
+      }
+      
+      if (!rule.match || rule.match.trim() === '') {
+        return { valid: false, error: 'Match pattern is required' };
+      }
+      
+      if (rule.type !== 'block' && (!rule.replacement || rule.replacement.trim() === '')) {
+        return { valid: false, error: 'Replacement text is required for replace and inject rules' };
+      }
+      
+      if (rule.matchType === 'regex') {
+        try {
+          new RegExp(rule.match, rule.flags || '');
+        } catch (error) {
+          return { valid: false, error: `Invalid regex pattern: ${error}` };
+        }
+      }
+      
+      return { valid: true };
+    }
+
+    /**
+     * Check if rule matches message - NEW
+     */
+    function checkRuleMatch(message: string, rule: any): boolean {
+      switch (rule.matchType) {
+        case 'exact':
+            if (message === rule.match) {
+            return true;
+            }
+            // For exact match, also check if message contains the exact string
+            return message.includes(rule.match);
+          
+        case 'contains':
+          return message.includes(rule.match);
+          
+        case 'regex':
+          try {
+            const flags = rule.flags || 'g';
+            const regex = new RegExp(rule.match, flags);
+            return regex.test(message);
+          } catch (error) {
+            log(`Invalid regex in rule "${rule.description || rule.id}": ${error}`, 'error');
+            return false;
+          }
+          
+        default:
+          return false;
+      }
+    }
+
+    /**
+     * Apply rule replacement - NEW
+     */
+    function applyReplacement(message: string, rule: any): string {
+      switch (rule.matchType) {
+        case 'exact':
+          return message === rule.match ? (rule.replacement || '') : message;
+          
+        case 'contains':
+          return message.replace(new RegExp(escapeRegExp(rule.match), 'g'), rule.replacement || '');
+          
+        case 'regex':
+          try {
+            const flags = rule.flags || 'g';
+            const regex = new RegExp(rule.match, flags);
+            return message.replace(regex, rule.replacement || '');
+          } catch (error) {
+            log(`Error applying regex replacement: ${error}`, 'error');
+            return message;
+          }
+          
+        default:
+          return message;
+      }
+    }
+
+    /**
+     * Process message based on configuration - COMPLETELY REWRITTEN
+     */
+    function processMessage(
+      message: any, 
+      config: any, 
+      direction: 'incoming' | 'outgoing'
+    ): { result: any; blocked: boolean; injected?: any } {
+      if (!config) return { result: message, blocked: false };
       
       const rules = direction === 'incoming' ? config.incomingRules : config.outgoingRules;
-      if (!rules || rules.length === 0) return message;
-      
+      if (!rules || rules.length === 0) return { result: message, blocked: false };
+
       let processedMessage = message;
+      let injectedMessage: any = null;
       
-      // Convert message to string if it's not already
+      // Better type conversion
       if (typeof processedMessage !== 'string') {
         if (processedMessage instanceof ArrayBuffer) {
           processedMessage = new TextDecoder().decode(processedMessage);
         } else if (processedMessage instanceof Blob) {
-          // For Blob, we'll need to handle this asynchronously, but for now return as-is
-          return processedMessage;
+          // Handle Blob asynchronously or convert to string
+          return { result: processedMessage, blocked: false }; // Pass through for now
+        } else if (typeof processedMessage === 'object') {
+          try {
+            processedMessage = JSON.stringify(processedMessage);
+          } catch {
+            processedMessage = String(processedMessage);
+          }
         } else {
           processedMessage = String(processedMessage);
         }
       }
       
-      // Apply each rule
+      // Apply each rule in order
       for (const rule of rules) {
         if (!rule.enabled) continue;
         
+        const validation = validateWebSocketRule(rule);
+        if (!validation.valid) {
+          log(`Skipping invalid rule: ${validation.error}`, 'warn');
+          continue;
+        }
+        
         try {
-          switch (rule.type) {
-            case 'replace':
-              if (rule.matchType === 'exact') {
-                if (processedMessage === rule.match) {
-                  processedMessage = rule.replacement;
-                  log(`WebSocket ${direction} message replaced (exact match)`);
-                }
-              } else if (rule.matchType === 'contains') {
-                if (processedMessage.includes(rule.match)) {
-                  processedMessage = processedMessage.replace(new RegExp(escapeRegExp(rule.match), 'g'), rule.replacement);
-                  log(`WebSocket ${direction} message replaced (contains match)`);
-                }
-              } else if (rule.matchType === 'regex') {
-                const regex = new RegExp(rule.match, rule.flags || 'g');
-                if (regex.test(processedMessage)) {
-                  processedMessage = processedMessage.replace(regex, rule.replacement);
-                  log(`WebSocket ${direction} message replaced (regex match)`);
-                }
-              }
-              break;
-              
-            case 'block':
-              if (rule.matchType === 'exact' && processedMessage === rule.match) {
-                log(`WebSocket ${direction} message blocked (exact match)`);
-                return null; // Block the message
-              } else if (rule.matchType === 'contains' && processedMessage.includes(rule.match)) {
-                log(`WebSocket ${direction} message blocked (contains match)`);
-                return null; // Block the message
-              } else if (rule.matchType === 'regex') {
-                const regex = new RegExp(rule.match, rule.flags || 'g');
-                if (regex.test(processedMessage)) {
-                  log(`WebSocket ${direction} message blocked (regex match)`);
-                  return null; // Block the message
-                }
-              }
-              break;
-              
-            case 'inject':
-              // For inject, we send the replacement message and continue with original
-              if (rule.matchType === 'exact' && processedMessage === rule.match) {
-                log(`WebSocket ${direction} message injection triggered (exact match)`);
-                (processedMessage as any).__inject = rule.replacement;
-              } else if (rule.matchType === 'contains' && processedMessage.includes(rule.match)) {
-                log(`WebSocket ${direction} message injection triggered (contains match)`);
-                (processedMessage as any).__inject = rule.replacement;
-              } else if (rule.matchType === 'regex') {
-                const regex = new RegExp(rule.match, rule.flags || 'g');
-                if (regex.test(processedMessage)) {
-                  log(`WebSocket ${direction} message injection triggered (regex match)`);
-                  (processedMessage as any).__inject = rule.replacement;
-                }
-              }
-              break;
+          const matches = checkRuleMatch(processedMessage, rule);
+          
+          if (matches) {
+            switch (rule.type) {
+              case 'replace':
+                processedMessage = applyReplacement(processedMessage, rule);
+                log(`WebSocket ${direction} message replaced: ${rule.description || 'No description'}`);
+                break;
+                
+              case 'block':
+                log(`WebSocket ${direction} message blocked: ${rule.description || 'No description'}`);
+                return { result: null, blocked: true };
+                
+              case 'inject':
+                injectedMessage = rule.replacement;
+                log(`WebSocket ${direction} message injection triggered: ${rule.description || 'No description'}`);
+                break;
+            }
           }
         } catch (error) {
-          log(`Error processing WebSocket rule: ${error}`);
+          log(`Error processing WebSocket rule "${rule.description || rule.id}": ${error}`, 'error');
         }
       }
       
-      return processedMessage;
+      return { 
+        result: processedMessage, 
+        blocked: false, 
+        injected: injectedMessage 
+      };
     }
     
     /**
@@ -468,7 +572,7 @@
     }
     
     /**
-     * Set up WebSocket interception
+     * Set up WebSocket interception - COMPLETELY REWRITTEN
      */
     function setupWebSocketInterceptor() {
       (window as any).WebSocket = function(url: string | URL, protocols?: string | string[]) {
@@ -498,29 +602,66 @@
             });
           });
           
+          // Setup message handling
+          const interceptIncomingMessage = (originalHandler: Function) => {
+            return function(event: MessageEvent) {
+              log(`WebSocket incoming message: ${event.data}`);
+              
+              const result = processMessage(event.data, config, 'incoming');
+              
+              if (result.blocked) {
+                log(`WebSocket incoming message blocked`);
+                return; // Don't trigger handler
+              }
+              
+              // Handle injection first
+              if (result.injected) {
+                log(`WebSocket injecting incoming message: ${result.injected}`);
+                const injectedEvent = new MessageEvent('message', {
+                  data: result.injected,
+                  origin: event.origin,
+                  lastEventId: event.lastEventId,
+                  source: event.source,
+                  ports: [...event.ports]
+                });
+                originalHandler.call(interceptedWs, injectedEvent);
+              }
+              
+              // Trigger handler with processed message
+              if (result.result !== null) {
+                const newEvent = new MessageEvent('message', {
+                  data: result.result,
+                  origin: event.origin,
+                  lastEventId: event.lastEventId,
+                  source: event.source,
+                  ports: [...event.ports]
+                });
+                originalHandler.call(interceptedWs, newEvent);
+              }
+            };
+          };
+          
           // Proxy methods
           interceptedWs.send = function(data: any) {
             log(`WebSocket outgoing message: ${data}`);
             
-            const processedData = processMessage(data, config, 'outgoing');
+            const result = processMessage(data, config, 'outgoing');
             
-            if (processedData === null) {
+            if (result.blocked) {
               log(`WebSocket outgoing message blocked`);
-              return; // Block the message
+              return; // Don't send anything
             }
             
-            // Handle injection
-            if (processedData && (processedData as any).__inject) {
-              const injectedMessage = (processedData as any).__inject;
-              delete (processedData as any).__inject;
-              
-              // Send injected message first
-              log(`WebSocket injecting outgoing message: ${injectedMessage}`);
-              realWs.send(injectedMessage);
+            // Handle injection first
+            if (result.injected) {
+              log(`WebSocket injecting outgoing message: ${result.injected}`);
+              realWs.send(result.injected);
             }
             
             // Send the processed message
-            realWs.send(processedData);
+            if (result.result !== null) {
+              realWs.send(result.result);
+            }
           };
           
           interceptedWs.close = function(code?: number, reason?: string) {
@@ -528,7 +669,7 @@
             return realWs.close(code, reason);
           };
           
-          // Proxy event handlers
+          // Proxy event handlers - SIMPLIFIED
           const eventProperties = ['onopen', 'onclose', 'onerror', 'onmessage'];
           eventProperties.forEach(prop => {
             Object.defineProperty(interceptedWs, prop, {
@@ -536,44 +677,7 @@
               set(handler) {
                 if (prop === 'onmessage' && handler) {
                   // Intercept incoming messages
-                  realWs[prop] = function(event: MessageEvent) {
-                    log(`WebSocket incoming message: ${event.data}`);
-                    
-                    const processedData = processMessage(event.data, config, 'incoming');
-                    
-                    if (processedData === null) {
-                      log(`WebSocket incoming message blocked`);
-                      return; // Block the message
-                    }
-                    
-                    // Handle injection
-                    if (processedData && (processedData as any).__inject) {
-                      const injectedMessage = (processedData as any).__inject;
-                      delete (processedData as any).__inject;
-                      
-                      // Create and dispatch injected message event
-                      log(`WebSocket injecting incoming message: ${injectedMessage}`);
-                      const injectedEvent = new MessageEvent('message', {
-                        data: injectedMessage,
-                        origin: event.origin,
-                        lastEventId: event.lastEventId,
-                        source: event.source,
-                        ports: [...event.ports]
-                      });
-                      handler.call(interceptedWs, injectedEvent);
-                    }
-                    
-                    // Create new event with processed data
-                    const newEvent = new MessageEvent('message', {
-                      data: processedData,
-                      origin: event.origin,
-                      lastEventId: event.lastEventId,
-                      source: event.source,
-                      ports: [...event.ports]
-                    });
-                    
-                    handler.call(interceptedWs, newEvent);
-                  };
+                  realWs[prop] = interceptIncomingMessage(handler);
                 } else {
                   (realWs as any)[prop] = handler ? handler.bind(interceptedWs) : handler;
                 }
@@ -582,48 +686,10 @@
             });
           });
           
-          // Proxy addEventListener and removeEventListener
+          // Proxy addEventListener and removeEventListener - SIMPLIFIED
           interceptedWs.addEventListener = function(type: string, listener: any, options?: any) {
             if (type === 'message' && listener) {
-              const wrappedListener = function(event: MessageEvent) {
-                log(`WebSocket incoming message (addEventListener): ${event.data}`);
-                
-                const processedData = processMessage(event.data, config, 'incoming');
-                
-                if (processedData === null) {
-                  log(`WebSocket incoming message blocked (addEventListener)`);
-                  return; // Block the message
-                }
-                
-                // Handle injection
-                if (processedData && (processedData as any).__inject) {
-                  const injectedMessage = (processedData as any).__inject;
-                  delete (processedData as any).__inject;
-                  
-                  // Create and dispatch injected message event
-                  log(`WebSocket injecting incoming message (addEventListener): ${injectedMessage}`);
-                  const injectedEvent = new MessageEvent('message', {
-                    data: injectedMessage,
-                    origin: event.origin,
-                    lastEventId: event.lastEventId,
-                    source: event.source,
-                    ports: [...event.ports]
-                  });
-                  listener.call(interceptedWs, injectedEvent);
-                }
-                
-                // Create new event with processed data
-                const newEvent = new MessageEvent('message', {
-                  data: processedData,
-                  origin: event.origin,
-                  lastEventId: event.lastEventId,
-                  source: event.source,
-                  ports: [...event.ports]
-                });
-                
-                listener.call(interceptedWs, newEvent);
-              };
-              
+              const wrappedListener = interceptIncomingMessage(listener);
               return realWs.addEventListener(type, wrappedListener, options);
             } else {
               return realWs.addEventListener(type, listener ? listener.bind(interceptedWs) : listener, options);
@@ -978,9 +1044,15 @@
         
         Object.keys(interceptedWebSockets).forEach(key => {
           const config = interceptedWebSockets[key];
-          const { url, name } = parseWebSocketKey(key);
-          const isEnabled = config.enabled === true || config.enabled === undefined || config.enabled !== false;
-          log(`WebSocket Route: ${url} ${name ? `(${name})` : ''} - ${isEnabled ? 'ENABLED' : 'DISABLED'}`);
+          try {
+            const { url, name } = parseWebSocketRouteKey(key);
+            const isEnabled = config.enabled === true || config.enabled === undefined || config.enabled !== false;
+            const incomingRules = (config.incomingRules || []).filter((r: any) => r.enabled).length;
+            const outgoingRules = (config.outgoingRules || []).filter((r: any) => r.enabled).length;
+            log(`WebSocket Route: ${url} ${name ? `(${name})` : ''} - ${isEnabled ? 'ENABLED' : 'DISABLED'} - Rules: ${incomingRules} incoming, ${outgoingRules} outgoing`);
+          } catch (error) {
+            log(`Invalid WebSocket route key: ${key}`, 'error');
+          }
         });
       },
       

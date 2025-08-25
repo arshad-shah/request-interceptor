@@ -66,6 +66,11 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
     }
   };
 
+  // Sync selectedValue with value prop changes
+  useEffect(() => {
+    setSelectedValue(value || '');
+  }, [value]);
+
   // Handle outside clicks
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

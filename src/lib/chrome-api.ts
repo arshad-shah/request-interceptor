@@ -63,8 +63,11 @@ export const addMessageListener = (callback: (message: ChromeMessage) => void): 
     sender: chrome.runtime.MessageSender, 
     sendResponse: (response?: any) => void
   ) => {
-    // Only handle messages from the background script
-    if (sender.id === chrome.runtime.id) {
+    // Handle messages from the background script or extension itself
+    // Background script messages will have sender.id === chrome.runtime.id
+    // Extension internal messages (popup/sidepanel) may not have sender.id or have undefined
+    if (!sender.id || sender.id === chrome.runtime.id) {
+      console.log('[chrome-api] Received message from background:', message);
       callback(message);
     }
     return true; // Keep the message channel open for async responses
@@ -124,7 +127,12 @@ export const validateJson = (jsonString: string): { isValid: boolean; parsed?: a
 // Format JSON string with proper indentation
 export const formatJson = (obj: any): string => {
   try {
-    return JSON.stringify(obj, null, 2);
+    // JSON.stringify returns undefined for functions and undefined values
+    const result = JSON.stringify(obj, null, 2);
+    if (result === undefined) {
+      return String(obj);
+    }
+    return result;
   } catch {
     return String(obj);
   }

@@ -138,12 +138,9 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     <Dialog isOpen={isOpen} onClose={onClose}>
       <Dialog.Header>
         <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
+        <Button variant="icon" onClick={onClose}>
           <X className="w-5 h-5" />
-        </button>
+        </Button>
       </Dialog.Header>
       
       <Dialog.Body>

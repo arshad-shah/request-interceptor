@@ -31,7 +31,7 @@ interface AppStore extends AppState {
   setEditingRoute: (key: string | null) => void;
   
   // Notifications
-  addNotification: (title: string, message: string, type?: NotificationType) => void;
+  addNotification: (notification: Omit<Notification, 'id'>) => void;
   removeNotification: (id: string) => void;
   clearNotifications: () => void;
   
@@ -58,10 +58,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Actions
   setEnabled: (enabled) => set({ enabled }),
   
-  setRoutes: (routes) => set({ routes }),
+  setRoutes: (routes) => {
+    const routesWithEnabled = Object.entries(routes).reduce((acc, [key, config]) => {
+      acc[key] = { ...config, enabled: config.enabled ?? true };
+      return acc;
+    }, {} as Record<string, RouteConfig | WebSocketConfig>);
+    set({ routes: routesWithEnabled });
+  },
   
   addRoute: (key, config) => set((state) => ({
-    routes: { ...state.routes, [key]: config }
+    routes: { ...state.routes, [key]: { ...config, enabled: config.enabled ?? true } }
   })),
   
   removeRoute: (key) => set((state) => {
@@ -102,18 +108,68 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setEditingRoute: (key) => set({ editingRoute: key }),
   
   // Notifications
-  addNotification: (title, message, type = 'info') => set((state) => ({
-    notifications: [
-      ...state.notifications,
-      {
-        id: Math.random().toString(36).substring(2, 11),
-        title,
-        message,
-        type,
-        timestamp: Date.now()
+  addNotification: (notification) => {
+    // Generate UUID-like ID with timestamp and randomness
+    const timestamp = Date.now().toString(36);
+    const randomPart = Math.random().toString(36).substring(2, 15);
+    const id = `${timestamp}-${randomPart}`;
+    
+    // Check for duplicates within the last 2 seconds to avoid spam
+    const now = Date.now();
+    const recentNotifications = get().notifications.filter(
+      n => n.timestamp && (now - n.timestamp) < 2000
+    );
+    
+    const isDuplicate = recentNotifications.some(
+      n => n.title === notification.title && 
+           n.message === notification.message && 
+           n.type === notification.type
+    );
+    
+    if (isDuplicate) {
+      return; // Skip duplicate notification
+    }
+    
+    // Set duration based on notification type if not specified
+    let duration = notification.duration;
+    if (!duration && !notification.persistent) {
+      switch (notification.type) {
+        case 'error':
+          duration = 6000; // 6 seconds for errors
+          break;
+        case 'warning':
+          duration = 4500; // 4.5 seconds for warnings
+          break;
+        case 'success':
+          duration = 3000; // 3 seconds for success
+          break;
+        case 'info':
+        default:
+          duration = 3500; // 3.5 seconds for info
+          break;
       }
-    ]
-  })),
+    }
+    
+    const newNotification: Notification = {
+      ...notification,
+      id,
+      timestamp: now,
+      duration
+    };
+    
+    set((state) => {
+      // Limit to last 10 notifications to prevent memory bloat
+      const updatedNotifications = [...state.notifications, newNotification];
+      if (updatedNotifications.length > 10) {
+        return {
+          notifications: updatedNotifications.slice(-10)
+        };
+      }
+      return {
+        notifications: updatedNotifications
+      };
+    });
+  },
   
   removeNotification: (id) => set((state) => ({
     notifications: state.notifications.filter(n => n.id !== id)

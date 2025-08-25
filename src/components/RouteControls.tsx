@@ -52,10 +52,20 @@ const RouteControls: React.FC = () => {
         // Copy to clipboard
         await navigator.clipboard.writeText(jsonString);
         
-        addNotification('Success', 'Routes exported and copied to clipboard');
+        addNotification({
+          title: 'Success',
+          message: 'Routes exported and copied to clipboard',
+          type: 'success',
+          timestamp: Date.now()
+        });
       }
     } catch (error) {
-      addNotification('Error', 'Failed to export routes', 'error');
+      addNotification({
+        title: 'Error',
+        message: 'Failed to export routes',
+        type: 'error',
+        timestamp: Date.now()
+      });
     }
   };
 
@@ -63,9 +73,19 @@ const RouteControls: React.FC = () => {
     try {
       await chromeApi.clearRoutes();
       clearRoutes();
-      addNotification('Success', 'All routes cleared successfully');
+      addNotification({
+        title: 'Success',
+        message: 'All routes cleared successfully',
+        type: 'success',
+        timestamp: Date.now()
+      });
     } catch (error) {
-      addNotification('Error', 'Failed to clear routes', 'error');
+      addNotification({
+        title: 'Error',
+        message: 'Failed to clear routes',
+        type: 'error',
+        timestamp: Date.now()
+      });
     }
     setShowClearDialog(false);
   };

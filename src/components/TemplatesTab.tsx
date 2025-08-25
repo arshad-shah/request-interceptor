@@ -92,19 +92,34 @@ const TemplatesTab: React.FC = () => {
 
   const handleParseSchema = () => {
     if (!schemaInput.trim()) {
-      addNotification('Error', 'Please enter a JSON schema', 'error');
+      addNotification({
+        title: 'Error',
+        message: 'Please enter a JSON schema',
+        type: 'error',
+        timestamp: Date.now()
+      });
       return;
     }
 
     const validation = validateJson(schemaInput);
     if (!validation.isValid) {
-      addNotification('Error', `Invalid JSON: ${validation.error}`, 'error');
+      addNotification({
+        title: 'Error',
+        message: `Invalid JSON: ${validation.error}`,
+        type: 'error',
+        timestamp: Date.now()
+      });
       return;
     }
 
     const schema = validation.parsed;
     if (!schema.routes || !Array.isArray(schema.routes)) {
-      addNotification('Error', 'Schema must contain a "routes" array', 'error');
+      addNotification({
+        title: 'Error',
+        message: 'Schema must contain a "routes" array',
+        type: 'error',
+        timestamp: Date.now()
+      });
       return;
     }
 
@@ -143,18 +158,33 @@ const TemplatesTab: React.FC = () => {
     });
 
     if (validRoutes.length === 0) {
-      addNotification('Error', 'No valid routes found in schema', 'error');
+      addNotification({
+        title: 'Error',
+        message: 'No valid routes found in schema',
+        type: 'error',
+        timestamp: Date.now()
+      });
       return;
     }
 
     setParsedRoutes(validRoutes);
     setShowPreview(true);
-    addNotification('Success', `Parsed ${validRoutes.length} routes successfully`);
+    addNotification({
+      title: 'Success',
+      message: `Parsed ${validRoutes.length} routes successfully`,
+      type: 'success',
+      timestamp: Date.now()
+    });
   };
 
   const handleImportRoutes = async () => {
     if (parsedRoutes.length === 0) {
-      addNotification('Error', 'No routes to import', 'error');
+      addNotification({
+        title: 'Error',
+        message: 'No routes to import',
+        type: 'error',
+        timestamp: Date.now()
+      });
       return;
     }
 
@@ -228,8 +258,13 @@ const TemplatesTab: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 50));
       }
 
-      addNotification('Success', `Successfully imported ${importedCount} routes`);
-      
+      addNotification({
+        title: 'Success',
+        message: `Successfully imported ${importedCount} routes`,
+        type: 'success',
+        timestamp: Date.now()
+      });
+
       // Reset and navigate to routes tab
       setSchemaInput('');
       setParsedRoutes([]);
@@ -237,7 +272,12 @@ const TemplatesTab: React.FC = () => {
       setActiveTab('routes');
       
     } catch (error) {
-      addNotification('Error', 'Failed to import routes', 'error');
+      addNotification({
+        title: 'Error',
+        message: 'Failed to import routes',
+        type: 'error',
+        timestamp: Date.now()
+      });
     } finally {
       setIsImporting(false);
     }
@@ -256,11 +296,21 @@ const TemplatesTab: React.FC = () => {
       reader.onload = (e) => {
         const content = e.target?.result as string;
         setSchemaInput(content);
-        addNotification('Success', 'File loaded successfully');
+        addNotification({
+          title: 'Success',
+          message: 'File loaded successfully',
+          type: 'success',
+          timestamp: Date.now()
+        });
       };
       
       reader.onerror = () => {
-        addNotification('Error', 'Failed to read file', 'error');
+        addNotification({
+          title: 'Error',
+          message: 'Failed to read file',
+          type: 'error',
+          timestamp: Date.now()
+        });
       };
       
       reader.readAsText(file);

@@ -89,7 +89,9 @@ const RouteList: React.FC = () => {
     }
     
     // For HTTP routes
-    const { method, url, name } = parseRouteKey(routeKey);
+    const parsed = parseRouteKey(routeKey);
+    if (!parsed) return false; // Safety check
+    const { method, url, name } = parsed;
     
     // Method filter
     if (filters.method !== 'all' && method !== filters.method) {
@@ -124,9 +126,19 @@ const RouteList: React.FC = () => {
     try {
       await chromeApi.removeRoute(deleteDialog.routeKey);
       removeRoute(deleteDialog.routeKey);
-      addNotification('Success', 'Route removed successfully');
+      addNotification({
+        title: 'Success',
+        message: 'Route removed successfully',
+        type: 'success',
+        timestamp: Date.now()
+      });
     } catch (error) {
-      addNotification('Error', 'Failed to remove route', 'error');
+      addNotification({
+        title: 'Error',
+        message: 'Failed to remove route',
+        type: 'error',
+        timestamp: Date.now()
+      });
     }
     
     setDeleteDialog({ isOpen: false });
@@ -140,13 +152,20 @@ const RouteList: React.FC = () => {
       // Then update the local state using the store's toggleRoute method
       toggleRoute(routeKey, enabled);
       
-      addNotification(
-        'Success', 
-        enabled ? 'Route enabled successfully' : 'Route disabled successfully'
-      );
+      addNotification({
+        title: 'Success',
+        message: enabled ? 'Route enabled successfully' : 'Route disabled successfully',
+        type: 'success',
+        timestamp: Date.now()
+      });
     } catch (error) {
       console.error('Failed to toggle route:', error);
-      addNotification('Error', 'Failed to toggle route', 'error');
+      addNotification({
+        title: 'Error',
+        message: 'Failed to toggle route',
+        type: 'error',
+        timestamp: Date.now()
+      });
     }
   };
 

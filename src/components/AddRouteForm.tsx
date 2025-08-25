@@ -531,7 +531,7 @@ const AddRouteForm: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      addNotification('Validation Error', 'Please fix the form errors before submitting', 'error');
+      addNotification({title: 'Validation Error', message: 'Please fix the form errors before submitting', type: 'error', timestamp: Date.now()});
       return;
     }
 
@@ -607,17 +607,19 @@ const AddRouteForm: React.FC = () => {
 
       const typeText = formData.routeType === 'websocket' ? ' WebSocket' : '';
       const modeText = formData.routeType === 'http' && formData.headersOnly ? ' (Headers-Only)' : '';
-      
-      addNotification(
-        'Success', 
-        (isEditing ? 'Route updated successfully' : 'Route added successfully') + typeText + modeText
-      );
+
+      addNotification({
+        title: 'Success',
+        message: (isEditing ? 'Route updated successfully' : 'Route added successfully') + typeText + modeText,
+        type: 'success',
+        timestamp: Date.now()
+      });
 
       handleCancel();
       
     } catch (error) {
       console.error('Error saving route:', error);
-      addNotification('Error', 'Failed to save route', 'error');
+      addNotification({title: 'Error', message: 'Failed to save route', type: 'error', timestamp: Date.now()});
     } finally {
       setIsSubmitting(false);
     }
@@ -644,9 +646,19 @@ const AddRouteForm: React.FC = () => {
       if (jsonValidation.isValid) {
         const formatted = formatJson(jsonValidation.parsed);
         setFormData(prev => ({ ...prev, response: formatted }));
-        addNotification('Success', 'JSON formatted successfully');
+        addNotification({
+          title: 'Success',
+          message: 'JSON formatted successfully',
+          type: 'success',
+          timestamp: Date.now()
+        });
       } else {
-        addNotification('Error', 'Invalid JSON format', 'error');
+        addNotification({
+          title: 'Error',
+          message: 'Invalid JSON format',
+          type: 'error',
+          timestamp: Date.now()
+        });
       }
     }
   };
