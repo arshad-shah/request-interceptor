@@ -24,13 +24,14 @@ import {
   parseWebSocketKey
 } from '@/lib/utils';
 import { RouteConfig, WebSocketConfig } from '@/types';
-import { MethodBadge, ModeBadge, StatusBadge } from './ui/Badge';
+import Badge, { MethodBadge, ModeBadge, StatusBadge } from './ui/Badge';
 import Toggle from './ui/Toggle';
 import Button from './ui/Button';
 import CodeHighlighter from '@/components/Codehighlighter';
 import WebSocketRulesDisplay from '@/components/WebSocketRulesDisplay';
 import HeaderDisplay from '@/components/HeaderDisplay';
 import RemoveHeadersDisplay from '@/components/RemoveHeadersDisplayProps';
+import RouteStatsGrid from '@/components/RouteItemStatCard';
 
 interface RouteItemProps {
   routeKey: string;
@@ -125,20 +126,6 @@ const RouteItem: React.FC<RouteItemProps> = ({
       )}
       whileHover={{ y: -2 }}
     >
-      {/* Status indicator dot */}
-      <motion.div
-        className={cn(
-          "absolute top-4 right-4 w-2 h-2 rounded-full transition-all duration-300",
-          isEnabled ? "bg-green-500 shadow-green-500/50" : "bg-gray-400"
-        )}
-        animate={isEnabled ? {
-          boxShadow: [
-            "0 0 0 0 rgba(34, 197, 94, 0.4)",
-            "0 0 0 8px rgba(34, 197, 94, 0)",
-          ]
-        } : {}}
-        transition={{ duration: 2, repeat: Infinity }}
-      />
 
       {/* Header */}
       <motion.div 
@@ -186,31 +173,16 @@ const RouteItem: React.FC<RouteItemProps> = ({
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Route Name */}
                 {name && (
-                  <motion.div 
-                    className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-sm"
-                    whileHover={{ scale: 1.05, backgroundColor: "#f3f4f6" }}
-                  >
-                    <Tag className="w-3 h-3" />
+                  <Badge variant='default' icon={<Tag className="w-3 h-3" />} iconPosition="left">
                     <span className="font-medium">{name}</span>
-                  </motion.div>
+                  </Badge>
                 )}
-                
-                {/* Mode Badge */}
-                <ModeBadge
-                  headersOnly={isHeadersOnly} 
-                  isWebSocket={isWebSocket}
-                  ruleCount={totalRules}
-                />
                 
                 {/* Headers Indicator */}
                 {!isWebSocket && hasAnyHeaders && (
-                  <motion.div 
-                    className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-sm border border-blue-200"
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    <Settings className="w-3 h-3" />
+                  <Badge variant='info' icon={<Settings className="w-3 h-3" />} iconPosition="left">
                     <span className="font-medium">Headers</span>
-                  </motion.div>
+                  </Badge>
                 )}
               </div>
 
@@ -220,19 +192,17 @@ const RouteItem: React.FC<RouteItemProps> = ({
                   <>
                     <StatusBadge status={httpConfig.status} className="shadow-sm" />
                     {(config.delay ?? 0) > 0 && (
-                      <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded">
-                        <Clock className="w-3 h-3" />
+                      <Badge variant='default' icon={<Clock className="w-3 h-3" />} iconPosition="left">
                         <span className="font-medium">{config.delay ?? 0}ms</span>
-                      </div>
+                      </Badge>
                     )}
                   </>
                 )}
                 
                 {(isHeadersOnly || isWebSocket) && (config.delay ?? 0) > 0 && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded">
-                    <Clock className="w-3 h-3" />
-                    <span className="font-medium">{config.delay ?? 0}ms</span>
-                  </div>
+                  <Badge variant='default' icon={<Clock className="w-3 h-3" />} iconPosition="left">
+                        <span className="font-medium">{config.delay ?? 0}ms</span>
+                  </Badge>
                 )}
               </div>
             </div>
@@ -271,7 +241,7 @@ const RouteItem: React.FC<RouteItemProps> = ({
             transition={{ duration: 0.3, ease: "easeInOut" }}
             className="border-t border-gray-100 bg-gray-50/30"
           >
-            <div className="p-6 space-y-6">
+            <div className="p-2 space-y-2">
               {/* Description */}
               <motion.div 
                 className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm"
@@ -294,62 +264,15 @@ const RouteItem: React.FC<RouteItemProps> = ({
                 </p>
               </motion.div>
 
-              {/* Enhanced Route Info Grid */}
-              <motion.div 
-                className="grid grid-cols-2 lg:grid-cols-4 gap-4"
-                initial={{ y: 10, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    Type
-                  </div>
-                  <ModeBadge 
-                    headersOnly={isHeadersOnly} 
-                    isWebSocket={isWebSocket}
-                    ruleCount={totalRules}
-                  />
-                </div>
-                
-                {!isWebSocket && !isHeadersOnly && (
-                  <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                      Status
-                    </div>
-                    <StatusBadge status={httpConfig.status} />
-                  </div>
-                )}
-                
-                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    Delay
-                  </div>
-                  <div className="text-sm font-semibold text-gray-900">
-                    {config.delay ?? 0}ms
-                  </div>
-                </div>
-                
-                {!isWebSocket && !isHeadersOnly && (
-                  <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                      Content Type
-                    </div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      {contentTypeName}
-                    </div>
-                  </div>
-                )}
-                
-                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    Created
-                  </div>
-                  <div className="text-sm font-semibold text-gray-900">
-                    {timestamp}
-                  </div>
-                </div>
-              </motion.div>
+              <RouteStatsGrid
+                isHeadersOnly={isHeadersOnly}
+                isWebSocket={isWebSocket}
+                totalRules={totalRules}
+                httpConfig={httpConfig}
+                config={config}
+                contentTypeName={contentTypeName}
+                timestamp={timestamp}
+              />
 
               {/* WebSocket Rules section */}
               {isWebSocket && (
@@ -359,12 +282,6 @@ const RouteItem: React.FC<RouteItemProps> = ({
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.3 }}
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-                      <MessageSquare className="w-4 h-4 text-purple-600" />
-                    </div>
-                    <span className="text-lg font-semibold text-gray-900">WebSocket Rules</span>
-                  </div>
                   
                   <div className="grid gap-4">
                     <WebSocketRulesDisplay
@@ -392,12 +309,6 @@ const RouteItem: React.FC<RouteItemProps> = ({
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.3 }}
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                      <Settings className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <span className="text-lg font-semibold text-gray-900">Header Configuration</span>
-                  </div>
                   
                   <div className="grid gap-4">
                     {hasResponseHeaders && (
