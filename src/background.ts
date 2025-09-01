@@ -169,20 +169,20 @@ class StateManager {
   updateIcon(): void {
     const iconPath = this.state.enabled 
       ? {
-          '16': 'icons/icon16.png',
-          '48': 'icons/icon48.png',
-          '128': 'icons/icon128.png'
+          '16': 'icons/icon-16.png',
+          '48': 'icons/icon-48.png',
+          '128': 'icons/icon-128.png'
         }
       : {
-          '16': 'icons/icon16-disabled.png',
-          '48': 'icons/icon48-disabled.png', 
-          '128': 'icons/icon128-disabled.png'
+          '16': 'icons/icon-16-disabled.png',
+          '48': 'icons/icon-48-disabled.png', 
+          '128': 'icons/icon-128-disabled.png'
         };
       
     chrome.action.setIcon({ path: iconPath }).catch(() => {
       // Fallback to single icon if multiple sizes fail
       chrome.action.setIcon({ 
-        path: this.state.enabled ? 'icons/icon128.png' : 'icons/icon128-disabled.png' 
+        path: this.state.enabled ? 'icons/icon-128.png' : 'icons/icon-128-disabled.png' 
       });
     });
   }
