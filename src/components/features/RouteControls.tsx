@@ -16,6 +16,7 @@ import { chromeApi } from '@/lib/chrome-api';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
+import Card from '../ui/Card';
 import { ConfirmDialog } from '../ui/Dialog';
 
 const RouteControls: React.FC = () => {
@@ -111,10 +112,9 @@ const RouteControls: React.FC = () => {
 
   return (
     <>
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        {/* Header Section with Stats */}
-        <div className="px-4 py-3 border-b border-gray-100">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <Card hover={false}>
+        <Card.Header>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
             {/* Route Statistics */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -168,10 +168,9 @@ const RouteControls: React.FC = () => {
               </div>
             )}
           </div>
-        </div>
+        </Card.Header>
 
-        {/* Search Section - Always Visible */}
-        <div className="px-4 py-3">
+        <Card.Body>
           <div className="relative">
             <Input
               placeholder="Search routes by URL, method, or description..."
@@ -200,88 +199,86 @@ const RouteControls: React.FC = () => {
               }`} />
             </button>
           </div>
-        </div>
+        </Card.Body>
 
         {/* Expandable Filters Section */}
         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
           filtersExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
         }`}>
-          <div className="px-4 pb-4 border-t border-gray-100">
-            <div className="pt-4">
-              {/* Active Filters Indicator */}
-              {hasActiveFilters && (
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="font-medium">Active filters:</span>
-                    <div className="flex items-center gap-1">
-                      {filters.search && (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
-                          "{filters.search}"
-                        </span>
-                      )}
-                      {filters.routeType && filters.routeType !== 'all' && (
-                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
-                          {filters.routeType}
-                        </span>
-                      )}
-                      {filters.method && filters.method !== 'all' && (
-                        <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
-                          {filters.method}
-                        </span>
-                      )}
-                    </div>
+          <Card.Body className="border-t border-gray-200">
+            {/* Active Filters Indicator */}
+            {hasActiveFilters && (
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span className="font-medium">Active filters:</span>
+                  <div className="flex items-center gap-1">
+                    {filters.search && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                        "{filters.search}"
+                      </span>
+                    )}
+                    {filters.routeType && filters.routeType !== 'all' && (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
+                        {filters.routeType}
+                      </span>
+                    )}
+                    {filters.method && filters.method !== 'all' && (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                        {filters.method}
+                      </span>
+                    )}
                   </div>
-                  <Button
-                    variant='ghost'
-                    onClick={clearAllFilters}
-                    leftIcon={<X className="w-3 h-3" />}
-                  >
-                    Clear all
-                  </Button>
                 </div>
-              )}
+                <Button
+                  variant='ghost'
+                  onClick={clearAllFilters}
+                  leftIcon={<X className="w-3 h-3" />}
+                >
+                  Clear all
+                </Button>
+              </div>
+            )}
 
-              {/* Filter Controls Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Route Type Filter */}
+            {/* Filter Controls Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Route Type Filter */}
+              <div className="space-y-2">
+                <Select
+                  value={filters.routeType || 'all'}
+                  onChange={(e) => setFilters({ routeType: e as any })}
+                  leftIcon={<Route className="w-4 h-4" />}
+                  className="w-full"
+                  label='Route Type'
+                >
+                  <option value="all">All Types</option>
+                  <option value="http">HTTP/HTTPS</option>
+                  <option value="websocket">WebSocket</option>
+                </Select>
+              </div>
+              
+              {/* HTTP Method Filter */}
+              {(filters.routeType === 'all' || filters.routeType === 'http' || !filters.routeType) && (
                 <div className="space-y-2">
                   <Select
-                    value={filters.routeType || 'all'}
-                    onChange={(e) => setFilters({ routeType: e as any })}
-                    leftIcon={<Route className="w-4 h-4" />}
+                    value={filters.method}
+                    onChange={(e) => setFilters({ method: e as any })}
+                    leftIcon={<Filter className="w-4 h-4" />}
                     className="w-full"
-                    label='Route Type'
+                    label='HTTP Method'
                   >
-                    <option value="all">All Types</option>
-                    <option value="http">HTTP/HTTPS</option>
-                    <option value="websocket">WebSocket</option>
+                    <option value="all">All Methods</option>
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                    <option value="PATCH">PATCH</option>
                   </Select>
                 </div>
-                
-                {/* HTTP Method Filter */}
-                {(filters.routeType === 'all' || filters.routeType === 'http' || !filters.routeType) && (
-                  <div className="space-y-2">
-                    <Select
-                      value={filters.method}
-                      onChange={(e) => setFilters({ method: e as any })}
-                      leftIcon={<Filter className="w-4 h-4" />}
-                      className="w-full"
-                      label='HTTP Method'
-                    >
-                      <option value="all">All Methods</option>
-                      <option value="GET">GET</option>
-                      <option value="POST">POST</option>
-                      <option value="PUT">PUT</option>
-                      <option value="DELETE">DELETE</option>
-                      <option value="PATCH">PATCH</option>
-                    </Select>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-          </div>
+          </Card.Body>
         </div>
-      </div>
+      </Card>
 
       <ConfirmDialog
         isOpen={showClearDialog}

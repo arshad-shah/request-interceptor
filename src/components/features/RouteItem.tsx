@@ -24,7 +24,7 @@ import {
   parseWebSocketKey
 } from '@/lib/utils';
 import { RouteConfig, WebSocketConfig } from '@/types';
-import Badge, { MethodBadge, ModeBadge, StatusBadge } from '../ui/Badge';
+import Badge, { MethodBadge, StatusBadge } from '../ui/Badge';
 import Toggle from '../ui/Toggle';
 import Button from '../ui/Button';
 import CodeHighlighter from '@/components/common/Codehighlighter';

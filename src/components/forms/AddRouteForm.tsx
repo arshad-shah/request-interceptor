@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Tag, 
   Link, 
@@ -9,20 +8,21 @@ import {
   Settings2, 
   Filter,
   ArrowDownLeft,
-  ArrowUpRight,
-  Plus,
-  Trash2,
-  Edit3
+  ArrowUpRight
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, parseRouteKey, createRouteKey, validateJson, formatJson } from '@/lib/chrome-api';
+import { parseWebSocketKey } from '@/lib/utils';
 import { 
   HttpMethod, 
-  RouteFormData,
-  WebSocketRule, 
-  RuleType, 
-  MatchType 
+  RouteFormData
 } from '@/types';
+import { 
+  defaultFormData,
+  commonResponseHeaders,
+  commonRequestHeaders,
+  commonRemoveHeaders
+} from '@/constants/route-form';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
@@ -32,395 +32,7 @@ import ReactAceEditor from '@/components/common/ReactAceEditor';
 import HeaderEditor from './HeaderEditor';
 import RemoveHeadersEditor from './RemoveHeaderEditor';
 import RouteTypeSelection from './RouteTypeSelection';
-
-const defaultWebSocketRule: Omit<WebSocketRule, 'id'> = {
-  enabled: true,
-  type: 'replace',
-  matchType: 'contains',
-  match: '',
-  replacement: '',
-  description: ''
-};
-
-const defaultFormData: RouteFormData = {
-  routeType: 'http',
-  name: '',
-  url: '',
-  method: 'GET',
-  status: 200,
-  delay: 0,
-  contentType: 'application/json',
-  response: formatJson({ status: 'success', data: [{ id: 1, name: 'Example' }] }),
-  responseHeaders: {},
-  requestHeaders: {},
-  removeRequestHeaders: [],
-  headersOnly: false,
-  incomingRules: [],
-  outgoingRules: []
-};
-
-// Common response headers
-const commonResponseHeaders = [
-  { key: 'Access-Control-Allow-Origin', value: '*', description: 'Allow cross-origin requests from any domain' },
-  { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS', description: 'Allowed HTTP methods for CORS' },
-  { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization', description: 'Allowed headers for CORS' },
-  { key: 'Cache-Control', value: 'no-cache', description: 'Disable caching of the response' },
-  { key: 'Cache-Control', value: 'max-age=3600', description: 'Cache response for 1 hour' },
-  { key: 'X-Powered-By', value: 'Request Interceptor', description: 'Custom powered by header' },
-  { key: 'X-Response-Time', value: '150ms', description: 'Simulate response time header' },
-  { key: 'Set-Cookie', value: 'sessionId=abc123; HttpOnly; Secure', description: 'Set a secure session cookie' },
-  { key: 'Location', value: '/api/redirect', description: 'Redirect location for 3xx responses' },
-  { key: 'Content-Disposition', value: 'attachment; filename="data.json"', description: 'Force file download' }
-];
-
-// Common request headers to add/modify
-const commonRequestHeaders = [
-  { key: 'Authorization', value: 'Bearer token123', description: 'Add/override authorization header' },
-  { key: 'User-Agent', value: 'Request-Interceptor/1.0', description: 'Override user agent' },
-  { key: 'X-API-Key', value: 'your-api-key', description: 'Add API key header' },
-  { key: 'X-Forwarded-For', value: '127.0.0.1', description: 'Add forwarded IP header' },
-  { key: 'Accept', value: 'application/json', description: 'Override accept header' },
-  { key: 'Content-Type', value: 'application/json', description: 'Override content type' },
-  { key: 'X-Requested-With', value: 'XMLHttpRequest', description: 'Mark as AJAX request' },
-  { key: 'Origin', value: 'https://trusted-domain.com', description: 'Override origin header' }
-];
-
-// Common headers to remove from requests
-const commonRemoveHeaders = [
-  { key: 'Authorization', description: 'Remove authorization to simulate logged-out state' },
-  { key: 'User-Agent', description: 'Remove user agent for anonymity testing' },
-  { key: 'Referer', description: 'Remove referer header for privacy testing' },
-  { key: 'Cookie', description: 'Remove all cookies' },
-  { key: 'X-Forwarded-For', description: 'Remove forwarded IP header' },
-  { key: 'X-Real-IP', description: 'Remove real IP header' },
-  { key: 'Accept-Encoding', description: 'Remove compression preferences' },
-  { key: 'If-Modified-Since', description: 'Remove conditional request header' }
-];
-
-interface WebSocketRuleEditorProps {
-  title: string;
-  rules: WebSocketRule[];
-  onRulesChange: (rules: WebSocketRule[]) => void;
-  direction: 'incoming' | 'outgoing';
-  icon: React.ReactNode;
-}
-
-const WebSocketRuleEditor: React.FC<WebSocketRuleEditorProps> = ({
-  title,
-  rules,
-  onRulesChange,
-  direction,
-  icon
-}) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  const addRule = () => {
-    const newRule: WebSocketRule = {
-      ...defaultWebSocketRule,
-      id: `rule-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    };
-    onRulesChange([...rules, newRule]);
-  };
-
-  const updateRule = (index: number, updates: Partial<WebSocketRule>) => {
-    const updatedRules = rules.map((rule, i) => 
-      i === index ? { ...rule, ...updates } : rule
-    );
-    onRulesChange(updatedRules);
-  };
-
-  const removeRule = (index: number) => {
-    const updatedRules = rules.filter((_, i) => i !== index);
-    onRulesChange(updatedRules);
-  };
-
-  return (
-    <div className="space-y-3">
-      <div 
-        className="flex items-center justify-between cursor-pointer p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <div className="flex items-center gap-2">
-          {icon}
-          <div>
-            <div className="text-sm font-medium text-gray-700">{title}</div>
-            <div className="text-xs text-gray-500">
-              {direction === 'incoming' ? 'Process messages from server' : 'Process messages to server'}
-            </div>
-          </div>
-          {rules.length > 0 && (
-            <div className="ml-2 px-2 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium">
-              {rules.length}
-            </div>
-          )}
-        </div>
-        
-        <motion.div
-          animate={{ rotate: isExpanded ? 90 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <Filter className="w-4 h-4 text-gray-400" />
-        </motion.div>
-      </div>
-
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-3 overflow-hidden"
-          >
-            {rules.length > 0 && (
-              <div className="space-y-2">
-                <AnimatePresence mode="popLayout">
-                  {rules.map((rule, index) => (
-                    <WebSocketRuleItem
-                      key={rule.id}
-                      rule={rule}
-                      onUpdate={(updates) => updateRule(index, updates)}
-                      onRemove={() => removeRule(index)}
-                    />
-                  ))}
-                </AnimatePresence>
-              </div>
-            )}
-
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={addRule}
-                leftIcon={<Plus className="w-4 h-4" />}
-              >
-                Add {direction} Rule
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-interface WebSocketRuleItemProps {
-  rule: WebSocketRule;
-  onUpdate: (updates: Partial<WebSocketRule>) => void;
-  onRemove: () => void;
-}
-
-const WebSocketRuleItem: React.FC<WebSocketRuleItemProps> = ({
-  rule,
-  onUpdate,
-  onRemove
-}) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [tempRule, setTempRule] = useState(rule);
-
-  const handleSave = () => {
-    onUpdate(tempRule);
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setTempRule(rule);
-    setIsEditing(false);
-  };
-
-  const ruleTypeOptions: { value: RuleType; label: string; description: string }[] = [
-    { value: 'replace', label: 'Replace', description: 'Replace matching content with new content' },
-    { value: 'block', label: 'Block', description: 'Block messages that match the pattern' },
-    { value: 'inject', label: 'Inject', description: 'Send additional message when pattern matches' }
-  ];
-
-  const matchTypeOptions: { value: MatchType; label: string; description: string }[] = [
-    { value: 'exact', label: 'Exact Match', description: 'Match entire message exactly' },
-    { value: 'contains', label: 'Contains', description: 'Match if message contains text' },
-    { value: 'regex', label: 'Regex', description: 'Match using regular expression' }
-  ];
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className="bg-white border border-gray-200 rounded-lg p-3"
-    >
-      {isEditing ? (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Toggle
-              checked={tempRule.enabled}
-              onChange={(checked) => setTempRule(prev => ({ ...prev, enabled: checked }))}
-              size="sm"
-            />
-            <span className="text-sm font-medium text-gray-700">Rule Enabled</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Select
-              label="Rule Type"
-              value={tempRule.type}
-              onChange={(e) => setTempRule(prev => ({ ...prev, type: e as RuleType }))}
-            >
-              {ruleTypeOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-
-            <Select
-              label="Match Type"
-              value={tempRule.matchType}
-              onChange={(e) => setTempRule(prev => ({ ...prev, matchType: e as MatchType }))}
-            >
-              {matchTypeOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <Input
-            label={tempRule.matchType === 'regex' ? 'Pattern (Regular Expression)' : 'Match Text'}
-            value={tempRule.match}
-            onChange={(e) => setTempRule(prev => ({ ...prev, match: e.target.value }))}
-            placeholder={
-              tempRule.matchType === 'exact' ? 'Exact message to match' :
-              tempRule.matchType === 'contains' ? 'Text to search for' :
-              'Regular expression pattern'
-            }
-          />
-
-          {tempRule.matchType === 'regex' && (
-            <Input
-              label="Regex Flags (optional)"
-              value={tempRule.flags || ''}
-              onChange={(e) => setTempRule(prev => ({ ...prev, flags: e.target.value }))}
-              placeholder="g, i, m, s, etc."
-              helperText="Common flags: g (global), i (ignore case), m (multiline)"
-            />
-          )}
-
-          {tempRule.type !== 'block' && (
-            <Input
-              label={tempRule.type === 'inject' ? 'Message to Inject' : 'Replacement Text'}
-              value={tempRule.replacement || ''}
-              onChange={(e) => setTempRule(prev => ({ ...prev, replacement: e.target.value }))}
-              placeholder={
-                tempRule.type === 'inject' ? 'Message to send when pattern matches' : 'Text to replace matches with'
-              }
-            />
-          )}
-
-          <Input
-            label="Description (optional)"
-            value={tempRule.description || ''}
-            onChange={(e) => setTempRule(prev => ({ ...prev, description: e.target.value }))}
-            placeholder="Describe what this rule does"
-          />
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleSave}
-              disabled={!tempRule.match.trim() || (tempRule.type !== 'block' && !tempRule.replacement?.trim())}
-            >
-              Save
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleCancel}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <Toggle
-                checked={rule.enabled}
-                onChange={(checked) => onUpdate({ enabled: checked })}
-                size="sm"
-              />
-              <span className={`text-xs px-2 py-1 rounded font-medium ${
-                rule.type === 'replace' ? 'bg-blue-100 text-blue-700' :
-                rule.type === 'block' ? 'bg-red-100 text-red-700' :
-                'bg-green-100 text-green-700'
-              }`}>
-                {rule.type.toUpperCase()}
-              </span>
-              <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
-                {rule.matchType.toUpperCase()}
-              </span>
-            </div>
-            
-            <div className="text-sm">
-              <span className="font-medium text-gray-900">Match:</span>
-              <span className="ml-2 font-mono text-gray-600 break-all">{rule.match}</span>
-            </div>
-            
-            {rule.replacement && (
-              <div className="text-sm mt-1">
-                <span className="font-medium text-gray-900">
-                  {rule.type === 'inject' ? 'Inject:' : 'Replace:'}
-                </span>
-                <span className="ml-2 font-mono text-gray-600 break-all">{rule.replacement}</span>
-              </div>
-            )}
-            
-            {rule.description && (
-              <div className="text-xs text-gray-500 mt-1">{rule.description}</div>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-1 ml-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsEditing(true)}
-              leftIcon={<Edit3 className="w-3 h-3" />}
-            >
-              Edit
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onRemove}
-              leftIcon={<Trash2 className="w-3 h-3" />}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              Remove
-            </Button>
-          </div>
-        </div>
-      )}
-    </motion.div>
-  );
-};
-
-// Helper function for parsing WebSocket keys
-function parseWebSocketKey(routeKey: string) {
-  const remaining = routeKey.substring(3); // Remove 'WS:'
-  const pipeIndex = remaining.indexOf('|');
-  
-  if (pipeIndex === -1) {
-    return { url: remaining, name: '' };
-  }
-  
-  const url = remaining.substring(0, pipeIndex);
-  const name = remaining.substring(pipeIndex + 1);
-  
-  return { url, name };
-}
+import WebSocketRuleEditor from './WebSocketRuleEditor';
 
 const AddRouteForm: React.FC = () => {
   const { 
@@ -640,33 +252,6 @@ const AddRouteForm: React.FC = () => {
     }
   };
 
-  const formatJsonResponse = () => {
-    if (formData.contentType === 'application/json') {
-      const jsonValidation = validateJson(formData.response);
-      if (jsonValidation.isValid) {
-        const formatted = formatJson(jsonValidation.parsed);
-        setFormData(prev => ({ ...prev, response: formatted }));
-        addNotification({
-          title: 'Success',
-          message: 'JSON formatted successfully',
-          type: 'success',
-          timestamp: Date.now()
-        });
-      } else {
-        addNotification({
-          title: 'Error',
-          message: 'Invalid JSON format',
-          type: 'error',
-          timestamp: Date.now()
-        });
-      }
-    }
-  };
-
-  const clearResponse = () => {
-    setFormData(prev => ({ ...prev, response: '' }));
-  };
-
   const isEditing = editingRoute != null;
   const isWebSocket = formData.routeType === 'websocket';
 
@@ -691,7 +276,7 @@ const AddRouteForm: React.FC = () => {
         <div className="flex items-center gap-2">
           <Settings2 className="w-5 h-5 text-primary-500" />
           <span className="text-lg font-semibold">
-            {isEditing ? 'Edit Route Interception' : 'Add New Route Interception'}
+            {isEditing ? 'Edit Route' : 'Add New Route'}
           </span>
           {isWebSocket ? (
             <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
@@ -853,7 +438,7 @@ const AddRouteForm: React.FC = () => {
                 : "Headers to include in the mock response"
               }
               headers={formData.responseHeaders}
-              onHeadersChange={(headers) => handleInputChange('responseHeaders', headers)}
+              onHeadersChange={(headers: Record<string, string>) => handleInputChange('responseHeaders', headers)}
               placeholder={{ key: 'X-Custom-Header', value: 'Custom Value' }}
               commonHeaders={commonResponseHeaders}
             />
@@ -863,7 +448,7 @@ const AddRouteForm: React.FC = () => {
               title="Request Headers"
               description="Headers to add or modify in outgoing requests"
               headers={formData.requestHeaders}
-              onHeadersChange={(headers) => handleInputChange('requestHeaders', headers)}
+              onHeadersChange={(headers: Record<string, string>) => handleInputChange('requestHeaders', headers)}
               placeholder={{ key: 'Authorization', value: 'Bearer token123' }}
               commonHeaders={commonRequestHeaders}
             />
@@ -873,7 +458,7 @@ const AddRouteForm: React.FC = () => {
               title="Remove Request Headers"
               description="Headers to strip from outgoing requests"
               removeHeaders={formData.removeRequestHeaders}
-              onRemoveHeadersChange={(headers) => handleInputChange('removeRequestHeaders', headers)}
+              onRemoveHeadersChange={(headers: string[]) => handleInputChange('removeRequestHeaders', headers)}
               commonHeaders={commonRemoveHeaders}
             />
 
