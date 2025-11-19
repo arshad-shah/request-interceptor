@@ -28,6 +28,7 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
 import Toggle from '../ui/Toggle';
+import Radio from '../ui/Radio';
 import ReactAceEditor from '@/components/common/ReactAceEditor';
 import HeaderEditor from './HeaderEditor';
 import RemoveHeadersEditor from './RemoveHeaderEditor';
@@ -331,37 +332,48 @@ const AddRouteForm: React.FC = () => {
         {/* HTTP-specific fields */}
         {!isWebSocket && (
           <>
-            {/* Interception Mode Toggle */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Filter className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <div className="font-medium text-blue-900">Interception Mode</div>
-                    <div className="text-sm text-blue-700 mt-1">
-                      {formData.headersOnly 
-                        ? 'Headers-only: Modify request/response headers while letting the original request proceed'
-                        : 'Full interception: Replace the entire response with your mock data'
-                      }
-                    </div>
-                  </div>
-                </div>
-                <Toggle
-                  checked={formData.headersOnly}
-                  onChange={(checked) => handleInputChange('headersOnly', checked)}
-                  size="md"
-                />
-              </div>
+            {/* Interception Mode */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Interception Mode
+              </label>
               
-              {formData.headersOnly && (
-                <div className="mt-3 p-3 bg-blue-100 rounded-lg">
-                  <div className="text-sm text-blue-800">
-                    <strong>Headers-Only Mode:</strong> The original request will be sent to the server, 
-                    but you can modify request headers before sending and response headers after receiving. 
-                    This is useful for testing CORS, authentication, caching behaviors, etc.
+              <div className="border-2 rounded-xl bg-white border-gray-200 hover:border-gray-300 transition-all duration-200">
+                <div className="p-3">
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Radio
+                        checked={!formData.headersOnly}
+                        onChange={() => handleInputChange('headersOnly', false)}
+                        value="full"
+                        name="interceptionMode"
+                        size="sm"
+                      />
+                      <Settings2 className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm text-gray-900">Full Response</span>
+                    </label>
+                    
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Radio
+                        checked={formData.headersOnly}
+                        onChange={() => handleInputChange('headersOnly', true)}
+                        value="headers"
+                        name="interceptionMode"
+                        size="sm"
+                      />
+                      <Filter className="w-4 h-4 text-purple-600" />
+                      <span className="text-sm text-gray-900">Headers Only</span>
+                    </label>
+                  </div>
+                  
+                  <div className="mt-2 text-xs text-gray-500">
+                    {formData.headersOnly 
+                      ? 'Modify request/response headers while letting the original request proceed'
+                      : 'Replace the entire response with your mock data'
+                    }
                   </div>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Method */}
