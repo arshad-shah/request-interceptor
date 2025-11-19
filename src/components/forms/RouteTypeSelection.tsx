@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Zap, MessageSquare } from 'lucide-react';
-import { cn } from '../lib/utils';
-import Radio from './ui/Radio';
+import { cn } from '@/lib/utils';
+import Radio from '../ui/Radio';
 
 interface RouteTypeSelectionProps {
     formData: {

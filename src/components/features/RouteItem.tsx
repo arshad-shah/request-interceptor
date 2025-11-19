@@ -24,14 +24,14 @@ import {
   parseWebSocketKey
 } from '@/lib/utils';
 import { RouteConfig, WebSocketConfig } from '@/types';
-import Badge, { MethodBadge, ModeBadge, StatusBadge } from './ui/Badge';
-import Toggle from './ui/Toggle';
-import Button from './ui/Button';
-import CodeHighlighter from '@/components/Codehighlighter';
-import WebSocketRulesDisplay from '@/components/WebSocketRulesDisplay';
-import HeaderDisplay from '@/components/HeaderDisplay';
-import RemoveHeadersDisplay from '@/components/RemoveHeadersDisplayProps';
-import RouteStatsGrid from '@/components/RouteItemStatCard';
+import Badge, { MethodBadge, ModeBadge, StatusBadge } from '../ui/Badge';
+import Toggle from '../ui/Toggle';
+import Button from '../ui/Button';
+import CodeHighlighter from '@/components/common/Codehighlighter';
+import WebSocketRulesDisplay from './WebSocketRulesDisplay';
+import HeaderDisplay from '@/components/common/HeaderDisplay';
+import RemoveHeadersDisplay from '@/components/common/RemoveHeadersDisplayProps';
+import RouteStatsGrid from '@/components/common/RouteItemStatCard';
 
 interface RouteItemProps {
   routeKey: string;

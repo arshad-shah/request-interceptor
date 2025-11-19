@@ -1,4 +1,4 @@
-import Button from "@/components/ui/Button";
+import Button from '../ui/Button';
 import { Plus, Route } from "lucide-react";
 
 const EmptyState: React.FC<{ onAddRoute: () => void }> = ({ onAddRoute }) => (

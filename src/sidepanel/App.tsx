@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, addMessageListener } from '@/lib/chrome-api';
-import NotificationContainer from '@/components/Notification';
-import Header from '@/components/Header';
-import Navigation from '@/components/Navigation';
+import NotificationContainer from '@/components/common/Notification';
+import Header from '@/components/layout/Header';
+import Navigation from '@/components/layout/Navigation';
 import { RouteConfig, WebSocketConfig } from '@/types';
-import TabContent from '@/components/TabContent';
+import TabContent from '@/components/layout/TabContent';
 
 const App: React.FC = () => {
   const { setEnabled, setRoutes } = useAppStore();

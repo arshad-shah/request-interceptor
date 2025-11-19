@@ -8,11 +8,11 @@ import {
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, validateJson } from '@/lib/chrome-api';
 import { RouteConfig, WebSocketConfig } from '@/types';
-import Card from './ui/Card';
-import Button from './ui/Button';
-import ReactAceEditor from './ReactAceEditor';
-import CollapsibleSchemaExamples from '@/components/CollapsibleSchemaExamples';
-import RoutePreviews from '@/components/RoutePreviews';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
+import ReactAceEditor from '@/components/common/ReactAceEditor';
+import CollapsibleSchemaExamples from '@/components/common/CollapsibleSchemaExamples';
+import RoutePreviews from './RoutePreviews';
 
 
 const TemplatesTab: React.FC = () => {

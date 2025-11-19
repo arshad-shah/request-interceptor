@@ -1,8 +1,8 @@
 import React from 'react';
 import { X, Import, MessageSquare, Filter, Code2 } from 'lucide-react';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import { MethodBadge, StatusBadge } from '@/components/ui/Badge';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
+import { MethodBadge, StatusBadge } from '../ui/Badge';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 

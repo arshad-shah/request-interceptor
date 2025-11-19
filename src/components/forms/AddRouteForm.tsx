@@ -23,15 +23,15 @@ import {
   RuleType, 
   MatchType 
 } from '@/types';
-import Card from './ui/Card';
-import Input from './ui/Input';
-import Select from './ui/Select';
-import Button from './ui/Button';
-import Toggle from './ui/Toggle';
-import ReactAceEditor from '@/components/ReactAceEditor';
-import HeaderEditor from '@/components/HeaderEditor';
-import RemoveHeadersEditor from '@/components/RemoveHeaderEditor';
-import RouteTypeSelection from '@/components/RouteTypeSelection';
+import Card from '../ui/Card';
+import Input from '../ui/Input';
+import Select from '../ui/Select';
+import Button from '../ui/Button';
+import Toggle from '../ui/Toggle';
+import ReactAceEditor from '@/components/common/ReactAceEditor';
+import HeaderEditor from './HeaderEditor';
+import RemoveHeadersEditor from './RemoveHeaderEditor';
+import RouteTypeSelection from './RouteTypeSelection';
 
 const defaultWebSocketRule: Omit<WebSocketRule, 'id'> = {
   enabled: true,

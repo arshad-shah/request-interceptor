@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, ChevronRight, Trash2, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Button from './ui/Button';
-import Input from './ui/Input';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
 
 interface RemoveHeadersEditorProps {
   removeHeaders: string[];

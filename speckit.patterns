@@ -1,0 +1,546 @@
+# Request Interceptor Extension - Code Patterns
+## Established patterns and architectural guidelines
+
+### Component Patterns
+
+#### UI Component Pattern
+```tsx
+interface ComponentProps extends React.HTMLAttributes<HTMLDivElement> {
+  variant?: 'primary' | 'secondary' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  children: React.ReactNode;
+}
+
+const Component: React.FC<ComponentProps> = ({
+  variant = 'primary',
+  size = 'md',
+  className,
+  children,
+  ...props
+}) => {
+  return (
+    <div
+      className={cn(
+        // Base styles
+        "base-classes",
+        // Variant styles
+        variants[variant],
+        // Size styles
+        sizes[size],
+        // User classes
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+};
+```
+
+#### Form Component Pattern
+```tsx
+interface FormComponentProps {
+  value: string;
+  onChange: (value: string) => void;
+  onBlur?: () => void;
+  disabled?: boolean;
+  error?: string;
+  label?: string;
+  placeholder?: string;
+}
+
+const FormComponent: React.FC<FormComponentProps> = ({
+  value,
+  onChange,
+  onBlur,
+  disabled = false,
+  error,
+  label,
+  placeholder,
+  ...props
+}) => {
+  return (
+    <div className="space-y-2">
+      {label && (
+        <label className="block text-sm font-medium text-gray-700">
+          {label}
+        </label>
+      )}
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        disabled={disabled}
+        placeholder={placeholder}
+        className={cn(
+          "w-full px-3 py-2 border rounded-lg",
+          error
+            ? "border-red-500 focus:ring-red-500"
+            : "border-gray-300 focus:ring-blue-500",
+          disabled && "opacity-50 cursor-not-allowed"
+        )}
+        {...props}
+      />
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
+    </div>
+  );
+};
+```
+
+### State Management Patterns
+
+#### Zustand Store Pattern
+```tsx
+interface StoreState {
+  // State
+  data: DataType[];
+  loading: boolean;
+  error: string | null;
+
+  // Actions
+  fetchData: () => Promise<void>;
+  updateItem: (id: string, updates: Partial<DataType>) => void;
+  resetError: () => void;
+}
+
+export const useStore = create<StoreState>((set, get) => ({
+  // Initial state
+  data: [],
+  loading: false,
+  error: null,
+
+  // Actions
+  fetchData: async () => {
+    set({ loading: true, error: null });
+    try {
+      const data = await api.fetchData();
+      set({ data, loading: false });
+    } catch (error) {
+      set({
+        error: error.message,
+        loading: false
+      });
+    }
+  },
+
+  updateItem: (id, updates) => set((state) => ({
+    data: state.data.map(item =>
+      item.id === id ? { ...item, ...updates } : item
+    )
+  })),
+
+  resetError: () => set({ error: null })
+}));
+```
+
+#### Store Action Pattern with Error Handling
+```tsx
+// Pattern for async actions with proper error handling
+const createAsyncAction = (actionName: string) => async (
+  set: Function,
+  get: Function,
+  operation: () => Promise<any>
+) => {
+  set({ [`${actionName}Loading`]: true, [`${actionName}Error`]: null });
+
+  try {
+    const result = await operation();
+    set({
+      [`${actionName}Loading`]: false,
+      [`${actionName}Result`]: result
+    });
+    return result;
+  } catch (error) {
+    set({
+      [`${actionName}Loading`]: false,
+      [`${actionName}Error`]: error.message
+    });
+
+    // Add notification for user feedback
+    get().addNotification({
+      type: 'error',
+      title: `${actionName} Failed`,
+      message: error.message
+    });
+
+    throw error;
+  }
+};
+```
+
+### Chrome Extension Patterns
+
+#### Message Passing Pattern
+```tsx
+// Background script message handler
+chrome.runtime.onMessage.addListener(
+  (message: ChromeMessage, sender, sendResponse) => {
+    switch (message.action) {
+      case 'GET_ROUTES':
+        handleGetRoutes().then(sendResponse);
+        break;
+      case 'UPDATE_ROUTE':
+        handleUpdateRoute(message.data).then(sendResponse);
+        break;
+      default:
+        sendResponse({ error: 'Unknown action' });
+    }
+    return true; // Indicates async response
+  }
+);
+
+// Content script message sending
+const sendMessage = async <T>(message: ChromeMessage): Promise<T> => {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else if (response?.error) {
+        reject(new Error(response.error));
+      } else {
+        resolve(response);
+      }
+    });
+  });
+};
+```
+
+#### Storage Pattern
+```tsx
+// Chrome storage wrapper with type safety
+class ChromeStorageManager {
+  static async get<T>(key: string): Promise<T | null> {
+    return new Promise((resolve) => {
+      chrome.storage.local.get([key], (result) => {
+        resolve(result[key] || null);
+      });
+    });
+  }
+
+  static async set<T>(key: string, value: T): Promise<void> {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set({ [key]: value }, () => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
+  static async remove(key: string): Promise<void> {
+    return new Promise((resolve) => {
+      chrome.storage.local.remove([key], resolve);
+    });
+  }
+}
+```
+
+### Data Processing Patterns
+
+#### Route Processing Pattern
+```tsx
+// Pattern for processing and normalizing route data
+const processRouteData = (rawRoute: any): RouteConfig | WebSocketConfig => {
+  const baseConfig = {
+    enabled: rawRoute.enabled ?? true,
+    timestamp: rawRoute.timestamp ?? Date.now(),
+    name: rawRoute.name || generateRouteName(rawRoute)
+  };
+
+  if (isWebSocketRoute(rawRoute)) {
+    return {
+      ...baseConfig,
+      incomingRules: processWebSocketRules(rawRoute.incomingRules || []),
+      outgoingRules: processWebSocketRules(rawRoute.outgoingRules || []),
+      delay: rawRoute.delay || 0
+    } as WebSocketConfig;
+  }
+
+  return {
+    ...baseConfig,
+    status: rawRoute.status || 200,
+    delay: rawRoute.delay || 0,
+    response: rawRoute.response || {},
+    contentType: rawRoute.contentType || 'application/json',
+    responseHeaders: rawRoute.responseHeaders || {},
+    requestHeaders: rawRoute.requestHeaders || {},
+    removeRequestHeaders: rawRoute.removeRequestHeaders || [],
+    headersOnly: rawRoute.headersOnly || false
+  } as RouteConfig;
+};
+```
+
+#### Error Boundary Pattern
+```tsx
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+}
+
+class ErrorBoundary extends React.Component<
+  React.PropsWithChildren<{}>,
+  ErrorBoundaryState
+> {
+  constructor(props: React.PropsWithChildren<{}>) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+
+    // Report to error tracking service
+    if (typeof window !== 'undefined') {
+      window.postMessage({
+        type: 'ERROR_REPORT',
+        error: error.message,
+        stack: error.stack
+      }, '*');
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <h2 className="text-lg font-semibold text-red-800">
+            Something went wrong
+          </h2>
+          <p className="text-red-600">
+            {this.state.error?.message || 'An unexpected error occurred'}
+          </p>
+          <button
+            onClick={() => this.setState({ hasError: false })}
+            className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Try Again
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+```
+
+### Validation Patterns
+
+#### Form Validation Pattern
+```tsx
+interface ValidationRule {
+  required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: RegExp;
+  custom?: (value: string) => string | null;
+}
+
+interface ValidationRules {
+  [field: string]: ValidationRule[];
+}
+
+const validateField = (
+  value: string,
+  rules: ValidationRule[]
+): string | null => {
+  for (const rule of rules) {
+    if (rule.required && !value.trim()) {
+      return 'This field is required';
+    }
+
+    if (rule.minLength && value.length < rule.minLength) {
+      return `Must be at least ${rule.minLength} characters`;
+    }
+
+    if (rule.maxLength && value.length > rule.maxLength) {
+      return `Must be no more than ${rule.maxLength} characters`;
+    }
+
+    if (rule.pattern && !rule.pattern.test(value)) {
+      return 'Invalid format';
+    }
+
+    if (rule.custom) {
+      const customError = rule.custom(value);
+      if (customError) return customError;
+    }
+  }
+
+  return null;
+};
+
+// Usage in components
+const useFormValidation = (rules: ValidationRules) => {
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = (field: string, value: string) => {
+    const fieldRules = rules[field] || [];
+    const error = validateField(value, fieldRules);
+
+    setErrors(prev => ({
+      ...prev,
+      [field]: error || ''
+    }));
+
+    return !error;
+  };
+
+  const validateAll = (values: Record<string, string>) => {
+    const newErrors: Record<string, string> = {};
+    let isValid = true;
+
+    Object.keys(rules).forEach(field => {
+      const error = validateField(values[field] || '', rules[field]);
+      if (error) {
+        newErrors[field] = error;
+        isValid = false;
+      }
+    });
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  return { errors, validate, validateAll };
+};
+```
+
+### Animation Patterns
+
+#### Framer Motion Animation Presets
+```tsx
+// Standard animation variants
+export const fadeInUp = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 },
+  transition: { duration: 0.3, ease: "easeOut" }
+};
+
+export const slideIn = {
+  initial: { opacity: 0, x: -20 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: 20 },
+  transition: { duration: 0.2, ease: "easeInOut" }
+};
+
+export const scaleIn = {
+  initial: { opacity: 0, scale: 0.95 },
+  animate: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.95 },
+  transition: { duration: 0.2, ease: "easeOut" }
+};
+
+// Usage pattern
+const AnimatedComponent = ({ children, variant = "fadeInUp" }) => (
+  <motion.div
+    initial={variants[variant].initial}
+    animate={variants[variant].animate}
+    exit={variants[variant].exit}
+    transition={variants[variant].transition}
+  >
+    {children}
+  </motion.div>
+);
+```
+
+### Performance Patterns
+
+#### Memoization Pattern
+```tsx
+// Expensive calculation memoization
+const ExpensiveComponent: React.FC<{ data: DataType[] }> = ({ data }) => {
+  const processedData = useMemo(() => {
+    return data
+      .filter(item => item.enabled)
+      .map(item => processItem(item))
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }, [data]);
+
+  const handleItemClick = useCallback((id: string) => {
+    // Handler logic
+  }, []);
+
+  return (
+    <div>
+      {processedData.map(item => (
+        <ItemComponent
+          key={item.id}
+          item={item}
+          onClick={handleItemClick}
+        />
+      ))}
+    </div>
+  );
+};
+
+// Component memoization
+const ItemComponent = React.memo<{
+  item: ProcessedItem;
+  onClick: (id: string) => void;
+}>(({ item, onClick }) => {
+  return (
+    <div onClick={() => onClick(item.id)}>
+      {item.name}
+    </div>
+  );
+});
+```
+
+### Testing Patterns
+
+#### Component Testing Pattern
+```tsx
+// Test utilities
+const renderWithProviders = (
+  ui: React.ReactElement,
+  options?: {
+    initialState?: Partial<AppStore>;
+    ...RenderOptions;
+  }
+) => {
+  const { initialState, ...renderOptions } = options || {};
+
+  // Mock zustand store
+  const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <div>
+      {children}
+    </div>
+  );
+
+  return render(ui, { wrapper: TestWrapper, ...renderOptions });
+};
+
+// Standard component test pattern
+describe('ComponentName', () => {
+  it('renders correctly with default props', () => {
+    renderWithProviders(<ComponentName />);
+    expect(screen.getByTestId('component-name')).toBeInTheDocument();
+  });
+
+  it('handles user interactions', async () => {
+    const mockFn = vi.fn();
+    renderWithProviders(<ComponentName onClick={mockFn} />);
+
+    await user.click(screen.getByRole('button'));
+    expect(mockFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('displays error states correctly', () => {
+    renderWithProviders(
+      <ComponentName error="Test error message" />
+    );
+    expect(screen.getByText('Test error message')).toBeInTheDocument();
+  });
+});
+```

@@ -1,8 +1,8 @@
 import React from 'react';
 import { X, Import } from 'lucide-react';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import RoutePreview from '@/components/RoutePreview';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
+import RoutePreview from './RoutePreview';
 
 interface RoutePreviewsProps {
     parsedRoutes: any[];

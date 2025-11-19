@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, FileCode } from 'lucide-react';
-import CodeHighlighter from '@/components/Codehighlighter';
+import CodeHighlighter from './Codehighlighter';
 import { complete_template } from '@/components/templates/schema_format_examples';
-import Card from './ui/Card';
+import Card from '../ui/Card';
 
 const CollapsibleSchemaExamples = () => {
   const [isExpanded, setIsExpanded] = useState(false);

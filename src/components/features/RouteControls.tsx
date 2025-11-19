@@ -13,10 +13,10 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi } from '@/lib/chrome-api';
-import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
-import Button from '@/components/ui/Button';
-import { ConfirmDialog } from '@/components/ui/Dialog';
+import Input from '../ui/Input';
+import Select from '../ui/Select';
+import Button from '../ui/Button';
+import { ConfirmDialog } from '../ui/Dialog';
 
 const RouteControls: React.FC = () => {
   const { 

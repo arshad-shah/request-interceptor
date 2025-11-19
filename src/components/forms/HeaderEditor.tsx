@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, Edit3, ChevronDown, ChevronRight, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HeaderConfig } from '@/types';
-import Button from './ui/Button';
-import Input from './ui/Input';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
 
 interface HeaderEditorProps {
   headers: HeaderConfig;

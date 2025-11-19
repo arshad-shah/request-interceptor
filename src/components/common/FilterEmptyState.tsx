@@ -1,4 +1,4 @@
-import Button from "@/components/ui/Button";
+import Button from '../ui/Button';
 import { Search, X } from "lucide-react";
 
 const FilterEmptyState: React.FC<{ onClearFilters: () => void }> = ({ onClearFilters }) => (

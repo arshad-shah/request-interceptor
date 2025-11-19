@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/stores/app-store';
 import { parseRouteKey, chromeApi } from '@/lib/chrome-api';
-import { ConfirmDialog } from './ui/Dialog';
-import RouteItem from '@/components/RouteItem';
+import { ConfirmDialog } from '../ui/Dialog';
+import RouteItem from './RouteItem';
 import { parseWebSocketKey } from '@/lib/utils';
-import EmptyState from '@/components/EmptyState';
-import FilterEmptyState from '@/components/FilterEmptyState';
+import EmptyState from '@/components/common/EmptyState';
+import FilterEmptyState from '@/components/common/FilterEmptyState';
 
 // Main RouteList component
 const RouteList: React.FC = () => {

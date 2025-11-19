@@ -1,10 +1,10 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/stores/app-store';
-import RouteList from '@/components/RouteList';
-import AddRouteForm from '@/components/AddRouteForm';
-import TemplatesTab from '@/components/TemplatesTab';
-import RouteControls from '@/components/RouteControls';
+import RouteList from '@/components/features/RouteList';
+import AddRouteForm from '@/components/forms/AddRouteForm';
+import TemplatesTab from '@/components/features/TemplatesTab';
+import RouteControls from '@/components/features/RouteControls';
 
 const TabContent: React.FC = () => {
   const { activeTab } = useAppStore();

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { validateJson, formatJson } from '@/lib/chrome-api';
-import Button from './ui/Button';
+import Button from '../ui/Button';
 
 // Import ACE modes and themes
 import 'ace-builds/src-noconflict/mode-json';
