@@ -5,9 +5,19 @@ import RouteList from '@/components/features/RouteList';
 import AddRouteForm from '@/components/forms/AddRouteForm';
 import TemplatesTab from '@/components/features/TemplatesTab';
 import RouteControls from '@/components/features/RouteControls';
+import { NetworkTab } from '@/components/network';
 
 const TabContent: React.FC = () => {
   const { activeTab } = useAppStore();
+
+  // Network tab uses its own full-height layout
+  if (activeTab === 'network') {
+    return (
+      <div className="flex-1 overflow-hidden">
+        <NetworkTab />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-auto">
@@ -28,9 +38,9 @@ const TabContent: React.FC = () => {
               </div>
             </>
           )}
-          
+
           {activeTab === 'add' && <AddRouteForm />}
-          
+
           {activeTab === 'templates' && <TemplatesTab />}
         </motion.div>
       </AnimatePresence>

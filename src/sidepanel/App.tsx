@@ -7,6 +7,9 @@ import Navigation from '@/components/layout/Navigation';
 import { RouteConfig, WebSocketConfig } from '@/types';
 import TabContent from '@/components/layout/TabContent';
 
+// Import design system styles for dark theme components
+import '@/styles/design-system.css';
+
 const App: React.FC = () => {
   const { setEnabled, setRoutes } = useAppStore();
 
