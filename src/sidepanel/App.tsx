@@ -64,7 +64,7 @@ const App: React.FC = () => {
   }, [setEnabled, setRoutes]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-ds-bg-base flex flex-col">
       <Header />
       <Navigation />
       <TabContent />

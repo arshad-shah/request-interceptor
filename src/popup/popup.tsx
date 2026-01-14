@@ -4,6 +4,9 @@ import { useAppStore } from '@/stores/app-store';
 import { chromeApi, addMessageListener } from '@/lib/chrome-api';
 import { cn } from '@/lib/utils';
 
+// Import design system styles
+import '@/styles/design-system.css';
+
 // Import custom UI components
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -36,7 +39,7 @@ const Popup: React.FC = () => {
     };
 
     const cleanup = addMessageListener(messageListener);
-    
+
     // Cleanup on unmount
     return cleanup;
   }, [setEnabled, setRoutes]);
@@ -64,7 +67,7 @@ const Popup: React.FC = () => {
     try {
       // Get the current window first
       const currentWindow = await chrome.windows.getCurrent();
-      
+
       if (currentWindow?.id && chrome.sidePanel) {
         //@ts-ignore
         await chrome.sidePanel.open({ windowId: currentWindow.id });
@@ -76,7 +79,7 @@ const Popup: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to open side panel:', error);
-      
+
       // Fallback: open extension page in new tab
       try {
         await chrome.tabs.create({
@@ -95,20 +98,20 @@ const Popup: React.FC = () => {
   };
 
   return (
-    <div className="w-80 bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900">
+    <div className="w-80 bg-ds-bg-base text-ds-text-primary">
       <div className="p-4 space-y-4">
         {/* Header Card */}
-        <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-blue-600 text-white" hover={false}>
+        <Card className="bg-gradient-to-br from-ds-accent-indigo to-ds-accent-violet border-ds-accent-indigo text-white" hover={false}>
           <Card.Body className="py-4">
             <div className="flex items-center justify-center gap-3">
-              <div className="relative w-10 h-10 flex items-center justify-center bg-white/20 rounded-lg shadow-lg overflow-hidden">
+              <div className="relative w-10 h-10 flex items-center justify-center bg-white/20 rounded-ds-md shadow-ds-lg overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent" />
                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent transform rotate-45 translate-y-[-100%] animate-shine" />
                 <Zap className="w-5 h-5 text-white relative z-10" />
               </div>
               <div className="text-center">
                 <h1 className="text-lg font-bold">Request Interceptor</h1>
-                <p className="text-xs text-blue-100 opacity-90">Chrome Extension</p>
+                <p className="text-xs text-white/70">Chrome Extension</p>
               </div>
             </div>
           </Card.Body>
@@ -122,13 +125,13 @@ const Popup: React.FC = () => {
                 <Badge variant={enabled ? 'success' : 'error'} size="sm">
                   <div className={cn(
                     "w-2 h-2 rounded-full mr-2",
-                    enabled ? "bg-green-500 animate-pulse" : "bg-red-500"
+                    enabled ? "bg-ds-accent-emerald animate-pulse" : "bg-ds-accent-rose"
                   )} />
                   {enabled ? 'Active' : 'Inactive'}
                 </Badge>
               </div>
-              <Toggle 
-                checked={enabled} 
+              <Toggle
+                checked={enabled}
                 onChange={handleToggle}
                 size="md"
               />
@@ -141,7 +144,7 @@ const Popup: React.FC = () => {
           <Card.Body className="py-3">
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-600">
+                <span className="text-sm font-medium text-ds-text-secondary">
                   Configured Routes
                 </span>
                 <Badge variant="info" size="sm">
@@ -149,18 +152,18 @@ const Popup: React.FC = () => {
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-600">
+                <span className="text-sm font-medium text-ds-text-secondary">
                   Active Routes
                 </span>
                 <Badge variant={enabledRoutes > 0 ? 'success' : 'default'} size="sm">
                   {enabledRoutes}
                 </Badge>
               </div>
-              
+
               {routeCount > 0 && (
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div 
-                    className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300"
+                <div className="w-full bg-ds-bg-surface rounded-full h-2 mt-2">
+                  <div
+                    className="bg-gradient-to-r from-ds-accent-emerald to-ds-accent-cyan h-2 rounded-full transition-all duration-300"
                     style={{ width: `${(enabledRoutes / routeCount) * 100}%` }}
                   />
                 </div>
@@ -171,20 +174,20 @@ const Popup: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="space-y-2">
-          <Button 
-            variant="primary" 
-            size="sm" 
-            className="w-full" 
+          <Button
+            variant="primary"
+            size="sm"
+            className="w-full"
             leftIcon={<ExternalLink className="w-4 h-4" />}
             onClick={handleOpenSidePanel}
           >
             Open Side Panel
           </Button>
-          
+
           {routeCount === 0 && (
-            <Card className="bg-amber-50 border-amber-200">
+            <Card className="bg-ds-accent-amber/10 border-ds-accent-amber/30">
               <Card.Body className="py-3">
-                <p className="text-xs text-amber-700 text-center font-medium">
+                <p className="text-xs text-ds-accent-amber text-center font-medium">
                   No routes configured yet. Open the side panel to create your first route interception.
                 </p>
               </Card.Body>

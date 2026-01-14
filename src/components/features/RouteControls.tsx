@@ -1,7 +1,7 @@
 import React from 'react';
-import { 
+import {
   Route,
-  Search, 
+  Search,
   Filter,
   Download,
   Trash2,
@@ -20,14 +20,14 @@ import Card from '../ui/Card';
 import { ConfirmDialog } from '../ui/Dialog';
 
 const RouteControls: React.FC = () => {
-  const { 
-    routes, 
-    filters, 
+  const {
+    routes,
+    filters,
     setFilters,
     addNotification,
-    clearRoutes 
+    clearRoutes
   } = useAppStore();
-  
+
   const [showClearDialog, setShowClearDialog] = React.useState(false);
   const [filtersExpanded, setFiltersExpanded] = React.useState(false);
 
@@ -36,12 +36,12 @@ const RouteControls: React.FC = () => {
       const response = await chromeApi.exportRoutes();
       if (response.success) {
         const jsonString = JSON.stringify(response.data, null, 2);
-        
+
         // Download file
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        
+
         const date = new Date().toISOString().split('T')[0];
         a.href = url;
         a.download = `request-interceptor-routes-${date}.json`;
@@ -49,10 +49,10 @@ const RouteControls: React.FC = () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
+
         // Copy to clipboard
         await navigator.clipboard.writeText(jsonString);
-        
+
         addNotification({
           title: 'Success',
           message: 'Routes exported and copied to clipboard',
@@ -92,21 +92,21 @@ const RouteControls: React.FC = () => {
   };
 
   const routeCount = Object.keys(routes).length;
-  
+
   // Count routes by type
   const httpRoutes = Object.keys(routes).filter(key => !key.startsWith('WS:')).length;
   const wsRoutes = Object.keys(routes).filter(key => key.startsWith('WS:')).length;
 
   // Check if any filters are active
-  const hasActiveFilters = filters.search || 
-    (filters.routeType && filters.routeType !== 'all') || 
+  const hasActiveFilters = filters.search ||
+    (filters.routeType && filters.routeType !== 'all') ||
     (filters.method && filters.method !== 'all');
 
   const clearAllFilters = () => {
-    setFilters({ 
-      search: '', 
-      routeType: 'all', 
-      method: 'all' 
+    setFilters({
+      search: '',
+      routeType: 'all',
+      method: 'all'
     });
   };
 
@@ -118,23 +118,23 @@ const RouteControls: React.FC = () => {
             {/* Route Statistics */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-ds-accent-indigo/15 text-ds-accent-indigo rounded-full text-sm font-medium">
                   <BarChart3 className="w-4 h-4" />
                   <span>{routeCount} Total</span>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-3 text-sm">
                 {httpRoutes > 0 && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-md">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-ds-accent-emerald/15 text-ds-accent-emerald rounded-ds-sm">
                     <Zap className="w-3.5 h-3.5" />
                     <span className="font-medium">{httpRoutes}</span>
                     HTTP
                   </div>
                 )}
-                
+
                 {wsRoutes > 0 && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-md">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-ds-accent-violet/15 text-ds-accent-violet rounded-ds-sm">
                     <MessageSquare className="w-3.5 h-3.5" />
                     <span className="font-medium">{wsRoutes}</span>
                     WS
@@ -155,7 +155,7 @@ const RouteControls: React.FC = () => {
                 >
                   Export
                 </Button>
-                
+
                 <Button
                   variant="danger"
                   size="sm"
@@ -179,20 +179,20 @@ const RouteControls: React.FC = () => {
               leftIcon={<Search className="w-4 h-4" />}
               className="pr-24"
             />
-            
+
             {/* Filter Toggle Button */}
             <button
               onClick={() => setFiltersExpanded(!filtersExpanded)}
-              className={`absolute right-2 top-1/2 transform -translate-y-1/2 px-2 py-1.5 rounded-md transition-all duration-200 text-sm font-medium flex items-center gap-1.5 ${
-                hasActiveFilters 
-                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              className={`absolute right-2 top-1/2 transform -translate-y-1/2 px-2 py-1.5 rounded-ds-sm transition-all duration-200 text-sm font-medium flex items-center gap-1.5 ${
+                hasActiveFilters
+                  ? 'bg-ds-accent-indigo/15 text-ds-accent-indigo hover:bg-ds-accent-indigo/25'
+                  : 'bg-ds-bg-surface text-ds-text-tertiary hover:bg-ds-bg-hover hover:text-ds-text-secondary'
               }`}
             >
               <Filter className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Filters</span>
               {hasActiveFilters && (
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <div className="w-2 h-2 bg-ds-accent-indigo rounded-full"></div>
               )}
               <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${
                 filtersExpanded ? 'rotate-180' : ''
@@ -205,25 +205,25 @@ const RouteControls: React.FC = () => {
         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
           filtersExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
         }`}>
-          <Card.Body className="border-t border-gray-200">
+          <Card.Body className="border-t border-ds-border-subtle">
             {/* Active Filters Indicator */}
             {hasActiveFilters && (
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2 text-sm text-ds-text-secondary">
                   <span className="font-medium">Active filters:</span>
                   <div className="flex items-center gap-1">
                     {filters.search && (
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                      <span className="px-2 py-1 bg-ds-accent-indigo/15 text-ds-accent-indigo rounded-ds-sm text-xs">
                         "{filters.search}"
                       </span>
                     )}
                     {filters.routeType && filters.routeType !== 'all' && (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
+                      <span className="px-2 py-1 bg-ds-accent-emerald/15 text-ds-accent-emerald rounded-ds-sm text-xs">
                         {filters.routeType}
                       </span>
                     )}
                     {filters.method && filters.method !== 'all' && (
-                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                      <span className="px-2 py-1 bg-ds-accent-violet/15 text-ds-accent-violet rounded-ds-sm text-xs">
                         {filters.method}
                       </span>
                     )}
@@ -255,7 +255,7 @@ const RouteControls: React.FC = () => {
                   <option value="websocket">WebSocket</option>
                 </Select>
               </div>
-              
+
               {/* HTTP Method Filter */}
               {(filters.routeType === 'all' || filters.routeType === 'http' || !filters.routeType) && (
                 <div className="space-y-2">

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ChevronDown, 
-  Edit, 
-  Trash2, 
-  Tag, 
-  Clock, 
-  Code, 
+import {
+  ChevronDown,
+  Edit,
+  Trash2,
+  Tag,
+  Clock,
+  Code,
   ExpandIcon,
   Shrink,
   Settings,
@@ -16,11 +16,11 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { parseRouteKey } from '@/lib/chrome-api';
-import { 
+import {
   cn,
   getContentTypeDisplay,
   formatResponsePreview,
-  getRouteDescription, 
+  getRouteDescription,
   parseWebSocketKey
 } from '@/lib/utils';
 import { RouteConfig, WebSocketConfig } from '@/types';
@@ -51,10 +51,10 @@ const RouteItem: React.FC<RouteItemProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isResponseExpanded, setIsResponseExpanded] = useState(false);
-  
+
   const isWebSocket = routeKey.startsWith('WS:');
   const isEnabled = config.enabled ?? true; // Default to enabled if undefined
-  
+
   // Parse route information
   let method = '', url = '', name = '';
   if (isWebSocket) {
@@ -74,21 +74,21 @@ const RouteItem: React.FC<RouteItemProps> = ({
       name = parsed.name;
     }
   }
-  
+
   const timestamp = config.timestamp ? new Date(config.timestamp).toLocaleDateString() : 'N/A';
-  
+
   // HTTP specific properties
   const httpConfig = config as RouteConfig;
   const responsePreview = !isWebSocket ? formatResponsePreview(httpConfig.response) : '';
   const description = !isWebSocket ? getRouteDescription(method as any, url) : 'WebSocket message interception';
   const contentTypeName = !isWebSocket ? getContentTypeDisplay(httpConfig.contentType) : '';
   const isHeadersOnly = !isWebSocket && (httpConfig.headersOnly || false);
-  
+
   // WebSocket specific properties
   const wsConfig = config as WebSocketConfig;
-  const totalRules = isWebSocket ? 
+  const totalRules = isWebSocket ?
     (wsConfig.incomingRules?.length || 0) + (wsConfig.outgoingRules?.length || 0) : 0;
-  
+
   // Check if route has header modifications (HTTP only)
   const hasResponseHeaders = !isWebSocket && httpConfig.responseHeaders && Object.keys(httpConfig.responseHeaders).length > 0;
   const hasRequestHeaders = !isWebSocket && httpConfig.requestHeaders && Object.keys(httpConfig.requestHeaders).length > 0;
@@ -115,21 +115,21 @@ const RouteItem: React.FC<RouteItemProps> = ({
       exit={{ opacity: 0, y: -10, scale: 0.95 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
       className={cn(
-        "group relative bg-white border rounded-xl overflow-hidden transition-all duration-300",
-        "hover:shadow-lg hover:shadow-gray-200/50",
+        "group relative bg-ds-bg-elevated border rounded-ds-lg overflow-hidden transition-all duration-300",
+        "hover:shadow-ds-md",
         !isEnabled && "opacity-70",
-        isEnabled ? "shadow-sm border-gray-200" : "border-gray-300",
+        isEnabled ? "shadow-ds-sm border-ds-border-subtle" : "border-ds-border",
         // Enhanced left border for route types
-        isWebSocket && "border-l-4 border-l-purple-500 hover:border-l-purple-600",
-        !isWebSocket && isHeadersOnly && "border-l-4 border-l-blue-500 hover:border-l-blue-600",
-        !isWebSocket && !isHeadersOnly && "border-l-4 border-l-green-500 hover:border-l-green-600"
+        isWebSocket && "border-l-4 border-l-ds-accent-violet hover:border-l-ds-accent-violet",
+        !isWebSocket && isHeadersOnly && "border-l-4 border-l-ds-accent-cyan hover:border-l-ds-accent-cyan",
+        !isWebSocket && !isHeadersOnly && "border-l-4 border-l-ds-accent-emerald hover:border-l-ds-accent-emerald"
       )}
       whileHover={{ y: -2 }}
     >
 
       {/* Header */}
-      <motion.div 
-        className="p-4 cursor-pointer hover:bg-gray-50/80 transition-colors duration-200"
+      <motion.div
+        className="p-4 cursor-pointer hover:bg-ds-bg-surface/50 transition-colors duration-200"
         onClick={() => setIsExpanded(!isExpanded)}
         whileTap={{ scale: 0.99 }}
       >
@@ -141,10 +141,10 @@ const RouteItem: React.FC<RouteItemProps> = ({
               {/* Route Type Badge */}
               <div className="flex-shrink-0">
                 {!isWebSocket ? (
-                  <MethodBadge method={method as any} className="shadow-sm" />
+                  <MethodBadge method={method as any} className="shadow-ds-sm" />
                 ) : (
-                  <motion.div 
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-100 border border-purple-200 text-purple-700 rounded-lg font-medium text-sm"
+                  <motion.div
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-ds-accent-violet/15 border border-ds-accent-violet/30 text-ds-accent-violet rounded-ds-sm font-medium text-sm"
                     whileHover={{ scale: 1.05 }}
                   >
                     <MessageSquare className="w-4 h-4" />
@@ -158,8 +158,8 @@ const RouteItem: React.FC<RouteItemProps> = ({
                 <motion.div
                   className={cn(
                     "font-mono text-base font-semibold truncate transition-colors duration-200",
-                    !isEnabled && "line-through text-gray-500",
-                    isEnabled && "text-gray-900 group-hover:text-gray-700"
+                    !isEnabled && "line-through text-ds-text-tertiary",
+                    isEnabled && "text-ds-text-primary group-hover:text-ds-text-secondary"
                   )}
                   layoutId={`url-${routeKey}`}
                 >
@@ -177,7 +177,7 @@ const RouteItem: React.FC<RouteItemProps> = ({
                     <span className="font-medium">{name}</span>
                   </Badge>
                 )}
-                
+
                 {/* Headers Indicator */}
                 {!isWebSocket && hasAnyHeaders && (
                   <Badge variant='info' icon={<Settings className="w-3 h-3" />} iconPosition="left">
@@ -187,10 +187,10 @@ const RouteItem: React.FC<RouteItemProps> = ({
               </div>
 
               {/* Quick Stats */}
-              <div className="hidden sm:flex items-center gap-3 text-xs text-gray-500">
+              <div className="hidden sm:flex items-center gap-3 text-xs text-ds-text-tertiary">
                 {!isWebSocket && !isHeadersOnly && (
                   <>
-                    <StatusBadge status={httpConfig.status} className="shadow-sm" />
+                    <StatusBadge status={httpConfig.status} className="shadow-ds-sm" />
                     {(config.delay ?? 0) > 0 && (
                       <Badge variant='default' icon={<Clock className="w-3 h-3" />} iconPosition="left">
                         <span className="font-medium">{config.delay ?? 0}ms</span>
@@ -198,7 +198,7 @@ const RouteItem: React.FC<RouteItemProps> = ({
                     )}
                   </>
                 )}
-                
+
                 {(isHeadersOnly || isWebSocket) && (config.delay ?? 0) > 0 && (
                   <Badge variant='default' icon={<Clock className="w-3 h-3" />} iconPosition="left">
                         <span className="font-medium">{config.delay ?? 0}ms</span>
@@ -212,7 +212,7 @@ const RouteItem: React.FC<RouteItemProps> = ({
           <div className="flex items-center gap-3 flex-shrink-0">
             {/* Toggle */}
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Toggle 
+              <Toggle
                 checked={isEnabled}
                 onChange={handleToggle}
                 size="md"
@@ -223,9 +223,9 @@ const RouteItem: React.FC<RouteItemProps> = ({
             <motion.div
               animate={{ rotate: isExpanded ? 180 : 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="p-1 rounded-full hover:bg-gray-100 transition-colors duration-200"
+              className="p-1 rounded-full hover:bg-ds-bg-surface transition-colors duration-200"
             >
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+              <ChevronDown className="w-4 h-4 text-ds-text-tertiary" />
             </motion.div>
           </div>
         </div>
@@ -239,25 +239,25 @@ const RouteItem: React.FC<RouteItemProps> = ({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="border-t border-gray-100 bg-gray-50/30"
+            className="border-t border-ds-border-subtle bg-ds-bg-base/30"
           >
             <div className="p-2 space-y-2">
               {/* Description */}
-              <motion.div 
-                className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm"
+              <motion.div
+                className="p-4 bg-ds-bg-surface rounded-ds-md border border-ds-border-subtle shadow-ds-sm"
                 initial={{ y: 10, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.1 }}
               >
-                <p className="text-sm text-gray-700 leading-relaxed">
+                <p className="text-sm text-ds-text-secondary leading-relaxed">
                   {description}
                   {isHeadersOnly && (
-                    <span className="ml-2 text-blue-600 font-medium">
+                    <span className="ml-2 text-ds-accent-cyan font-medium">
                       (Headers will be modified, original response preserved)
                     </span>
                   )}
                   {isWebSocket && (
-                    <span className="ml-2 text-purple-600 font-medium">
+                    <span className="ml-2 text-ds-accent-violet font-medium">
                       (Real-time message processing)
                     </span>
                   )}
@@ -276,25 +276,25 @@ const RouteItem: React.FC<RouteItemProps> = ({
 
               {/* WebSocket Rules section */}
               {isWebSocket && (
-                <motion.div 
+                <motion.div
                   className="space-y-4"
                   initial={{ y: 10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.3 }}
                 >
-                  
+
                   <div className="grid gap-4">
                     <WebSocketRulesDisplay
                       rules={wsConfig.incomingRules || []}
                       title="Incoming Message Rules"
-                      icon={<ArrowDownLeft className="w-4 h-4 text-green-600" />}
+                      icon={<ArrowDownLeft className="w-4 h-4 text-ds-accent-emerald" />}
                       direction="incoming"
                     />
-                    
+
                     <WebSocketRulesDisplay
                       rules={wsConfig.outgoingRules || []}
                       title="Outgoing Message Rules"
-                      icon={<ArrowUpRight className="w-4 h-4 text-blue-600" />}
+                      icon={<ArrowUpRight className="w-4 h-4 text-ds-accent-cyan" />}
                       direction="outgoing"
                     />
                   </div>
@@ -303,37 +303,37 @@ const RouteItem: React.FC<RouteItemProps> = ({
 
               {/* HTTP Headers section */}
               {!isWebSocket && hasAnyHeaders && (
-                <motion.div 
+                <motion.div
                   className="space-y-4"
                   initial={{ y: 10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.3 }}
                 >
-                  
+
                   <div className="grid gap-4">
                     {hasResponseHeaders && (
                       <HeaderDisplay
                         headers={httpConfig.responseHeaders || {}}
                         title={isHeadersOnly ? "Response Headers (Added to Real Response)" : "Response Headers"}
-                        icon={<ArrowDownLeft className="w-4 h-4 text-green-600" />}
+                        icon={<ArrowDownLeft className="w-4 h-4 text-ds-accent-emerald" />}
                         emptyMessage="No response headers configured"
                       />
                     )}
-                    
+
                     {hasRequestHeaders && (
                       <HeaderDisplay
                         headers={httpConfig.requestHeaders || {}}
                         title="Request Headers (Added to Outgoing Request)"
-                        icon={<ArrowUpRight className="w-4 h-4 text-blue-600" />}
+                        icon={<ArrowUpRight className="w-4 h-4 text-ds-accent-cyan" />}
                         emptyMessage="No request headers configured"
                       />
                     )}
-                    
+
                     {hasRemoveHeaders && (
                       <RemoveHeadersDisplay
                         removeHeaders={httpConfig.removeRequestHeaders || []}
                         title="Remove Request Headers"
-                        icon={<Shield className="w-4 h-4 text-red-600" />}
+                        icon={<Shield className="w-4 h-4 text-ds-accent-rose" />}
                       />
                     )}
                   </div>
@@ -342,43 +342,43 @@ const RouteItem: React.FC<RouteItemProps> = ({
 
               {/* HTTP Response preview */}
               {!isWebSocket && (!isHeadersOnly || (httpConfig.response && String(httpConfig.response).trim())) && (
-                <motion.div 
-                  className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
+                <motion.div
+                  className="bg-ds-bg-surface rounded-ds-md border border-ds-border-subtle shadow-ds-sm overflow-hidden"
                   initial={{ y: 10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.4 }}
                 >
-                  <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+                  <div className="flex items-center justify-between px-4 py-3 bg-ds-bg-elevated border-b border-ds-border-subtle">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded bg-green-100 flex items-center justify-center">
-                        <Code className="w-3 h-3 text-green-600" />
+                      <div className="w-6 h-6 rounded-ds-sm bg-ds-accent-emerald/15 flex items-center justify-center">
+                        <Code className="w-3 h-3 text-ds-accent-emerald" />
                       </div>
-                      <span className="text-sm font-semibold text-gray-900">
+                      <span className="text-sm font-semibold text-ds-text-primary">
                         {isHeadersOnly ? "Response Body (For Reference)" : "Response Body"}
                       </span>
                       {isHeadersOnly && (
-                        <span className="text-xs text-amber-700 bg-amber-100 px-2 py-0.5 rounded border border-amber-200">
+                        <span className="text-xs text-ds-accent-amber bg-ds-accent-amber/15 px-2 py-0.5 rounded-ds-sm border border-ds-accent-amber/30">
                           Not Used
                         </span>
                       )}
                     </div>
                     <motion.button
                       onClick={() => setIsResponseExpanded(!isResponseExpanded)}
-                      className="p-1.5 rounded-md hover:bg-gray-200 transition-colors duration-200"
+                      className="p-1.5 rounded-ds-sm hover:bg-ds-bg-hover transition-colors duration-200"
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                     >
                       {isResponseExpanded ? (
-                        <Shrink className="w-4 h-4 text-gray-600" />
+                        <Shrink className="w-4 h-4 text-ds-text-tertiary" />
                       ) : (
-                        <ExpandIcon className="w-4 h-4 text-gray-600" />
+                        <ExpandIcon className="w-4 h-4 text-ds-text-tertiary" />
                       )}
                     </motion.button>
                   </div>
-                  
-                  <motion.div 
+
+                  <motion.div
                     className={cn(
-                      "bg-gray-900 text-gray-100 overflow-auto transition-all duration-300",
+                      "bg-ds-bg-base text-ds-text-primary overflow-auto transition-all duration-300",
                       isResponseExpanded ? "max-h-96" : "max-h-40"
                     )}
                     animate={{ maxHeight: isResponseExpanded ? 384 : 160 }}
@@ -389,8 +389,8 @@ const RouteItem: React.FC<RouteItemProps> = ({
               )}
 
               {/* Enhanced Actions */}
-              <motion.div 
-                className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200"
+              <motion.div
+                className="flex items-center justify-end gap-3 pt-4 border-t border-ds-border-subtle"
                 initial={{ y: 10, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.5 }}
@@ -400,7 +400,7 @@ const RouteItem: React.FC<RouteItemProps> = ({
                   size="sm"
                   leftIcon={<Edit className="w-4 h-4" />}
                   onClick={handleEdit}
-                  className="hover:shadow-md transition-shadow duration-200"
+                  className="hover:shadow-ds-md transition-shadow duration-200"
                 >
                   Edit Route
                 </Button>
@@ -409,7 +409,7 @@ const RouteItem: React.FC<RouteItemProps> = ({
                   size="sm"
                   leftIcon={<Trash2 className="w-4 h-4" />}
                   onClick={handleDelete}
-                  className="hover:shadow-md transition-shadow duration-200"
+                  className="hover:shadow-ds-md transition-shadow duration-200"
                 >
                   Delete
                 </Button>

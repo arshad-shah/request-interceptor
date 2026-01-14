@@ -13,14 +13,14 @@ const TabContent: React.FC = () => {
   // Network tab uses its own full-height layout
   if (activeTab === 'network') {
     return (
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden bg-ds-bg-base">
         <NetworkTab />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 overflow-auto bg-ds-bg-base">
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}

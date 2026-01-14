@@ -31,20 +31,20 @@ const Card: React.FC<CardProps> & {
   return (
     <motion.div
       className={cn(
-        "bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden",
+        "bg-ds-bg-elevated border border-ds-border-subtle rounded-ds-lg shadow-ds-sm overflow-hidden",
         "relative z-10",
         className
       )}
-      whileHover={hover ? { 
-        y: -2, 
-        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-        borderColor: "rgb(209 213 219)"
+      whileHover={hover ? {
+        y: -2,
+        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6)",
+        borderColor: "#3f3f46"
       } : {}}
       transition={{ duration: 0.2 }}
     >
       {/* Subtle gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary-500/[0.02] via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-      
+      <div className="absolute inset-0 bg-gradient-to-br from-ds-accent-indigo/[0.02] via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
       <div className="relative z-10">
         {children}
       </div>
@@ -54,9 +54,9 @@ const Card: React.FC<CardProps> & {
 
 const CardHeader: React.FC<CardHeaderProps> = ({ children, className }) => (
   <div className={cn(
-    "px-6 py-4 border-b border-gray-200 bg-gray-50/50",
+    "px-6 py-4 border-b border-ds-border-subtle bg-ds-bg-surface/50",
     "flex items-center justify-between",
-    "font-semibold text-gray-900",
+    "font-semibold text-ds-text-primary",
     className
   )}>
     {children}
@@ -71,7 +71,7 @@ const CardBody: React.FC<CardBodyProps> = ({ children, className }) => (
 
 const CardFooter: React.FC<CardFooterProps> = ({ children, className }) => (
   <div className={cn(
-    "px-6 py-4 border-t border-gray-200 bg-gray-50/50",
+    "px-6 py-4 border-t border-ds-border-subtle bg-ds-bg-surface/50",
     "flex items-center justify-end gap-3",
     className
   )}>

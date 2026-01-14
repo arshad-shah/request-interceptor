@@ -30,7 +30,7 @@ const EmptyState: React.FC<{ onAddRoute: () => void }> = ({ onAddRoute }) => {
     },
     {
       icon: <Settings className="w-4 h-4" />,
-      title: "Header Modification", 
+      title: "Header Modification",
       description: "Custom headers & responses"
     },
     {
@@ -51,36 +51,36 @@ const EmptyState: React.FC<{ onAddRoute: () => void }> = ({ onAddRoute }) => {
             className="text-center"
           >
             {/* Hero Icon with Gradient Background */}
-            <motion.div 
+            <motion.div
               variants={itemVariants}
               className="relative w-16 h-16 mx-auto mb-6"
             >
               {/* Animated background circles */}
-              <motion.div 
-                className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-indigo-500/20 rounded-full"
-                animate={{ 
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-br from-ds-accent-indigo/20 via-ds-accent-violet/20 to-ds-accent-cyan/20 rounded-full"
+                animate={{
                   scale: [1, 1.1, 1],
                   rotate: [0, 180, 360]
                 }}
-                transition={{ 
+                transition={{
                   duration: 8,
                   repeat: Infinity,
                   ease: "linear"
                 }}
               />
-              
+
               {/* Main icon container */}
-              <div className="relative w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center border-2 border-blue-100 shadow-lg">
-                <Route className="w-8 h-8 text-blue-600" />
-                
+              <div className="relative w-16 h-16 bg-gradient-to-br from-ds-bg-surface to-ds-bg-hover rounded-full flex items-center justify-center border-2 border-ds-border-subtle shadow-ds-lg">
+                <Route className="w-8 h-8 text-ds-accent-indigo" />
+
                 {/* Sparkle indicator */}
-                <motion.div 
-                  className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-md"
-                  animate={{ 
+                <motion.div
+                  className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-ds-accent-amber to-ds-accent-rose rounded-full flex items-center justify-center shadow-ds-md"
+                  animate={{
                     scale: [1, 1.2, 1],
                     rotate: [0, 360]
                   }}
-                  transition={{ 
+                  transition={{
                     duration: 2,
                     repeat: Infinity,
                     ease: "easeInOut"
@@ -93,24 +93,24 @@ const EmptyState: React.FC<{ onAddRoute: () => void }> = ({ onAddRoute }) => {
 
             {/* Enhanced Heading */}
             <motion.div variants={itemVariants} className="mb-4">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">
+              <h2 className="text-2xl font-bold text-ds-text-primary mb-1">
                 Ready to intercept requests?
               </h2>
-              <p className="text-base text-gray-600">
+              <p className="text-base text-ds-text-secondary">
                 Start building powerful request interceptors in seconds
               </p>
             </motion.div>
-            
+
             {/* Engaging Description */}
-            <motion.p 
+            <motion.p
               variants={itemVariants}
-              className="text-gray-600 mb-6 max-w-md mx-auto leading-relaxed text-sm"
+              className="text-ds-text-tertiary mb-6 max-w-md mx-auto leading-relaxed text-sm"
             >
               Create your first route to start intercepting HTTP requests, headers, and WebSocket messages in real-time.
             </motion.p>
 
             {/* Enhanced Feature Grid */}
-            <motion.div 
+            <motion.div
               variants={itemVariants}
               className="grid grid-cols-3 gap-3 mb-6"
             >
@@ -119,14 +119,14 @@ const EmptyState: React.FC<{ onAddRoute: () => void }> = ({ onAddRoute }) => {
                   key={feature.title}
                   variants={itemVariants}
                   whileHover={{ y: -2, scale: 1.02 }}
-                  className="p-3 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 hover:border-blue-200 hover:shadow-sm transition-all duration-200"
+                  className="p-3 rounded-ds-md bg-gradient-to-br from-ds-bg-surface to-ds-bg-base border border-ds-border-subtle hover:border-ds-accent-indigo/30 hover:shadow-ds-sm transition-all duration-200"
                 >
                   <div className="flex flex-col items-center text-center space-y-2">
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
+                    <div className="w-8 h-8 bg-ds-accent-indigo/15 rounded-ds-sm flex items-center justify-center text-ds-accent-indigo">
                       {feature.icon}
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-900 text-xs">
+                      <h4 className="font-medium text-ds-text-primary text-xs">
                         {feature.title}
                       </h4>
                     </div>
@@ -141,19 +141,19 @@ const EmptyState: React.FC<{ onAddRoute: () => void }> = ({ onAddRoute }) => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <Button 
-                  variant="primary" 
+                <Button
+                  variant="primary"
                   size="md"
-                  onClick={onAddRoute} 
+                  onClick={onAddRoute}
                   leftIcon={<Plus className="w-4 h-4" />}
-                  className="px-6 py-2 text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+                  className="px-6 py-2 text-sm font-semibold shadow-ds-md hover:shadow-ds-lg transition-all duration-200"
                 >
                   Create Your First Route
                 </Button>
               </motion.div>
-              
-              <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-                <div className="w-1 h-1 bg-green-400 rounded-full animate-pulse"></div>
+
+              <div className="flex items-center justify-center gap-2 text-xs text-ds-text-tertiary">
+                <div className="w-1 h-1 bg-ds-accent-emerald rounded-full animate-pulse"></div>
                 <span>Setup takes less than a minute</span>
               </div>
             </motion.div>

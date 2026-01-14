@@ -57,7 +57,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
       const rect = triggerRef.current.getBoundingClientRect();
       const scrollY = window.scrollY || window.pageYOffset;
       const scrollX = window.scrollX || window.pageXOffset;
-      
+
       setDropdownPosition({
         top: rect.bottom + scrollY + 8, // 8px gap
         left: rect.left + scrollX,
@@ -75,7 +75,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        dropdownRef.current && 
+        dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node) &&
         triggerRef.current &&
         !triggerRef.current.contains(event.target as Node)
@@ -93,12 +93,12 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
   useEffect(() => {
     if (isOpen) {
       updateDropdownPosition();
-      
+
       // Update position on scroll/resize
       const handleReposition = () => updateDropdownPosition();
       window.addEventListener('scroll', handleReposition, true);
       window.addEventListener('resize', handleReposition);
-      
+
       return () => {
         window.removeEventListener('scroll', handleReposition, true);
         window.removeEventListener('resize', handleReposition);
@@ -132,7 +132,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
           setIsOpen(true);
           setFocusedIndex(0);
         } else {
-          setFocusedIndex(prev => 
+          setFocusedIndex(prev =>
             prev < options.length - 1 ? prev + 1 : prev
           );
         }
@@ -165,7 +165,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
 
   // Dropdown component to be rendered in portal
   const dropdown = isOpen ? (
-    <div 
+    <div
       ref={dropdownRef}
       style={{
         position: 'absolute',
@@ -175,14 +175,14 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
         zIndex: 9999,
       }}
       className={cn(
-        "bg-white rounded-xl shadow-xl border-2 border-gray-200",
+        "bg-ds-bg-elevated rounded-ds-md shadow-ds-lg border border-ds-border-subtle",
         "max-h-60 overflow-auto",
         "animate-in fade-in-0 zoom-in-95 duration-200"
       )}
     >
-      <div className="p-2">
+      <div className="p-1.5">
         {options.length === 0 ? (
-          <div className="px-3 py-2 text-sm text-gray-500 text-center">
+          <div className="px-3 py-2 text-sm text-ds-text-tertiary text-center">
             No options available
           </div>
         ) : (
@@ -193,23 +193,25 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
               onClick={() => handleOptionSelect(option.value)}
               disabled={option.disabled}
               className={cn(
-                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
+                "w-full flex items-center justify-between px-3 py-2 rounded-ds-sm text-sm transition-all duration-150",
                 "text-left focus:outline-none",
                 // Hover and focus states
-                !option.disabled && "hover:bg-gray-50 focus:bg-gray-50",
+                !option.disabled && "hover:bg-ds-bg-surface focus:bg-ds-bg-surface",
                 // Selected state
-                selectedValue === option.value && "bg-blue-50 text-blue-700 font-medium",
+                selectedValue === option.value && "bg-ds-accent-indigo/15 text-ds-accent-indigo font-medium",
                 // Focused state (keyboard navigation)
-                focusedIndex === index && !option.disabled && "bg-gray-100",
+                focusedIndex === index && !option.disabled && "bg-ds-bg-hover",
                 // Disabled state
-                option.disabled && "text-gray-400 cursor-not-allowed opacity-60"
+                option.disabled && "text-ds-text-tertiary cursor-not-allowed opacity-60",
+                // Default text color
+                selectedValue !== option.value && !option.disabled && "text-ds-text-secondary"
               )}
               role="option"
               aria-selected={selectedValue === option.value}
             >
               <span className="truncate">{option.label}</span>
               {selectedValue === option.value && (
-                <Check className="w-4 h-4 text-blue-600 flex-shrink-0 ml-2" />
+                <Check className="w-4 h-4 text-ds-accent-indigo flex-shrink-0 ml-2" />
               )}
             </button>
           ))
@@ -221,18 +223,18 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
   return (
     <div className="space-y-2">
       {label && (
-        <label 
+        <label
           htmlFor={selectId}
           className={cn(
             "block text-sm font-medium transition-colors",
-            error ? "text-red-700" : "text-gray-700",
-            disabled && "text-gray-400"
+            error ? "text-ds-accent-rose" : "text-ds-text-secondary",
+            disabled && "text-ds-text-tertiary"
           )}
         >
           {label}
         </label>
       )}
-      
+
       <div className="relative">
         {/* Hidden native select for form compatibility */}
         <select
@@ -256,19 +258,19 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
           onKeyDown={handleKeyDown}
           disabled={disabled}
           className={cn(
-            "w-full flex items-center justify-between px-4 py-3",
-            "border-2 rounded-xl bg-white text-left",
+            "w-full flex items-center justify-between px-3 py-2.5",
+            "border rounded-ds-md bg-ds-bg-surface text-left",
             "transition-all duration-200 cursor-pointer",
-            "focus:outline-none focus:ring-4 focus:ring-blue-500/20",
-            "hover:shadow-md hover:border-gray-300",
+            "focus:outline-none focus:ring-2 focus:ring-ds-border-focus/30",
+            "hover:shadow-ds-sm hover:border-ds-border",
             // Error states
-            error 
-              ? "border-red-300 focus:border-red-500 shadow-red-100" 
-              : "border-gray-200 focus:border-blue-500",
+            error
+              ? "border-ds-accent-rose/50 focus:border-ds-accent-rose"
+              : "border-ds-border-subtle focus:border-ds-border-focus",
             // Disabled states
-            disabled && "bg-gray-50 cursor-not-allowed opacity-60 hover:shadow-none hover:border-gray-200",
+            disabled && "bg-ds-bg-base cursor-not-allowed opacity-60 hover:shadow-none hover:border-ds-border-subtle",
             // Open state
-            isOpen && !error && "border-blue-500 ring-4 ring-blue-500/20",
+            isOpen && !error && "border-ds-border-focus ring-2 ring-ds-border-focus/30",
             className
           )}
           aria-haspopup="listbox"
@@ -279,42 +281,42 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(({
             {leftIcon && (
               <div className={cn(
                 "flex-shrink-0 transition-colors",
-                error ? "text-red-500" : "text-gray-400",
-                selectedValue && !error && "text-blue-500"
+                error ? "text-ds-accent-rose" : "text-ds-text-tertiary",
+                selectedValue && !error && "text-ds-accent-indigo"
               )}>
                 {leftIcon}
               </div>
             )}
-            
+
             <span className={cn(
               "block truncate text-sm",
-              selectedValue 
-                ? "text-gray-900 font-medium" 
-                : "text-gray-500"
+              selectedValue
+                ? "text-ds-text-primary font-medium"
+                : "text-ds-text-tertiary"
             )}>
               {selectedOption?.label || placeholder}
             </span>
           </div>
-          
+
           <ChevronDown className={cn(
             "w-4 h-4 transition-all duration-200 flex-shrink-0",
             isOpen && "rotate-180",
-            error ? "text-red-500" : "text-gray-400"
+            error ? "text-ds-accent-rose" : "text-ds-text-tertiary"
           )} />
         </button>
       </div>
-      
+
       {/* Render dropdown in portal */}
       {typeof document !== 'undefined' && dropdown && createPortal(dropdown, document.body)}
-      
+
       {(error || helperText) && (
         <div className="flex items-start gap-2">
           {error && (
-            <div className="w-1 h-4 bg-red-400 rounded-full flex-shrink-0 mt-0.5"></div>
+            <div className="w-1 h-4 bg-ds-accent-rose rounded-full flex-shrink-0 mt-0.5"></div>
           )}
           <p className={cn(
             "text-sm leading-5",
-            error ? "text-red-600 font-medium" : "text-gray-500"
+            error ? "text-ds-accent-rose font-medium" : "text-ds-text-tertiary"
           )}>
             {error || helperText}
           </p>

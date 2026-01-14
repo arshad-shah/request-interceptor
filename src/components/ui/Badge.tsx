@@ -33,11 +33,11 @@ interface ModeBadgeProps {
 }
 
 const variantStyles = {
-  default: 'bg-gray-100 text-gray-800 border-gray-200',
-  success: 'bg-green-100 text-green-800 border-green-200',
-  error: 'bg-red-100 text-red-800 border-red-200',
-  warning: 'bg-amber-100 text-amber-800 border-amber-200',
-  info: 'bg-blue-100 text-blue-800 border-blue-200'
+  default: 'bg-ds-bg-surface text-ds-text-secondary border-ds-border-subtle',
+  success: 'bg-ds-accent-emerald/15 text-ds-accent-emerald border-ds-accent-emerald/30',
+  error: 'bg-ds-accent-rose/15 text-ds-accent-rose border-ds-accent-rose/30',
+  warning: 'bg-ds-accent-amber/15 text-ds-accent-amber border-ds-accent-amber/30',
+  info: 'bg-ds-accent-cyan/15 text-ds-accent-cyan border-ds-accent-cyan/30'
 };
 
 const sizeStyles = {
@@ -52,17 +52,17 @@ const iconSizeStyles = {
   lg: 'w-4 h-4'
 };
 
-const Badge: React.FC<BadgeProps> = ({ 
-  children, 
-  variant = 'default', 
-  size = 'md', 
+const Badge: React.FC<BadgeProps> = ({
+  children,
+  variant = 'default',
+  size = 'md',
   className,
   icon,
   iconPosition = 'left'
 }) => {
   return (
     <span className={cn(
-      'inline-flex items-center font-medium rounded border',
+      'inline-flex items-center font-medium rounded-ds-sm border',
       variantStyles[variant],
       sizeStyles[size],
       icon && 'gap-1.5',
@@ -129,20 +129,20 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className, showIcon =
 
   const getStatusIcon = (status: number) => {
     if (status >= 200 && status < 300) {
-      return <div className="w-2 h-2 bg-green-500 rounded-full" />;
+      return <div className="w-2 h-2 bg-ds-accent-emerald rounded-full" />;
     } else if (status >= 300 && status < 400) {
-      return <div className="w-2 h-2 bg-amber-500 rounded-full" />;
+      return <div className="w-2 h-2 bg-ds-accent-amber rounded-full" />;
     } else if (status >= 400 && status < 500) {
-      return <div className="w-2 h-2 bg-orange-500 rounded-full" />;
+      return <div className="w-2 h-2 bg-ds-accent-amber rounded-full" />;
     } else if (status >= 500) {
-      return <div className="w-2 h-2 bg-red-500 rounded-full" />;
+      return <div className="w-2 h-2 bg-ds-accent-rose rounded-full" />;
     }
-    return <div className="w-2 h-2 bg-gray-500 rounded-full" />;
+    return <div className="w-2 h-2 bg-ds-text-tertiary rounded-full" />;
   };
 
-  // Special handling for 4xx errors to use orange instead of red
-  const customStatusStyle = status >= 400 && status < 500 
-    ? 'bg-orange-100 text-orange-800 border-orange-200' 
+  // Special handling for 4xx errors to use amber instead of rose
+  const customStatusStyle = status >= 400 && status < 500
+    ? 'bg-ds-accent-amber/15 text-ds-accent-amber border-ds-accent-amber/30'
     : '';
 
   return (
@@ -160,10 +160,10 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className, showIcon =
   );
 };
 
-const ModeBadge: React.FC<ModeBadgeProps> = ({ 
-  headersOnly, 
-  isWebSocket, 
-  ruleCount = 0, 
+const ModeBadge: React.FC<ModeBadgeProps> = ({
+  headersOnly,
+  isWebSocket,
+  ruleCount = 0,
   className,
   showIcon = true
 }) => {
@@ -173,20 +173,20 @@ const ModeBadge: React.FC<ModeBadgeProps> = ({
         variant="default"
         icon={showIcon ? <MessageSquare className="w-4 h-4" /> : undefined}
         className={cn(
-          'bg-purple-100 text-purple-800 border-purple-200',
+          'bg-ds-accent-violet/15 text-ds-accent-violet border-ds-accent-violet/30',
           className
         )}
       >
         <span>WebSocket</span>
         {ruleCount > 0 && (
-          <span className="ml-1 px-1.5 py-0.5 bg-purple-200 text-purple-900 rounded-full text-xs font-bold min-w-[18px] text-center">
+          <span className="ml-1 px-1.5 py-0.5 bg-ds-accent-violet/30 text-ds-accent-violet rounded-full text-xs font-bold min-w-[18px] text-center">
             {ruleCount}
           </span>
         )}
       </Badge>
     );
   }
-  
+
   if (headersOnly) {
     return (
       <Badge
@@ -198,7 +198,7 @@ const ModeBadge: React.FC<ModeBadgeProps> = ({
       </Badge>
     );
   }
-  
+
   return (
     <Badge
       variant="success"

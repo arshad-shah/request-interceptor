@@ -14,32 +14,36 @@ const iconMap = {
 
 const colorMap = {
   success: {
-    bg: 'bg-white',
-    border: 'border-l-4 border-l-green-500',
-    icon: 'bg-green-50 text-green-500',
-    title: 'text-gray-900',
-    message: 'text-gray-600'
+    bg: 'bg-ds-bg-elevated',
+    border: 'border-l-4 border-l-ds-accent-emerald',
+    icon: 'bg-ds-accent-emerald/15 text-ds-accent-emerald',
+    title: 'text-ds-text-primary',
+    message: 'text-ds-text-secondary',
+    progress: 'bg-ds-accent-emerald'
   },
   error: {
-    bg: 'bg-white',
-    border: 'border-l-4 border-l-red-500',
-    icon: 'bg-red-50 text-red-500',
-    title: 'text-gray-900',
-    message: 'text-gray-600'
+    bg: 'bg-ds-bg-elevated',
+    border: 'border-l-4 border-l-ds-accent-rose',
+    icon: 'bg-ds-accent-rose/15 text-ds-accent-rose',
+    title: 'text-ds-text-primary',
+    message: 'text-ds-text-secondary',
+    progress: 'bg-ds-accent-rose'
   },
   info: {
-    bg: 'bg-white',
-    border: 'border-l-4 border-l-blue-500',
-    icon: 'bg-blue-50 text-blue-500',
-    title: 'text-gray-900',
-    message: 'text-gray-600'
+    bg: 'bg-ds-bg-elevated',
+    border: 'border-l-4 border-l-ds-accent-cyan',
+    icon: 'bg-ds-accent-cyan/15 text-ds-accent-cyan',
+    title: 'text-ds-text-primary',
+    message: 'text-ds-text-secondary',
+    progress: 'bg-ds-accent-cyan'
   },
   warning: {
-    bg: 'bg-white',
-    border: 'border-l-4 border-l-amber-500',
-    icon: 'bg-amber-50 text-amber-500',
-    title: 'text-gray-900',
-    message: 'text-gray-600'
+    bg: 'bg-ds-bg-elevated',
+    border: 'border-l-4 border-l-ds-accent-amber',
+    icon: 'bg-ds-accent-amber/15 text-ds-accent-amber',
+    title: 'text-ds-text-primary',
+    message: 'text-ds-text-secondary',
+    progress: 'bg-ds-accent-amber'
   }
 };
 
@@ -51,12 +55,12 @@ interface NotificationItemProps {
 const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onRemove }) => {
   const Icon = iconMap[notification.type];
   const colors = colorMap[notification.type];
-  
+
   const [isPaused, setIsPaused] = useState(false);
   const [remainingTime, setRemainingTime] = useState(notification.duration || 3000);
   const [progress, setProgress] = useState(100);
   const [startTime] = useState(Date.now());
-  
+
   const duration = notification.duration || 3000;
   const isAutoDismiss = !notification.persistent;
 
@@ -67,10 +71,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onRem
       const elapsed = Date.now() - startTime;
       const remaining = Math.max(0, duration - elapsed);
       const progressPercent = Math.max(0, (remaining / duration) * 100);
-      
+
       setRemainingTime(remaining);
       setProgress(progressPercent);
-      
+
       if (remaining <= 0) {
         onRemove(notification.id);
       }
@@ -95,30 +99,24 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onRem
       exit={{ opacity: 0, x: 300, scale: 0.5, transition: { duration: 0.2 } }}
       whileHover={{ scale: 1.02, y: -2 }}
       className={cn(
-        "relative flex items-start gap-3 p-4 rounded-lg shadow-lg max-w-sm overflow-hidden",
+        "relative flex items-start gap-3 p-4 rounded-ds-md shadow-ds-lg max-w-sm overflow-hidden border border-ds-border-subtle",
         colors.bg,
         colors.border,
-        notification.persistent && "border-2 border-dashed"
+        notification.persistent && "border-2 border-dashed border-ds-accent-amber/50"
       )}
     >
       {/* Progress bar */}
       {isAutoDismiss && (
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-200">
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-ds-bg-surface">
           <motion.div
-            className={cn(
-              "h-full transition-colors",
-              notification.type === 'error' ? 'bg-red-400' :
-              notification.type === 'warning' ? 'bg-amber-400' :
-              notification.type === 'success' ? 'bg-green-400' :
-              'bg-blue-400'
-            )}
+            className={cn("h-full transition-colors", colors.progress)}
             initial={{ width: '100%' }}
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.05, ease: 'linear' }}
           />
         </div>
       )}
-      
+
       <div className={cn(
         "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center relative",
         colors.icon
@@ -126,15 +124,15 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onRem
         <Icon className="w-4 h-4" />
         {/* Small dot indicator for persistent notifications */}
         {notification.persistent && (
-          <div className="absolute -top-1 -right-1 w-2 h-2 bg-orange-400 rounded-full" />
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-ds-accent-amber rounded-full" />
         )}
       </div>
-      
+
       <div className="flex-1 min-w-0">
         <div className={cn("text-sm font-medium flex items-center gap-2", colors.title)}>
           {notification.title}
           {notification.persistent && (
-            <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-full">
+            <span className="text-xs px-1.5 py-0.5 bg-ds-accent-amber/15 text-ds-accent-amber rounded-full">
               Persistent
             </span>
           )}
@@ -142,7 +140,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onRem
         <div className={cn("text-sm mt-1", colors.message)}>
           {notification.message}
         </div>
-        
+
         {/* Actions */}
         {notification.actions && notification.actions.length > 0 && (
           <div className="flex gap-2 mt-2">
@@ -150,7 +148,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onRem
               <button
                 key={action.id}
                 onClick={action.action}
-                className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+                className="text-xs px-2 py-1 bg-ds-bg-surface hover:bg-ds-bg-hover rounded-ds-sm text-ds-text-secondary transition-colors"
               >
                 {action.label}
               </button>
@@ -158,16 +156,16 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onRem
           </div>
         )}
       </div>
-      
+
       <div className="flex-shrink-0 flex items-center gap-1">
         {/* Timer and pause/resume for auto-dismiss notifications */}
         {isAutoDismiss && (
-          <div className="flex items-center gap-1 text-xs text-gray-500">
+          <div className="flex items-center gap-1 text-xs text-ds-text-tertiary">
             <Clock className="w-3 h-3" />
             <span>{formatTime(remainingTime)}</span>
             <button
               onClick={togglePause}
-              className="p-0.5 hover:bg-gray-200 rounded transition-colors"
+              className="p-0.5 hover:bg-ds-bg-surface rounded-ds-sm transition-colors"
               title={isPaused ? 'Resume' : 'Pause'}
             >
               {isPaused ? (
@@ -178,10 +176,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onRem
             </button>
           </div>
         )}
-        
+
         <button
           onClick={() => onRemove(notification.id)}
-          className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+          className="p-1 text-ds-text-tertiary hover:text-ds-text-secondary hover:bg-ds-bg-surface rounded-ds-sm transition-colors"
           title="Dismiss"
         >
           <X className="w-4 h-4" />

@@ -59,11 +59,11 @@ const Toggle: React.FC<ToggleProps> = ({
       className
     )}>
       {label && (
-        <span className="mr-3 text-sm font-medium text-gray-700 select-none">
+        <span className="mr-3 text-sm font-medium text-ds-text-secondary select-none">
           {label}
         </span>
       )}
-      
+
       <div className="relative">
         <input
           type="checkbox"
@@ -72,25 +72,25 @@ const Toggle: React.FC<ToggleProps> = ({
           onChange={(e) => !disabled && onChange(e.target.checked)}
           disabled={disabled}
         />
-        
+
         {/* Toggle Track */}
         <motion.div
           className={cn(
             "relative inline-block rounded-full border-2 transition-all duration-300 ease-out",
             sizeConfig.container,
-            !disabled && "group-hover:shadow-lg",
+            !disabled && "group-hover:shadow-ds-md",
             disabled && "opacity-60"
           )}
           animate={{
-            backgroundColor: checked 
-              ? (disabled ? '#9ca3af' : '#3b82f6') 
-              : (disabled ? '#e5e7eb' : '#f3f4f6'),
-            borderColor: checked 
-              ? (disabled ? '#9ca3af' : '#3b82f6') 
-              : (disabled ? '#d1d5db' : '#e5e7eb'),
+            backgroundColor: checked
+              ? (disabled ? '#71717a' : '#6366f1')
+              : (disabled ? '#27272a' : '#3f3f46'),
+            borderColor: checked
+              ? (disabled ? '#71717a' : '#6366f1')
+              : (disabled ? '#27272a' : '#3f3f46'),
             scale: !disabled && checked ? [1, 1.05, 1] : 1
           }}
-          transition={{ 
+          transition={{
             duration: checked ? 0.6 : 0.3,
             ease: "easeOut"
           }}
@@ -100,14 +100,14 @@ const Toggle: React.FC<ToggleProps> = ({
           {/* Subtle inner glow when active */}
           {checked && !disabled && (
             <motion.div
-              className="absolute inset-0 rounded-full bg-blue-400 opacity-20"
+              className="absolute inset-0 rounded-full bg-ds-accent-indigo-hover opacity-20"
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 0.2 }}
               exit={{ scale: 0, opacity: 0 }}
               transition={{ duration: 0.3 }}
             />
           )}
-          
+
           {/* Track indicators (ON/OFF text) */}
           <div className="absolute inset-0 flex items-center justify-between px-1">
             {/* ON indicator */}
@@ -124,11 +124,11 @@ const Toggle: React.FC<ToggleProps> = ({
             >
               I
             </motion.span>
-            
+
             {/* OFF indicator */}
             <motion.span
               className={cn(
-                "font-bold text-gray-400 select-none",
+                "font-bold text-ds-text-tertiary select-none",
                 sizeConfig.textSize
               )}
               animate={{
@@ -141,22 +141,22 @@ const Toggle: React.FC<ToggleProps> = ({
             </motion.span>
           </div>
         </motion.div>
-        
+
         {/* Toggle Thumb */}
         <motion.div
           className={cn(
-            "absolute bg-white rounded-full shadow-lg border-2 border-white",
+            "absolute bg-ds-text-primary rounded-full shadow-ds-md border-2 border-ds-bg-base",
             "transition-all duration-300 ease-out",
             sizeConfig.thumb,
             sizeConfig.padding,
-            !disabled && "group-hover:shadow-xl"
+            !disabled && "group-hover:shadow-ds-lg"
           )}
           animate={{
             x: checked ? sizeConfig.translateX : 0,
             scale: !disabled ? (checked ? [1, 1.1, 1] : 1) : 1,
-            boxShadow: checked 
-              ? "0 4px 12px rgba(59, 130, 246, 0.4), 0 2px 4px rgba(0, 0, 0, 0.1)"
-              : "0 2px 8px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1)"
+            boxShadow: checked
+              ? "0 4px 12px rgba(99, 102, 241, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3)"
+              : "0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3)"
           }}
           transition={{
             type: "spring",
@@ -169,32 +169,32 @@ const Toggle: React.FC<ToggleProps> = ({
           {/* Inner thumb glow */}
           {checked && !disabled && (
             <motion.div
-              className="absolute inset-0 rounded-full bg-blue-400 opacity-30"
+              className="absolute inset-0 rounded-full bg-ds-accent-indigo opacity-30"
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0 }}
               transition={{ duration: 0.3 }}
             />
           )}
-          
+
           {/* Thumb highlight */}
-          <div className="absolute inset-0.5 rounded-full bg-gradient-to-tr from-white/60 to-transparent" />
+          <div className="absolute inset-0.5 rounded-full bg-gradient-to-tr from-white/20 to-transparent" />
         </motion.div>
-        
+
         {/* Active state ring */}
         {checked && !disabled && (
           <motion.div
-            className="absolute inset-0 rounded-full border-2 border-blue-400 opacity-50"
+            className="absolute inset-0 rounded-full border-2 border-ds-accent-indigo-hover opacity-50"
             initial={{ scale: 1, opacity: 0 }}
             animate={{ scale: 1.2, opacity: 0 }}
-            transition={{ 
+            transition={{
               duration: 1,
               repeat: Infinity,
               ease: "easeOut"
             }}
           />
         )}
-        
+
       </div>
     </label>
   );

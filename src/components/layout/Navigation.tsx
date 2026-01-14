@@ -7,21 +7,21 @@ const Navigation: React.FC = () => {
   const { activeTab, setActiveTab } = useAppStore();
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-20">
+    <nav className="bg-ds-bg-elevated border-b border-ds-border-subtle sticky top-0 z-20">
       <div className="px-4">
         <div className="flex items-center h-12">
           {/* Tab Navigation */}
-          <div className="flex items-center bg-gray-50 rounded-lg p-0.5">
+          <div className="flex items-center bg-ds-bg-base rounded-ds-md p-0.5">
             {tabs.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
                 className={cn(
-                  'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500/20',
+                  'flex items-center gap-2 px-3 py-1.5 rounded-ds-sm text-sm font-medium transition-all duration-200',
+                  'focus:outline-none focus:ring-2 focus:ring-ds-border-focus/20',
                   activeTab === id
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                    ? 'bg-ds-bg-surface text-ds-accent-indigo shadow-ds-sm'
+                    : 'text-ds-text-tertiary hover:text-ds-text-primary hover:bg-ds-bg-surface/50'
                 )}
                 aria-current={activeTab === id ? 'page' : undefined}
                 role="tab"
@@ -34,10 +34,10 @@ const Navigation: React.FC = () => {
               </button>
             ))}
           </div>
-          
+
           {/* Active tab label for mobile */}
           <div className="sm:hidden ml-4">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-ds-text-secondary">
               {tabs.find(tab => tab.id === activeTab)?.label}
             </span>
           </div>
