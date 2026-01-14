@@ -128,6 +128,7 @@ const RemoveHeadersEditor: React.FC<RemoveHeadersEditorProps> = ({
                 <Input
                   placeholder="Header-Name"
                   value={newHeader}
+                  variant="outlined"
                   onChange={(e) => setNewHeader(e.target.value)}
                   onKeyPress={handleKeyPress}
                   className="flex-1"

@@ -24,7 +24,7 @@ import {
   commonRemoveHeaders
 } from '@/constants/route-form';
 import Input from '../ui/Input';
-import Select from '../ui/Select';
+import Select, { type SelectOption } from '../ui/Select';
 import Button from '../ui/Button';
 import Radio from '../ui/Radio';
 import ReactAceEditor from '@/components/common/ReactAceEditor';
@@ -32,6 +32,37 @@ import HeaderEditor from './HeaderEditor';
 import RemoveHeadersEditor from './RemoveHeaderEditor';
 import RouteTypeSelection from './RouteTypeSelection';
 import WebSocketRuleEditor from './WebSocketRuleEditor';
+
+const httpMethodOptions: SelectOption[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].map(method => ({
+  value: method,
+  label: method
+}));
+
+const statusCodeOptions: SelectOption[] = [
+  { value: '200', label: '200 OK' },
+  { value: '201', label: '201 Created' },
+  { value: '204', label: '204 No Content' },
+  { value: '301', label: '301 Moved Permanently' },
+  { value: '302', label: '302 Found' },
+  { value: '304', label: '304 Not Modified' },
+  { value: '400', label: '400 Bad Request' },
+  { value: '401', label: '401 Unauthorized' },
+  { value: '403', label: '403 Forbidden' },
+  { value: '404', label: '404 Not Found' },
+  { value: '422', label: '422 Unprocessable Entity' },
+  { value: '429', label: '429 Too Many Requests' },
+  { value: '500', label: '500 Internal Server Error' },
+  { value: '502', label: '502 Bad Gateway' },
+  { value: '503', label: '503 Service Unavailable' },
+  { value: '504', label: '504 Gateway Timeout' }
+];
+
+const contentTypeOptions: SelectOption[] = [
+  { value: 'application/json', label: 'application/json' },
+  { value: 'text/plain', label: 'text/plain' },
+  { value: 'text/html', label: 'text/html' },
+  { value: 'application/xml', label: 'application/xml' }
+];
 
 const AddRouteForm: React.FC = () => {
   const {
@@ -367,40 +398,19 @@ const AddRouteForm: React.FC = () => {
             <Select
               label="HTTP Method"
               value={formData.method}
-              onChange={(e) => handleInputChange('method', e as any)}
-            >
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="DELETE">DELETE</option>
-              <option value="PATCH">PATCH</option>
-            </Select>
+              onChange={(value) => handleInputChange('method', value as HttpMethod)}
+              options={httpMethodOptions}
+            />
 
             {/* Status and Delay Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {!formData.headersOnly && (
                 <Select
                   label="Status Code"
-                  value={formData.status}
-                  onChange={(e) => handleInputChange('status', parseInt(e) || 200)}
-                >
-                  <option value={200}>200 OK</option>
-                  <option value={201}>201 Created</option>
-                  <option value={204}>204 No Content</option>
-                  <option value={301}>301 Moved Permanently</option>
-                  <option value={302}>302 Found</option>
-                  <option value={304}>304 Not Modified</option>
-                  <option value={400}>400 Bad Request</option>
-                  <option value={401}>401 Unauthorized</option>
-                  <option value={403}>403 Forbidden</option>
-                  <option value={404}>404 Not Found</option>
-                  <option value={422}>422 Unprocessable Entity</option>
-                  <option value={429}>429 Too Many Requests</option>
-                  <option value={500}>500 Internal Server Error</option>
-                  <option value={502}>502 Bad Gateway</option>
-                  <option value={503}>503 Service Unavailable</option>
-                  <option value={504}>504 Gateway Timeout</option>
-                </Select>
+                  value={String(formData.status)}
+                  onChange={(value) => handleInputChange('status', parseInt(value, 10) || 200)}
+                  options={statusCodeOptions}
+                />
               )}
 
               <Input
@@ -420,13 +430,9 @@ const AddRouteForm: React.FC = () => {
               <Select
                 label="Content Type"
                 value={formData.contentType}
-                onChange={(e) => handleInputChange('contentType', e as any)}
-              >
-                <option value="application/json">application/json</option>
-                <option value="text/plain">text/plain</option>
-                <option value="text/html">text/html</option>
-                <option value="application/xml">application/xml</option>
-              </Select>
+                onChange={(value) => handleInputChange('contentType', value)}
+                options={contentTypeOptions}
+              />
             )}
 
             {/* Response Headers */}

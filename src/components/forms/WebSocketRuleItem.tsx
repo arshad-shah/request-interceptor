@@ -3,7 +3,7 @@ import { Edit3, Trash2, Check, X } from 'lucide-react';
 import { WebSocketRule, RuleType, MatchType } from '@/types';
 import Button from '../ui/Button';
 import Toggle from '../ui/Toggle';
-import Select from '../ui/Select';
+import Select, { type SelectOption } from '../ui/Select';
 import Input from '../ui/Input';
 
 interface WebSocketRuleItemProps {
@@ -30,13 +30,13 @@ const WebSocketRuleItem: React.FC<WebSocketRuleItemProps> = ({
     setIsEditing(false);
   };
 
-  const ruleTypeOptions: { value: RuleType; label: string }[] = [
+  const ruleTypeOptions: SelectOption[] = [
     { value: 'replace', label: 'Replace' },
     { value: 'block', label: 'Block' },
     { value: 'inject', label: 'Inject' }
   ];
 
-  const matchTypeOptions: { value: MatchType; label: string }[] = [
+  const matchTypeOptions: SelectOption[] = [
     { value: 'exact', label: 'Exact' },
     { value: 'contains', label: 'Contains' },
     { value: 'regex', label: 'Regex' }
@@ -90,26 +90,16 @@ const WebSocketRuleItem: React.FC<WebSocketRuleItemProps> = ({
           <Select
             label="Rule Type"
             value={tempRule.type}
-            onChange={(e) => setTempRule(prev => ({ ...prev, type: e as RuleType }))}
-          >
-            {ruleTypeOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
+            onChange={(value) => setTempRule(prev => ({ ...prev, type: value as RuleType }))}
+            options={ruleTypeOptions}
+          />
 
           <Select
             label="Match Type"
             value={tempRule.matchType}
-            onChange={(e) => setTempRule(prev => ({ ...prev, matchType: e as MatchType }))}
-          >
-            {matchTypeOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
+            onChange={(value) => setTempRule(prev => ({ ...prev, matchType: value as MatchType }))}
+            options={matchTypeOptions}
+          />
         </div>
 
         {/* Match input */}

@@ -1,6 +1,7 @@
 /* ============================================
-   EventBus Monitor Design System v1.0
+   EventBus Monitor Design System v1.1
    Dark-themed developer tools design system
+   With Network Inspector Extensions
    ============================================ */
 
 /* ============================================
@@ -26,14 +27,19 @@
   /* Accent Colors */
   --accent-indigo: #6366f1;
   --accent-indigo-hover: #818cf8;
+  --accent-blue: #3b82f6;
   --accent-cyan: #06b6d4;
   --accent-emerald: #10b981;
   --accent-amber: #f59e0b;
   --accent-rose: #f43f5e;
   --accent-violet: #8b5cf6;
+  --accent-pink: #ec4899;
+  --accent-orange: #f97316;
+  --accent-yellow: #eab308;
 
   /* Resource Type Colors */
   --type-xhr: #f59e0b;
+  --type-fetch: #f59e0b;
   --type-script: #eab308;
   --type-stylesheet: #a855f7;
   --type-image: #22c55e;
@@ -165,6 +171,11 @@
   color: var(--text-primary);
 }
 
+.ds-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .ds-icon-btn.active {
   background: var(--accent-indigo);
   color: white;
@@ -176,11 +187,17 @@
 }
 
 .ds-icon-btn.recording {
-  color: var(--accent-emerald);
+  color: var(--accent-rose);
 }
 
 .ds-icon-btn.recording svg {
   animation: ds-pulse 2s ease-in-out infinite;
+}
+
+/* Small icon button variant */
+.ds-icon-btn.sm {
+  width: 28px;
+  height: 28px;
 }
 
 /* ============================================
@@ -299,6 +316,15 @@
   pointer-events: none;
 }
 
+/* Search highlight for matched text */
+.ds-search-highlight,
+mark.ds-search-highlight {
+  background-color: rgba(250, 204, 21, 0.4);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
 /* ============================================
    Component: Dropdown
    ============================================ */
@@ -382,6 +408,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-fast);
+  white-space: nowrap;
 }
 
 .ds-tab:hover:not(:disabled) {
@@ -406,7 +433,10 @@
 }
 
 .ds-filter-tab {
-  padding: 4px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
   background: transparent;
   border: none;
   border-radius: 4px;
@@ -419,11 +449,12 @@
 
 .ds-filter-tab:hover {
   color: var(--text-secondary);
+  background: var(--bg-surface);
 }
 
 .ds-filter-tab.active {
-  background: var(--bg-surface);
-  color: var(--text-primary);
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent-blue);
 }
 
 /* ============================================
@@ -466,7 +497,7 @@
    Component: Code Block
    ============================================ */
 .ds-code-block {
-  background: var(--bg-base);
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 12px;
@@ -480,12 +511,13 @@
   max-height: 300px;
 }
 
-/* JSON Syntax Highlighting */
-.ds-code-block .json-key { color: var(--accent-cyan); }
+/* JSON Syntax Highlighting (Legacy/Fallback) */
+.ds-code-block .json-key { color: var(--accent-violet); }
 .ds-code-block .json-string { color: var(--accent-emerald); }
-.ds-code-block .json-number { color: var(--accent-amber); }
-.ds-code-block .json-boolean { color: var(--accent-violet); }
+.ds-code-block .json-number { color: var(--accent-cyan); }
+.ds-code-block .json-boolean { color: var(--accent-amber); }
 .ds-code-block .json-null { color: var(--accent-rose); }
+.ds-code-block .json-colon { color: var(--text-tertiary); }
 
 /* ============================================
    Component: Empty State
@@ -611,7 +643,7 @@
    Component: Button Variants
    ============================================ */
 .ds-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -624,6 +656,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-fast);
+  text-decoration: none;
 }
 
 .ds-btn:hover {
@@ -678,16 +711,24 @@
 .ds-badge {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
+/* Color variants */
 .ds-badge.indigo {
   background: rgba(99, 102, 241, 0.15);
   color: var(--accent-indigo);
+}
+
+.ds-badge.blue {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent-blue);
 }
 
 .ds-badge.cyan {
@@ -715,6 +756,26 @@
   color: var(--accent-violet);
 }
 
+.ds-badge.pink {
+  background: rgba(236, 72, 153, 0.15);
+  color: var(--accent-pink);
+}
+
+.ds-badge.orange {
+  background: rgba(249, 115, 22, 0.15);
+  color: var(--accent-orange);
+}
+
+.ds-badge.yellow {
+  background: rgba(234, 179, 8, 0.15);
+  color: var(--accent-yellow);
+}
+
+.ds-badge.gray {
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+}
+
 /* Status code badges */
 .ds-badge.s2xx { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
 .ds-badge.s3xx { background: rgba(99, 102, 241, 0.15); color: var(--accent-indigo); }
@@ -725,6 +786,7 @@
 
 /* Resource type badges */
 .ds-badge.xhr { background: rgba(245, 158, 11, 0.15); color: var(--type-xhr); }
+.ds-badge.fetch { background: rgba(245, 158, 11, 0.15); color: var(--type-fetch); }
 .ds-badge.script { background: rgba(234, 179, 8, 0.15); color: var(--type-script); }
 .ds-badge.stylesheet { background: rgba(168, 85, 247, 0.15); color: var(--type-stylesheet); }
 .ds-badge.image { background: rgba(34, 197, 94, 0.15); color: var(--type-image); }
@@ -733,13 +795,14 @@
 .ds-badge.media { background: rgba(20, 184, 166, 0.15); color: var(--type-media); }
 .ds-badge.websocket { background: rgba(249, 115, 22, 0.15); color: var(--type-websocket); }
 .ds-badge.other { background: var(--bg-surface); color: var(--type-other); }
+.ds-badge.manifest { background: var(--bg-surface); color: var(--type-other); }
 
 /* HTTP Method badges */
-.ds-badge.get { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.ds-badge.get { background: rgba(99, 102, 241, 0.15); color: var(--accent-indigo); }
 .ds-badge.post { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
 .ds-badge.put { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+.ds-badge.patch { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); }
 .ds-badge.delete { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); }
-.ds-badge.patch { background: rgba(139, 92, 246, 0.15); color: var(--accent-violet); }
 .ds-badge.options { background: var(--bg-surface); color: var(--text-tertiary); }
 .ds-badge.head { background: var(--bg-surface); color: var(--text-tertiary); }
 
@@ -781,7 +844,7 @@
 .ds-panel {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -801,7 +864,7 @@
 }
 
 .ds-panel-body {
-  padding: 16px;
+  padding: 12px;
 }
 
 /* ============================================
@@ -822,7 +885,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px;
+  padding: 10px 12px;
   background: var(--bg-surface);
   cursor: pointer;
   font-size: 12px;
@@ -843,7 +906,7 @@
   transition: transform var(--transition-fast);
 }
 
-.ds-section.collapsed .ds-section-header svg {
+.ds-section.collapsed .ds-section-header svg:first-child {
   transform: rotate(-90deg);
 }
 
@@ -861,9 +924,12 @@
    ============================================ */
 .ds-header-row {
   display: flex;
-  padding: 8px 0;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
   font-family: var(--font-mono);
   font-size: 11px;
+  line-height: 1.4;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -872,10 +938,12 @@
 }
 
 .ds-header-name {
-  width: 140px;
   flex-shrink: 0;
+  min-width: 120px;
+  max-width: 160px;
   color: var(--accent-cyan);
   font-weight: 500;
+  word-break: break-word;
 }
 
 .ds-header-value {
@@ -888,17 +956,19 @@
    Component: Waterfall Bar
    ============================================ */
 .ds-waterfall {
-  height: 10px;
+  height: 8px;
   background: var(--bg-surface);
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
   overflow: hidden;
   position: relative;
 }
 
 .ds-waterfall-fill {
-  height: 100%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
   background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan));
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
   min-width: 2px;
   transition: width var(--transition-normal);
 }
@@ -913,6 +983,12 @@
   border-top-color: var(--accent-indigo);
   border-radius: 50%;
   animation: ds-spin 0.8s linear infinite;
+}
+
+.ds-spinner.sm {
+  width: 14px;
+  height: 14px;
+  border-width: 1.5px;
 }
 
 /* ============================================
@@ -1022,9 +1098,10 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   color: var(--text-primary);
+  font-family: var(--font-mono);
   font-size: 12px;
   outline: none;
-  transition: border-color var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .ds-input::placeholder {
@@ -1035,8 +1112,309 @@
   border-color: var(--border-focus);
 }
 
+.ds-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Input variants */
+.ds-input.outlined {
+  background: transparent;
+  border-width: 2px;
+  border-color: var(--border-default);
+}
+
+.ds-input.outlined:focus {
+  border-color: var(--accent-indigo);
+  background: rgba(39, 39, 42, 0.3);
+}
+
+.ds-input.filled {
+  background: var(--bg-elevated);
+  border-color: transparent;
+}
+
+.ds-input.filled:focus {
+  background: var(--bg-surface);
+  border-color: var(--border-focus);
+}
+
+.ds-input.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.ds-input.ghost:hover {
+  background: var(--bg-surface);
+}
+
+.ds-input.ghost:focus {
+  background: var(--bg-surface);
+  border-color: var(--border-subtle);
+}
+
+/* Input sizes */
+.ds-input.sm {
+  height: 32px;
+  padding: 6px 10px;
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+}
+
+.ds-input.lg {
+  height: 44px;
+  padding: 10px 16px;
+  font-size: 13px;
+}
+
+/* Input states */
 .ds-input.error {
   border-color: var(--accent-rose);
+}
+
+.ds-input.error:focus {
+  border-color: var(--accent-rose);
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.1);
+}
+
+.ds-input.success {
+  border-color: var(--accent-emerald);
+}
+
+.ds-input.success:focus {
+  border-color: var(--accent-emerald);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.ds-input.warning {
+  border-color: var(--accent-amber);
+}
+
+.ds-input.warning:focus {
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+/* Input with icons */
+.ds-input.has-left-icon {
+  padding-left: 36px;
+}
+
+.ds-input.has-right-icon {
+  padding-right: 36px;
+}
+
+.ds-input.sm.has-left-icon {
+  padding-left: 32px;
+}
+
+.ds-input.sm.has-right-icon {
+  padding-right: 32px;
+}
+
+.ds-input.lg.has-left-icon {
+  padding-left: 44px;
+}
+
+.ds-input.lg.has-right-icon {
+  padding-right: 44px;
+}
+
+/* Input group (for addons) */
+.ds-input-group {
+  display: flex;
+  align-items: stretch;
+}
+
+.ds-input-group .ds-input {
+  border-radius: 0;
+}
+
+.ds-input-group .ds-input:first-child {
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
+}
+
+.ds-input-group .ds-input:last-child {
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.ds-input-addon {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ds-input-addon:first-child {
+  border-right: none;
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
+}
+
+.ds-input-addon:last-child {
+  border-left: none;
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+/* ============================================
+   Component: Select
+   ============================================ */
+.ds-select {
+  width: 100%;
+  padding: 8px 36px 8px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  transition: all var(--transition-fast);
+}
+
+.ds-select:hover:not(:disabled) {
+  border-color: var(--border-default);
+}
+
+.ds-select:focus {
+  border-color: var(--border-focus);
+}
+
+.ds-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Select placeholder state */
+.ds-select:invalid,
+.ds-select.placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Select option styling (limited browser support) */
+.ds-select option {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  padding: 8px;
+}
+
+.ds-select option:disabled {
+  color: var(--text-tertiary);
+}
+
+.ds-select optgroup {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-style: normal;
+}
+
+/* Select variants */
+.ds-select.outlined {
+  background: transparent;
+  border-width: 2px;
+  border-color: var(--border-default);
+}
+
+.ds-select.outlined:hover:not(:disabled) {
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.ds-select.outlined:focus {
+  border-color: var(--accent-indigo);
+  background: rgba(39, 39, 42, 0.3);
+}
+
+.ds-select.filled {
+  background: var(--bg-elevated);
+  border-color: transparent;
+}
+
+.ds-select.filled:hover:not(:disabled) {
+  background: var(--bg-surface);
+}
+
+.ds-select.filled:focus {
+  background: var(--bg-surface);
+  border-color: var(--border-focus);
+}
+
+.ds-select.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.ds-select.ghost:hover:not(:disabled) {
+  background: var(--bg-surface);
+}
+
+.ds-select.ghost:focus {
+  background: var(--bg-surface);
+  border-color: var(--border-subtle);
+}
+
+/* Select sizes */
+.ds-select.sm {
+  height: 32px;
+  padding: 6px 32px 6px 10px;
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+}
+
+.ds-select.lg {
+  height: 44px;
+  padding: 10px 44px 10px 16px;
+  font-size: 13px;
+}
+
+/* Select states */
+.ds-select.error {
+  border-color: var(--accent-rose);
+}
+
+.ds-select.error:hover:not(:disabled),
+.ds-select.error:focus {
+  border-color: var(--accent-rose);
+}
+
+.ds-select.success {
+  border-color: var(--accent-emerald);
+}
+
+.ds-select.success:hover:not(:disabled),
+.ds-select.success:focus {
+  border-color: var(--accent-emerald);
+}
+
+.ds-select.warning {
+  border-color: var(--accent-amber);
+}
+
+.ds-select.warning:hover:not(:disabled),
+.ds-select.warning:focus {
+  border-color: var(--accent-amber);
+}
+
+/* Select with left icon */
+.ds-select.has-left-icon {
+  padding-left: 36px;
+}
+
+.ds-select.sm.has-left-icon {
+  padding-left: 32px;
+}
+
+.ds-select.lg.has-left-icon {
+  padding-left: 44px;
 }
 
 /* ============================================
@@ -1049,11 +1427,115 @@
 }
 
 /* ============================================
+   React JSON View Lite - Custom Dark Theme
+   ============================================ */
+.json-view-wrapper {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* Override the default styles from react-json-view-lite */
+.json-view-wrapper [class*="container"] {
+  background-color: transparent !important;
+}
+
+.json-view-wrapper .json-view-container {
+  background-color: transparent;
+}
+
+/* Key/property names */
+.json-view-wrapper [class*="label"],
+.json-view-wrapper [class*="key"] {
+  color: var(--accent-violet) !important;
+}
+
+/* String values */
+.json-view-wrapper [class*="string"] {
+  color: var(--accent-emerald) !important;
+}
+
+/* Number values */
+.json-view-wrapper [class*="number"],
+.json-view-wrapper [class*="int"],
+.json-view-wrapper [class*="float"] {
+  color: var(--accent-cyan) !important;
+}
+
+/* Boolean values */
+.json-view-wrapper [class*="bool"] {
+  color: var(--accent-amber) !important;
+}
+
+/* Null/undefined values */
+.json-view-wrapper [class*="null"],
+.json-view-wrapper [class*="undefined"] {
+  color: var(--text-tertiary) !important;
+  font-style: italic;
+}
+
+/* Punctuation (braces, brackets, colons, commas) */
+.json-view-wrapper [class*="punctuation"],
+.json-view-wrapper [class*="bracket"],
+.json-view-wrapper [class*="brace"] {
+  color: var(--text-tertiary) !important;
+}
+
+/* Expand/collapse icons */
+.json-view-wrapper [class*="expand"],
+.json-view-wrapper [class*="collapse"],
+.json-view-wrapper [class*="icon"] {
+  color: var(--text-tertiary) !important;
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--transition-fast);
+}
+
+.json-view-wrapper [class*="expand"]:hover,
+.json-view-wrapper [class*="collapse"]:hover,
+.json-view-wrapper [class*="icon"]:hover {
+  color: var(--text-primary) !important;
+}
+
+/* Collapsed preview text */
+.json-view-wrapper [class*="collapsed"],
+.json-view-wrapper [class*="preview"] {
+  color: var(--text-tertiary) !important;
+  font-style: italic;
+}
+
+/* Override any light theme remnants */
+.json-view-wrapper * {
+  background-color: transparent !important;
+}
+
+/* Make sure text is selectable */
+.json-view-wrapper span {
+  user-select: text;
+}
+
+/* Hover effect on rows */
+.json-view-wrapper > div > div:hover {
+  background-color: var(--bg-hover) !important;
+  border-radius: 2px;
+}
+
+/* Indentation styling */
+.json-view-wrapper [class*="nested"],
+.json-view-wrapper [class*="children"] {
+  border-left: 1px solid var(--border-subtle);
+  margin-left: 8px;
+  padding-left: 12px;
+}
+
+/* ============================================
    Layout: Flex Utilities
    ============================================ */
 .ds-flex { display: flex; }
 .ds-flex-col { flex-direction: column; }
+.ds-flex-1 { flex: 1; }
 .ds-items-center { align-items: center; }
+.ds-items-start { align-items: flex-start; }
 .ds-justify-center { justify-content: center; }
 .ds-justify-between { justify-content: space-between; }
 .ds-gap-1 { gap: var(--space-1); }
@@ -1100,6 +1582,122 @@
   }
 }
 
+@keyframes ds-slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes ds-slide-in-bottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   Radix UI Select Animations
+   ============================================ */
+@keyframes selectSlideDownAndFade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes selectSlideUpAndFade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tailwind-style animation utilities for Radix */
+.animate-in {
+  animation-duration: 150ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+.animate-out {
+  animation-duration: 100ms;
+  animation-timing-function: ease-in;
+  animation-fill-mode: both;
+}
+
+.fade-in-0 {
+  animation-name: fadeIn;
+}
+
+.fade-out-0 {
+  animation-name: fadeOut;
+}
+
+.zoom-in-95 {
+  animation-name: zoomIn95;
+}
+
+.zoom-out-95 {
+  animation-name: zoomOut95;
+}
+
+.slide-in-from-top-2 {
+  --tw-enter-translate-y: -8px;
+  animation-name: slideInFromTop;
+}
+
+.slide-in-from-bottom-2 {
+  --tw-enter-translate-y: 8px;
+  animation-name: slideInFromBottom;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes zoomIn95 {
+  from { transform: scale(0.95); }
+  to { transform: scale(1); }
+}
+
+@keyframes zoomOut95 {
+  from { transform: scale(1); }
+  to { transform: scale(0.95); }
+}
+
+@keyframes slideInFromTop {
+  from { transform: translateY(-8px); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slideInFromBottom {
+  from { transform: translateY(8px); }
+  to { transform: translateY(0); }
+}
+
 /* ============================================
    Utility Classes
    ============================================ */
@@ -1109,5 +1707,32 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.ds-break-all { word-break: break-all; }
 .ds-no-select { user-select: none; }
 .ds-cursor-pointer { cursor: pointer; }
+.ds-opacity-0 { opacity: 0; }
+.ds-opacity-100 { opacity: 1; }
+.ds-transition-opacity { transition: opacity var(--transition-fast); }
+
+/* Focus visible for accessibility */
+.ds-focus-visible:focus-visible {
+  outline: 2px solid var(--accent-indigo);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   Scrollbar Variants
+   ============================================ */
+.ds-scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.ds-scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.ds-scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

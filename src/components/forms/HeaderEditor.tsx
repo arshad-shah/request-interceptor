@@ -146,12 +146,14 @@ const HeaderEditor: React.FC<HeaderEditorProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   placeholder={placeholder.key}
+                  variant="outlined"
                   value={newKey}
                   onChange={(e) => setNewKey(e.target.value)}
                   onKeyPress={handleKeyPress}
                 />
                 <Input
                   placeholder={placeholder.value}
+                  variant="outlined"
                   value={newValue}
                   onChange={(e) => setNewValue(e.target.value)}
                   onKeyPress={handleKeyPress}

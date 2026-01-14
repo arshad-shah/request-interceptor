@@ -14,9 +14,24 @@ import {
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi } from '@/lib/chrome-api';
 import Input from '../ui/Input';
-import Select from '../ui/Select';
+import Select, { type SelectOption } from '../ui/Select';
 import Button from '../ui/Button';
 import { ConfirmDialog } from '../ui/Dialog';
+
+const routeTypeOptions: SelectOption[] = [
+  { value: 'all', label: 'All Types' },
+  { value: 'http', label: 'HTTP/HTTPS' },
+  { value: 'websocket', label: 'WebSocket' }
+];
+
+const methodFilterOptions: SelectOption[] = [
+  { value: 'all', label: 'All Methods' },
+  { value: 'GET', label: 'GET' },
+  { value: 'POST', label: 'POST' },
+  { value: 'PUT', label: 'PUT' },
+  { value: 'DELETE', label: 'DELETE' },
+  { value: 'PATCH', label: 'PATCH' }
+];
 
 const RouteControls: React.FC = () => {
   const {
@@ -237,30 +252,21 @@ const RouteControls: React.FC = () => {
               {/* Route Type Filter */}
               <Select
                 value={filters.routeType || 'all'}
-                onChange={(e) => setFilters({ routeType: e as 'all' | 'http' | 'websocket' })}
+                onChange={(value) => setFilters({ routeType: value as 'all' | 'http' | 'websocket' })}
                 leftIcon={<Route size={14} />}
                 label="Route Type"
-              >
-                <option value="all">All Types</option>
-                <option value="http">HTTP/HTTPS</option>
-                <option value="websocket">WebSocket</option>
-              </Select>
+                options={routeTypeOptions}
+              />
 
               {/* HTTP Method Filter */}
               {(filters.routeType === 'all' || filters.routeType === 'http' || !filters.routeType) && (
                 <Select
                   value={filters.method}
-                  onChange={(e) => setFilters({ method: e as 'all' | 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' })}
+                  onChange={(value) => setFilters({ method: value as 'all' | 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' })}
                   leftIcon={<Filter size={14} />}
                   label="HTTP Method"
-                >
-                  <option value="all">All Methods</option>
-                  <option value="GET">GET</option>
-                  <option value="POST">POST</option>
-                  <option value="PUT">PUT</option>
-                  <option value="DELETE">DELETE</option>
-                  <option value="PATCH">PATCH</option>
-                </Select>
+                  options={methodFilterOptions}
+                />
               )}
             </div>
           </div>
