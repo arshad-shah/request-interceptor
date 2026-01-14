@@ -18,10 +18,11 @@
       "512": "icons/icon-512.png"
     }
   },
-  "permissions": ["storage", "activeTab", "sidePanel"],
+  "permissions": ["storage", "activeTab", "sidePanel", "debugger", "tabs"],
   "host_permissions": ["<all_urls>"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {

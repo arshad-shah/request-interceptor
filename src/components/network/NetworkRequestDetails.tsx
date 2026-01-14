@@ -1,26 +1,49 @@
 /**
- * NetworkRequestDetails Component
- * Detail panel showing headers, payload, response, and timing for a selected request
+ * NetworkRequestDetails Component - Enhanced Version
+ * Professional-grade detail panel with intelligent analysis, search, and advanced features
+ * Inspired by Chrome DevTools Network panel
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { clsx } from 'clsx';
 import {
   X,
   Copy,
   Play,
   Link,
   Terminal,
-  ChevronDown,
+  Search,
+  Clock,
+  Database,
+  FileJson,
+  Code,
+  Eye,
+  Download,
+  ExternalLink,
+  Maximize2,
+  Minimize2,
+  Sparkles,
+  Lock,
+  Unlock,
+  Cookie,
+  RefreshCw,
+  FileText,
+  Hash,
+  Globe,
+  Server,
+  Layers,
+  Info,
+  AlertTriangle,
+  Zap,
+  Shield,
 } from 'lucide-react';
-import type { NetworkRequest, ResponseBody, DetailTab, ResponseView } from '../../types/network';
+import type { NetworkRequest, ResponseBody, ResponseView } from '../../types/network';
 import {
   getStatusClass,
   getStatusText,
   parseQueryParams,
   formatSize,
   formatTime,
-  escapeHtml,
-  syntaxHighlightJson,
   looksLikeJson,
   formatXml,
   calculateTimingPhases,
@@ -31,6 +54,35 @@ import {
   getCurrentTabId,
 } from '../../lib/network-api';
 
+// Local imports
+import {
+  parseCookies,
+  extractSecurityInfo,
+  findJwtTokens,
+  analyzePerformance,
+  getInitiatorInfo,
+  getLanguageFromMime,
+  type ExtendedDetailTab,
+} from './utils';
+import {
+  Section,
+  HeadersList,
+  CodeBlock,
+  InsightCard,
+  JwtViewer,
+  CookieCard,
+  TimingBar,
+  WaterfallChart,
+  EmptyState,
+  StatCard,
+  StackTrace,
+  CopyButton,
+} from './components';
+
+// ============================================================================
+// Types
+// ============================================================================
+
 interface NetworkRequestDetailsProps {
   request: NetworkRequest;
   responseBody: ResponseBody | null;
@@ -38,24 +90,124 @@ interface NetworkRequestDetailsProps {
   onLoadResponseBody: (body: ResponseBody | null) => void;
 }
 
+// ============================================================================
+// Constants
+// ============================================================================
+
+const TIMING_COLORS: Record<string, string> = {
+  blocked: '#6b7280',  // gray
+  dns: '#06b6d4',      // cyan
+  connect: '#8b5cf6',  // violet
+  ssl: '#f43f5e',      // rose
+  send: '#3b82f6',     // blue
+  wait: '#f59e0b',     // amber
+  receive: '#10b981',  // emerald
+};
+
+// ============================================================================
+// Main Component
+// ============================================================================
+
 export function NetworkRequestDetails({
   request,
   responseBody,
   onClose,
   onLoadResponseBody,
 }: NetworkRequestDetailsProps) {
-  const [activeTab, setActiveTab] = useState<DetailTab>('headers');
+  // ─── State ─────────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<ExtendedDetailTab>('headers');
   const [responseView, setResponseView] = useState<ResponseView>('preview');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
+  // ─── Memoized Data ─────────────────────────────────────────────────────────
+  const cookies = useMemo(
+    () => parseCookies(request.requestHeaders, request.responseHeaders),
+    [request.requestHeaders, request.responseHeaders]
+  );
+
+  const securityInfo = useMemo(
+    () => extractSecurityInfo(request),
+    [request]
+  );
+
+  const jwtTokens = useMemo(
+    () => findJwtTokens(request),
+    [request]
+  );
+
+  const insights = useMemo(
+    () => analyzePerformance(request, responseBody),
+    [request, responseBody]
+  );
+
+  const initiatorInfo = useMemo(
+    () => getInitiatorInfo(request),
+    [request]
+  );
+
+  const queryParams = useMemo(
+    () => parseQueryParams(request.query),
+    [request.query]
+  );
+
+  const timingPhases = useMemo(
+    () => calculateTimingPhases(request.timing, request.duration),
+    [request.timing, request.duration]
+  );
+
+  // Tab badge counts
+  const cookieCount = cookies.request.length + cookies.response.length;
+  const insightCounts = useMemo(() => ({
+    total: insights.length,
+    errors: insights.filter(i => i.type === 'error').length,
+    warnings: insights.filter(i => i.type === 'warning').length,
+  }), [insights]);
+
+  // ─── Effects ───────────────────────────────────────────────────────────────
+  
   // Load response body when response tab is selected
   useEffect(() => {
-    if (activeTab === 'response' && !responseBody) {
+    if (activeTab === 'response' && !responseBody && !isLoading) {
       loadResponseBody();
     }
   }, [activeTab, request.requestId]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + F to search
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        setIsSearchVisible(true);
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
+      // Escape to close search or panel
+      if (e.key === 'Escape') {
+        if (isSearchVisible) {
+          setIsSearchVisible(false);
+          setSearchTerm('');
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    const panel = panelRef.current;
+    if (panel) {
+      panel.addEventListener('keydown', handleKeyDown);
+      return () => panel.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isSearchVisible, onClose]);
+
+  // ─── Handlers ──────────────────────────────────────────────────────────────
 
   const loadResponseBody = async () => {
     setIsLoading(true);
@@ -67,13 +219,14 @@ export function NetworkRequestDetails({
       }
     } catch (e) {
       console.error('Failed to load response body:', e);
+      showToast('Failed to load response');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const toggleSection = (section: string) => {
-    setCollapsedSections((prev) => {
+  const toggleSection = useCallback((section: string) => {
+    setCollapsedSections(prev => {
       const next = new Set(prev);
       if (next.has(section)) {
         next.delete(section);
@@ -82,41 +235,17 @@ export function NetworkRequestDetails({
       }
       return next;
     });
-  };
+  }, []);
 
-  const showToast = (message: string) => {
+  const showToast = useCallback((message: string) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(null), 2500);
-  };
+  }, []);
 
-  const handleCopyUrl = async () => {
-    const success = await copyToClipboard(request.url);
-    showToast(success ? 'URL copied to clipboard' : 'Failed to copy URL');
-  };
-
-  const handleCopyCurl = async () => {
-    const curl = generateCurl(request);
-    const success = await copyToClipboard(curl);
-    showToast(success ? 'cURL command copied' : 'Failed to copy cURL');
-  };
-
-  const handleCopyResponse = async () => {
-    if (!responseBody?.body) {
-      showToast('No response body to copy');
-      return;
-    }
-    let content = responseBody.body;
-    if (responseBody.base64Encoded) {
-      try {
-        content = atob(content);
-      } catch {
-        showToast('Cannot copy binary content');
-        return;
-      }
-    }
-    const success = await copyToClipboard(content);
-    showToast(success ? 'Response copied' : 'Failed to copy response');
-  };
+  const handleCopy = useCallback(async (text: string, label: string) => {
+    const success = await copyToClipboard(text);
+    showToast(success ? `${label} copied` : `Failed to copy`);
+  }, [showToast]);
 
   const handleReplay = async () => {
     showToast('Replaying request...');
@@ -125,79 +254,108 @@ export function NetworkRequestDetails({
       if (result.error) {
         showToast(`Replay failed: ${result.error}`);
       } else {
-        showToast(`Replay complete: ${result.status} ${result.statusText}`);
+        showToast(`Replay: ${result.status} ${result.statusText}`);
       }
     } catch {
       showToast('Replay failed');
     }
   };
 
-  // Render general info
+  const handleDownloadResponse = () => {
+    if (!responseBody?.body) {
+      showToast('No response to download');
+      return;
+    }
+
+    try {
+      let content = responseBody.body;
+      let mimeType = responseBody.mimeType || 'application/octet-stream';
+
+      if (responseBody.base64Encoded) {
+        const byteChars = atob(content);
+        const byteNumbers = new Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) {
+          byteNumbers[i] = byteChars.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+        content = URL.createObjectURL(blob);
+      } else {
+        const blob = new Blob([content], { type: mimeType });
+        content = URL.createObjectURL(blob);
+      }
+
+      const filename = request.filename || `response.${getExtension(mimeType)}`;
+      const link = document.createElement('a');
+      link.href = content;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(content);
+      showToast('Download started');
+    } catch {
+      showToast('Download failed');
+    }
+  };
+
+  // ─── Render Helpers ────────────────────────────────────────────────────────
+
   const renderGeneralInfo = () => {
-    const info = [
-      { name: 'Request URL', value: request.url },
-      { name: 'Request Method', value: request.method },
+    const items = [
+      { label: 'Request URL', value: request.url, mono: true },
+      { label: 'Request Method', value: request.method },
       {
-        name: 'Status Code',
+        label: 'Status Code',
         value: request.statusCode
           ? `${request.statusCode} ${getStatusText(request.statusCode)}`
           : 'Pending',
+        color: request.statusCode
+          ? request.statusCode >= 400
+            ? 'text-rose-500'
+            : request.statusCode >= 300
+            ? 'text-amber-500'
+            : 'text-emerald-500'
+          : undefined,
       },
-      { name: 'Remote Address', value: request.ip || request.remoteIPAddress || '-' },
+      { label: 'Remote Address', value: request.ip || request.remoteIPAddress || '—' },
     ];
 
-    if (request.fromCache) {
-      info.push({ name: 'Served From', value: 'Disk Cache' });
-    }
-    if (request.fromServiceWorker) {
-      info.push({ name: 'Served From', value: 'Service Worker' });
+    if (request.protocol) {
+      items.push({ label: 'Protocol', value: request.protocol.toUpperCase() });
     }
     if (request.mimeType) {
-      info.push({ name: 'Content-Type', value: request.mimeType });
+      items.push({ label: 'Content-Type', value: request.mimeType });
+    }
+    if (request.fromCache) {
+      items.push({ label: 'Served From', value: 'Disk Cache' });
+    }
+    if (request.fromServiceWorker) {
+      items.push({ label: 'Served From', value: 'Service Worker' });
     }
 
-    return info.map((item) => (
-      <div key={item.name} className="ds-header-row">
-        <span className="ds-header-name">{item.name}</span>
-        <span className="ds-header-value">{escapeHtml(item.value)}</span>
+    return (
+      <div className="space-y-0.5">
+        {items.map(item => (
+          <div key={item.label} className="ds-header-row">
+            <span className="ds-header-name">{item.label}</span>
+            <span
+              className={clsx(
+                'ds-header-value',
+                item.mono && 'break-all',
+                item.color
+              )}
+            >
+              {item.value}
+            </span>
+          </div>
+        ))}
       </div>
-    ));
+    );
   };
 
-  // Render headers section
-  const renderHeaders = (headers: Array<{ name: string; value: string }> | undefined, emptyText: string) => {
-    if (!headers || headers.length === 0) {
-      return <div className="text-[var(--text-tertiary)] italic text-sm">{emptyText}</div>;
-    }
-
-    return headers.map((h, i) => (
-      <div key={`${h.name}-${i}`} className="ds-header-row">
-        <span className="ds-header-name">{escapeHtml(h.name)}</span>
-        <span className="ds-header-value">{escapeHtml(h.value)}</span>
-      </div>
-    ));
-  };
-
-  // Render query parameters
-  const renderQueryParams = () => {
-    const params = parseQueryParams(request.query);
-    if (params.length === 0) {
-      return <div className="text-[var(--text-tertiary)] italic text-sm">No query parameters</div>;
-    }
-
-    return params.map((p, i) => (
-      <div key={`${p.name}-${i}`} className="ds-header-row">
-        <span className="ds-header-name">{escapeHtml(p.name)}</span>
-        <span className="ds-header-value">{escapeHtml(p.value)}</span>
-      </div>
-    ));
-  };
-
-  // Render response body
   const renderResponseBody = () => {
     if (isLoading) {
       return (
-        <div className="flex items-center justify-center p-8">
+        <div className="flex items-center justify-center py-12">
           <div className="ds-spinner" />
         </div>
       );
@@ -205,338 +363,748 @@ export function NetworkRequestDetails({
 
     if (!responseBody?.body) {
       return (
-        <div className="text-[var(--text-tertiary)] italic text-sm">
-          No response body available
-        </div>
+        <EmptyState
+          icon={<FileText size={32} />}
+          title="No response body"
+          description="Response body is empty or not available"
+        />
       );
     }
 
     let content = responseBody.body;
+    const mimeType = responseBody.mimeType || request.mimeType || '';
 
     // Handle base64 encoded content
     if (responseBody.base64Encoded) {
-      if (responseBody.mimeType?.startsWith('image/')) {
+      if (mimeType.startsWith('image/')) {
         return (
-          <img
-            src={`data:${responseBody.mimeType};base64,${content}`}
-            alt="Response"
-            className="max-w-full h-auto"
-          />
+          <div className="flex flex-col items-center gap-3">
+            <img
+              src={`data:${mimeType};base64,${content}`}
+              alt="Response"
+              className="max-w-full h-auto rounded-[var(--radius-md)] border border-[var(--border-subtle)]"
+            />
+            <span className="text-[11px] text-[var(--text-tertiary)]">
+              {mimeType} • {formatSize(Math.ceil(content.length * 0.75))}
+            </span>
+          </div>
         );
       }
+
+      // Try to decode base64
       try {
         content = atob(content);
       } catch {
         return (
-          <div className="text-[var(--text-tertiary)] italic text-sm">
-            Binary content (base64 encoded)
-          </div>
+          <EmptyState
+            icon={<Database size={32} />}
+            title="Binary content"
+            description="Cannot display binary response"
+          />
         );
       }
+    }
+
+    // Determine language for syntax highlighting
+    let language = getLanguageFromMime(mimeType);
+    if (language === 'text' && looksLikeJson(content)) {
+      language = 'json';
     }
 
     // Raw view
     if (responseView === 'raw') {
       return (
-        <pre className="ds-code-block whitespace-pre-wrap break-all">
-          {escapeHtml(content)}
-        </pre>
+        <CodeBlock
+          content={content}
+          language="text"
+          searchTerm={searchTerm}
+          maxHeight={500}
+        />
       );
     }
 
-    // Preview mode - format nicely
-    const mimeType = responseBody.mimeType || request.mimeType || '';
-
-    if (mimeType.includes('json') || looksLikeJson(content)) {
-      try {
-        const parsed = JSON.parse(content);
-        const formatted = JSON.stringify(parsed, null, 2);
-        return (
-          <div
-            className="ds-code-block"
-            dangerouslySetInnerHTML={{ __html: syntaxHighlightJson(formatted) }}
-          />
-        );
-      } catch {
-        return (
-          <pre className="ds-code-block whitespace-pre-wrap break-all">
-            {escapeHtml(content)}
-          </pre>
-        );
-      }
-    }
-
-    if (mimeType.includes('xml')) {
-      return (
-        <pre className="ds-code-block whitespace-pre-wrap break-all">
-          {escapeHtml(formatXml(content))}
-        </pre>
-      );
-    }
-
+    // Preview view with syntax highlighting
     return (
-      <pre className="ds-code-block whitespace-pre-wrap break-all">
-        {escapeHtml(content)}
-      </pre>
+      <CodeBlock
+        content={content}
+        language={language}
+        searchTerm={searchTerm}
+        maxHeight={500}
+      />
     );
   };
 
-  // Render timing
   const renderTiming = () => {
-    const phases = calculateTimingPhases(request.timing, request.duration);
-
-    if (phases.length === 0) {
+    if (timingPhases.length === 0) {
       return (
-        <div className="text-[var(--text-tertiary)] italic text-sm">
-          No timing data available
-        </div>
+        <EmptyState
+          icon={<Clock size={32} />}
+          title="No timing data"
+          description="Timing information not available"
+        />
       );
     }
 
-    const maxPhase = Math.max(...phases.map((p) => p.value), 1);
+    const maxPhase = Math.max(...timingPhases.map(p => p.value), 1);
+    const totalTime = timingPhases.reduce((sum, p) => sum + p.value, 0);
+
+    // Prepare waterfall data
+    const waterfallPhases = timingPhases.map(p => ({
+      name: p.name,
+      value: p.value,
+      color: TIMING_COLORS[p.className] || TIMING_COLORS.receive,
+    }));
 
     return (
-      <div className="space-y-3">
-        {/* Timing Bars */}
+      <div className="space-y-4">
+        {/* Waterfall visualization */}
+        <WaterfallChart phases={waterfallPhases} totalTime={totalTime} />
+
+        {/* Phase breakdown */}
         <div className="space-y-2">
-          {phases.map((phase) => (
-            <div key={phase.name} className="flex items-center gap-3">
-              <span className="w-[120px] text-[11px] font-medium text-[var(--text-secondary)]">
-                {phase.name}
-              </span>
-              <div className="flex-1 h-5 bg-[var(--bg-surface)] rounded-[var(--radius-sm)] overflow-hidden">
-                <div
-                  className={`h-full rounded-[var(--radius-sm)] flex items-center justify-end px-2
-                    text-[10px] font-mono font-medium text-white min-w-[40px]
-                    ${
-                      phase.className === 'blocked'
-                        ? 'bg-[var(--text-tertiary)]'
-                        : phase.className === 'dns'
-                        ? 'bg-[var(--accent-cyan)]'
-                        : phase.className === 'connect'
-                        ? 'bg-[var(--accent-violet)]'
-                        : phase.className === 'ssl'
-                        ? 'bg-[var(--accent-rose)]'
-                        : phase.className === 'wait'
-                        ? 'bg-[var(--accent-amber)]'
-                        : 'bg-[var(--accent-emerald)]'
-                    }
-                  `}
-                  style={{ width: `${(phase.value / maxPhase) * 100}%` }}
-                >
-                  {phase.value > maxPhase * 0.15 ? formatTime(phase.value) : ''}
-                </div>
-              </div>
-              <span className="w-[70px] text-right font-mono text-[11px] text-[var(--text-secondary)]">
-                {formatTime(phase.value)}
-              </span>
-            </div>
+          {timingPhases.map(phase => (
+            <TimingBar
+              key={phase.name}
+              name={phase.name}
+              value={phase.value}
+              maxValue={maxPhase}
+              color={TIMING_COLORS[phase.className] || TIMING_COLORS.receive}
+              formatValue={formatTime}
+            />
           ))}
         </div>
 
-        {/* Timing Details */}
-        <div className="ds-panel">
-          <div className="ds-panel-body space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-[var(--text-tertiary)]">Total Duration</span>
-              <span className="font-mono text-[var(--text-primary)]">
-                {formatTime(request.duration)}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-[var(--text-tertiary)]">Started At</span>
-              <span className="font-mono text-[var(--text-primary)]">
-                {request.startTime
-                  ? new Date(request.startTime).toLocaleTimeString()
-                  : '-'}
-              </span>
-            </div>
-            {request.encodedSize && (
-              <div className="flex justify-between text-sm">
-                <span className="text-[var(--text-tertiary)]">Transfer Size</span>
-                <span className="font-mono text-[var(--text-primary)]">
-                  {formatSize(request.encodedSize)}
-                </span>
-              </div>
-            )}
-            {request.fromCache && (
-              <div className="flex justify-between text-sm">
-                <span className="text-[var(--text-tertiary)]">Served From</span>
-                <span className="font-mono text-[var(--text-primary)]">Disk Cache</span>
-              </div>
-            )}
-          </div>
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard
+            label="Total Duration"
+            value={formatTime(request.duration || 0)}
+            icon={<Clock size={10} />}
+          />
+          <StatCard
+            label="Started At"
+            value={
+              request.startTime
+                ? new Date(request.startTime).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  })
+                : '—'
+            }
+            icon={<Zap size={10} />}
+          />
+          {request.encodedSize !== undefined && (
+            <StatCard
+              label="Transfer Size"
+              value={formatSize(request.encodedSize)}
+              icon={<Database size={10} />}
+            />
+          )}
+          {request.size !== undefined && request.size !== request.encodedSize && (
+            <StatCard
+              label="Resource Size"
+              value={formatSize(request.size)}
+              icon={<FileJson size={10} />}
+            />
+          )}
         </div>
       </div>
     );
   };
 
+  const renderCookies = () => {
+    if (cookieCount === 0) {
+      return (
+        <EmptyState
+          icon={<Cookie size={32} />}
+          title="No cookies"
+          description="No cookies in this request"
+        />
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {cookies.request.length > 0 && (
+          <Section
+            title="Request Cookies"
+            icon={<Cookie size={14} />}
+            badge={cookies.request.length}
+            collapsed={collapsedSections.has('request-cookies')}
+            onToggle={() => toggleSection('request-cookies')}
+          >
+            <div className="space-y-2">
+              {cookies.request.map((cookie, i) => (
+                <CookieCard key={`${cookie.name}-${i}`} cookie={cookie} />
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {cookies.response.length > 0 && (
+          <Section
+            title="Response Cookies (Set-Cookie)"
+            icon={<Cookie size={14} />}
+            badge={cookies.response.length}
+            collapsed={collapsedSections.has('response-cookies')}
+            onToggle={() => toggleSection('response-cookies')}
+          >
+            <div className="space-y-2">
+              {cookies.response.map((cookie, i) => (
+                <CookieCard key={`${cookie.name}-${i}`} cookie={cookie} />
+              ))}
+            </div>
+          </Section>
+        )}
+      </div>
+    );
+  };
+
+  const renderInitiator = () => {
+    return (
+      <div className="space-y-3">
+        {/* Initiator info */}
+        <div className="p-3 bg-[var(--bg-surface)] rounded-[var(--radius-md)]">
+          <div className="flex items-center gap-2 mb-2">
+            <Globe size={14} className="text-[var(--accent-blue)]" />
+            <span className="font-medium text-sm text-[var(--text-primary)]">
+              Initiator
+            </span>
+            <span className="ds-badge indigo text-[10px]">{initiatorInfo.type}</span>
+          </div>
+          <p className="text-[12px] text-[var(--text-secondary)]">
+            {initiatorInfo.description}
+          </p>
+          {initiatorInfo.url && (
+            <p className="text-[11px] text-[var(--text-tertiary)] font-mono mt-1 break-all">
+              {initiatorInfo.url}
+            </p>
+          )}
+        </div>
+
+        {/* Call stack */}
+        {initiatorInfo.stack && initiatorInfo.stack.length > 0 && (
+          <Section
+            title="Call Stack"
+            icon={<Layers size={14} />}
+            badge={initiatorInfo.stack.length}
+            collapsed={collapsedSections.has('call-stack')}
+            onToggle={() => toggleSection('call-stack')}
+          >
+            <StackTrace stack={initiatorInfo.stack} />
+          </Section>
+        )}
+
+        {/* Security info */}
+        <Section
+          title="Security"
+          icon={<Shield size={14} />}
+          badge={securityInfo.isSecure ? undefined : '!'}
+          badgeType={securityInfo.isSecure ? 'default' : 'warning'}
+          collapsed={collapsedSections.has('security')}
+          onToggle={() => toggleSection('security')}
+        >
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 mb-3">
+              {securityInfo.isSecure ? (
+                <>
+                  <Lock size={14} className="text-emerald-500" />
+                  <span className="text-[12px] text-emerald-500 font-medium">
+                    Secure Connection
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Unlock size={14} className="text-amber-500" />
+                  <span className="text-[12px] text-amber-500 font-medium">
+                    Insecure Connection
+                  </span>
+                </>
+              )}
+            </div>
+
+            <div className="ds-header-row">
+              <span className="ds-header-name">Protocol</span>
+              <span className="ds-header-value">{securityInfo.protocol}</span>
+            </div>
+            {securityInfo.keyExchange && (
+              <div className="ds-header-row">
+                <span className="ds-header-name">Key Exchange</span>
+                <span className="ds-header-value">{securityInfo.keyExchange}</span>
+              </div>
+            )}
+            {securityInfo.cipher && (
+              <div className="ds-header-row">
+                <span className="ds-header-name">Cipher</span>
+                <span className="ds-header-value">{securityInfo.cipher}</span>
+              </div>
+            )}
+            {securityInfo.subjectName && (
+              <div className="ds-header-row">
+                <span className="ds-header-name">Subject</span>
+                <span className="ds-header-value">{securityInfo.subjectName}</span>
+              </div>
+            )}
+          </div>
+        </Section>
+      </div>
+    );
+  };
+
+  const renderInsights = () => {
+    // Include JWT tokens in insights view
+    const hasJwts = jwtTokens.length > 0;
+    const hasInsights = insights.length > 0;
+
+    if (!hasJwts && !hasInsights) {
+      return (
+        <EmptyState
+          icon={<Sparkles size={32} />}
+          title="No insights"
+          description="Everything looks good!"
+        />
+      );
+    }
+
+    const errorInsights = insights.filter(i => i.type === 'error');
+    const warningInsights = insights.filter(i => i.type === 'warning');
+    const infoInsights = insights.filter(i => i.type === 'info');
+    const successInsights = insights.filter(i => i.type === 'success');
+
+    return (
+      <div className="space-y-4">
+        {/* Summary */}
+        {hasInsights && (
+          <div className="flex items-center gap-3 p-3 bg-[var(--bg-surface)] rounded-[var(--radius-md)]">
+            <Zap size={16} className="text-[var(--accent-blue)]" />
+            <span className="text-sm text-[var(--text-primary)]">
+              {insights.length} insight{insights.length !== 1 ? 's' : ''}
+            </span>
+            <div className="flex items-center gap-2 ml-auto">
+              {insightCounts.errors > 0 && (
+                <span className="ds-badge rose text-[10px]">
+                  {insightCounts.errors} error{insightCounts.errors !== 1 ? 's' : ''}
+                </span>
+              )}
+              {insightCounts.warnings > 0 && (
+                <span className="ds-badge amber text-[10px]">
+                  {insightCounts.warnings} warning{insightCounts.warnings !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* JWT Tokens */}
+        {hasJwts && (
+          <div className="space-y-2">
+            <div className="text-[11px] font-medium text-[var(--text-tertiary)] uppercase tracking-wide">
+              JWT Tokens Detected
+            </div>
+            {jwtTokens.map((jwt, i) => (
+              <JwtViewer key={i} jwt={jwt} />
+            ))}
+          </div>
+        )}
+
+        {/* Insights by severity */}
+        {errorInsights.length > 0 && (
+          <div className="space-y-2">
+            {errorInsights.map(insight => (
+              <InsightCard key={insight.id} insight={insight} />
+            ))}
+          </div>
+        )}
+        {warningInsights.length > 0 && (
+          <div className="space-y-2">
+            {warningInsights.map(insight => (
+              <InsightCard key={insight.id} insight={insight} />
+            ))}
+          </div>
+        )}
+        {infoInsights.length > 0 && (
+          <div className="space-y-2">
+            {infoInsights.map(insight => (
+              <InsightCard key={insight.id} insight={insight} />
+            ))}
+          </div>
+        )}
+        {successInsights.length > 0 && (
+          <div className="space-y-2">
+            {successInsights.map(insight => (
+              <InsightCard key={insight.id} insight={insight} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ─── Tab Configuration ─────────────────────────────────────────────────────
+
+  const tabs: Array<{
+    id: ExtendedDetailTab;
+    label: string;
+    icon?: React.ReactNode;
+    badge?: number;
+    badgeType?: 'default' | 'warning' | 'error';
+  }> = [
+    { id: 'headers', label: 'Headers' },
+    { id: 'payload', label: 'Payload' },
+    { id: 'response', label: 'Response' },
+    { id: 'timing', label: 'Timing' },
+    {
+      id: 'cookies',
+      label: 'Cookies',
+      badge: cookieCount > 0 ? cookieCount : undefined,
+    },
+    { id: 'initiator', label: 'Initiator' },
+    {
+      id: 'insights',
+      label: 'Insights',
+      icon: <Sparkles size={12} />,
+      badge: insightCounts.errors > 0
+        ? insightCounts.errors
+        : insightCounts.warnings > 0
+        ? insightCounts.warnings
+        : insightCounts.total > 0
+        ? insightCounts.total
+        : undefined,
+      badgeType: insightCounts.errors > 0
+        ? 'error'
+        : insightCounts.warnings > 0
+        ? 'warning'
+        : 'default',
+    },
+  ];
+
+  // ─── Render ────────────────────────────────────────────────────────────────
+
   return (
     <div
-      className="
-        absolute top-0 right-0 bottom-0 w-1/2 min-w-[360px] max-w-[520px]
-        bg-[var(--bg-base)] border-l border-[var(--border-default)]
-        flex flex-col z-10 shadow-lg
-      "
+      ref={panelRef}
+      tabIndex={-1}
+      className={clsx(
+        'absolute top-0 right-0 bottom-0',
+        'bg-[var(--bg-base)] border-l border-[var(--border-default)]',
+        'flex flex-col z-10 shadow-lg transition-all duration-200 outline-none',
+        isExpanded ? 'w-full' : 'w-1/2 min-w-[420px] max-w-[600px]'
+      )}
     >
-      {/* Header */}
+      {/* ─── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-3 p-4 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
+          {/* Badges row */}
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="ds-badge indigo font-mono text-[11px]">
               {request.method}
             </span>
             {request.statusCode && (
-              <span className={`ds-badge ${getStatusClass(request.statusCode, request.status)}`}>
-                {request.statusCode}
+              <span className={clsx('ds-badge', getStatusClass(request.statusCode, request.status))}>
+                {request.statusCode} {getStatusText(request.statusCode)}
               </span>
             )}
+            {request.fromCache && (
+              <span className="ds-badge gray text-[10px]">cached</span>
+            )}
+            {request.protocol && (
+              <span className="ds-badge gray text-[10px]">{request.protocol}</span>
+            )}
           </div>
-          <span
-            className="block font-mono text-[11px] text-[var(--text-tertiary)] break-all leading-relaxed"
+
+          {/* URL */}
+          <div
+            className="font-mono text-[11px] text-[var(--text-tertiary)] break-all leading-relaxed"
             title={request.url}
           >
             {request.url}
-          </span>
+          </div>
+
+          {/* Quick stats */}
+          <div className="flex items-center gap-4 mt-2 text-[10px] text-[var(--text-tertiary)]">
+            {request.duration !== undefined && (
+              <span className="flex items-center gap-1">
+                <Clock size={10} />
+                {formatTime(request.duration)}
+              </span>
+            )}
+            {request.encodedSize !== undefined && (
+              <span className="flex items-center gap-1">
+                <Database size={10} />
+                {formatSize(request.encodedSize)}
+              </span>
+            )}
+            {request.type && (
+              <span className="flex items-center gap-1">
+                <FileJson size={10} />
+                {request.type}
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* Header actions */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="ds-icon-btn"
+            title={isExpanded ? 'Collapse' : 'Expand'}
+          >
+            {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </button>
+          <button onClick={onClose} className="ds-icon-btn" title="Close (Esc)">
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* ─── Search Bar ─────────────────────────────────────────────────────── */}
+      {isSearchVisible && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)]">
+          <Search size={14} className="text-[var(--text-tertiary)] flex-shrink-0" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Search headers, body, cookies..."
+            className="flex-1 bg-transparent border-none outline-none text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
+            autoFocus
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="ds-icon-btn"
+              title="Clear"
+            >
+              <X size={14} />
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setIsSearchVisible(false);
+              setSearchTerm('');
+            }}
+            className="text-[11px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+          >
+            Close
+          </button>
+        </div>
+      )}
+
+      {/* ─── Tabs ───────────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 px-2 py-1.5 bg-[var(--bg-base)] border-b border-[var(--border-subtle)] overflow-x-auto">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={clsx(
+              'ds-tab flex items-center gap-1.5 whitespace-nowrap',
+              activeTab === tab.id && 'active'
+            )}
+          >
+            {tab.icon}
+            {tab.label}
+            {tab.badge !== undefined && (
+              <span
+                className={clsx(
+                  'ds-badge text-[9px]',
+                  tab.badgeType === 'error' && 'rose',
+                  tab.badgeType === 'warning' && 'amber',
+                  (!tab.badgeType || tab.badgeType === 'default') && 'gray'
+                )}
+              >
+                {tab.badge}
+              </span>
+            )}
+          </button>
+        ))}
+
+        {/* Search toggle */}
         <button
-          onClick={onClose}
-          className="ds-icon-btn flex-shrink-0"
-          title="Close"
+          onClick={() => setIsSearchVisible(true)}
+          className="ds-icon-btn ml-auto"
+          title="Search (⌘F)"
         >
-          <X size={16} />
+          <Search size={14} />
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-2 bg-[var(--bg-base)] border-b border-[var(--border-subtle)]">
-        {(['headers', 'payload', 'response', 'timing'] as DetailTab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`ds-tab ${activeTab === tab ? 'active' : ''}`}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
+      {/* ─── Content ────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto p-3">
         {/* Headers Tab */}
         {activeTab === 'headers' && (
           <div className="space-y-3">
-            {/* General */}
-            <div className={`ds-section ${collapsedSections.has('general') ? 'collapsed' : ''}`}>
-              <div
-                className="ds-section-header"
-                onClick={() => toggleSection('general')}
-              >
-                <span>General</span>
-                <ChevronDown size={14} />
-              </div>
-              <div className="ds-section-content">{renderGeneralInfo()}</div>
-            </div>
+            <Section
+              title="General"
+              icon={<Info size={14} />}
+              collapsed={collapsedSections.has('general')}
+              onToggle={() => toggleSection('general')}
+            >
+              {renderGeneralInfo()}
+            </Section>
 
-            {/* Response Headers */}
-            <div className={`ds-section ${collapsedSections.has('response-headers') ? 'collapsed' : ''}`}>
-              <div
-                className="ds-section-header"
-                onClick={() => toggleSection('response-headers')}
-              >
-                <span>Response Headers</span>
-                <ChevronDown size={14} />
-              </div>
-              <div className="ds-section-content">
-                {renderHeaders(request.responseHeaders, 'No response headers')}
-              </div>
-            </div>
+            <Section
+              title="Response Headers"
+              icon={<Server size={14} />}
+              badge={request.responseHeaders?.length || 0}
+              collapsed={collapsedSections.has('response-headers')}
+              onToggle={() => toggleSection('response-headers')}
+              actions={
+                request.responseHeaders?.length ? (
+                  <CopyButton
+                    text={request.responseHeaders.map(h => `${h.name}: ${h.value}`).join('\n')}
+                    title="Copy all"
+                  />
+                ) : undefined
+              }
+            >
+              <HeadersList
+                headers={request.responseHeaders}
+                searchTerm={searchTerm}
+                emptyText="No response headers"
+              />
+            </Section>
 
-            {/* Request Headers */}
-            <div className={`ds-section ${collapsedSections.has('request-headers') ? 'collapsed' : ''}`}>
-              <div
-                className="ds-section-header"
-                onClick={() => toggleSection('request-headers')}
-              >
-                <span>Request Headers</span>
-                <ChevronDown size={14} />
-              </div>
-              <div className="ds-section-content">
-                {renderHeaders(request.requestHeaders, 'No request headers')}
-              </div>
-            </div>
+            <Section
+              title="Request Headers"
+              icon={<Globe size={14} />}
+              badge={request.requestHeaders?.length || 0}
+              collapsed={collapsedSections.has('request-headers')}
+              onToggle={() => toggleSection('request-headers')}
+              actions={
+                request.requestHeaders?.length ? (
+                  <CopyButton
+                    text={request.requestHeaders.map(h => `${h.name}: ${h.value}`).join('\n')}
+                    title="Copy all"
+                  />
+                ) : undefined
+              }
+            >
+              <HeadersList
+                headers={request.requestHeaders}
+                searchTerm={searchTerm}
+                emptyText="No request headers"
+              />
+            </Section>
           </div>
         )}
 
         {/* Payload Tab */}
         {activeTab === 'payload' && (
           <div className="space-y-3">
-            {/* Query Parameters */}
-            <div className={`ds-section ${collapsedSections.has('query-params') ? 'collapsed' : ''}`}>
-              <div
-                className="ds-section-header"
-                onClick={() => toggleSection('query-params')}
-              >
-                <span>Query Parameters</span>
-                <ChevronDown size={14} />
-              </div>
-              <div className="ds-section-content">{renderQueryParams()}</div>
-            </div>
+            <Section
+              title="Query String Parameters"
+              icon={<Hash size={14} />}
+              badge={queryParams.length}
+              collapsed={collapsedSections.has('query-params')}
+              onToggle={() => toggleSection('query-params')}
+              actions={
+                queryParams.length > 0 ? (
+                  <CopyButton
+                    text={queryParams.map(p => `${p.name}=${p.value}`).join('&')}
+                    title="Copy query string"
+                  />
+                ) : undefined
+              }
+            >
+              {queryParams.length > 0 ? (
+                <div className="space-y-0.5">
+                  {queryParams.map((p, i) => (
+                    <div key={`${p.name}-${i}`} className="ds-header-row">
+                      <span className="ds-header-name">{p.name}</span>
+                      <span className="ds-header-value break-all">{p.value}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[var(--text-tertiary)] italic text-sm py-2">
+                  No query parameters
+                </div>
+              )}
+            </Section>
 
-            {/* Request Body */}
-            <div className={`ds-section ${collapsedSections.has('request-body') ? 'collapsed' : ''}`}>
-              <div
-                className="ds-section-header"
-                onClick={() => toggleSection('request-body')}
-              >
-                <span>Request Body</span>
-                <ChevronDown size={14} />
-              </div>
-              <div className="ds-section-content">
-                {request.postData ? (
-                  <pre className="ds-code-block whitespace-pre-wrap break-all">
-                    {escapeHtml(request.postData)}
-                  </pre>
-                ) : (
-                  <div className="text-[var(--text-tertiary)] italic text-sm">
-                    No request body
-                  </div>
-                )}
-              </div>
-            </div>
+            <Section
+              title="Request Body"
+              icon={<FileText size={14} />}
+              collapsed={collapsedSections.has('request-body')}
+              onToggle={() => toggleSection('request-body')}
+              actions={
+                request.postData ? (
+                  <CopyButton text={request.postData} title="Copy body" />
+                ) : undefined
+              }
+            >
+              {request.postData ? (
+                <CodeBlock
+                  content={request.postData}
+                  language={looksLikeJson(request.postData) ? 'json' : 'text'}
+                  maxHeight={300}
+                />
+              ) : (
+                <div className="text-[var(--text-tertiary)] italic text-sm py-2">
+                  No request body
+                </div>
+              )}
+            </Section>
           </div>
         )}
 
         {/* Response Tab */}
         {activeTab === 'response' && (
           <div className="space-y-3">
-            {/* View Toggle */}
-            <div className="flex items-center gap-1 p-2 bg-[var(--bg-surface)] rounded-[var(--radius-md)]">
-              <button
-                onClick={() => setResponseView('preview')}
-                className={`ds-filter-tab ${responseView === 'preview' ? 'active' : ''}`}
-              >
-                Preview
-              </button>
-              <button
-                onClick={() => setResponseView('raw')}
-                className={`ds-filter-tab ${responseView === 'raw' ? 'active' : ''}`}
-              >
-                Raw
-              </button>
-              <button
-                onClick={handleCopyResponse}
-                className="ds-icon-btn ml-auto"
-                title="Copy Response"
-              >
-                <Copy size={14} />
-              </button>
+            {/* View toggle */}
+            <div className="flex items-center gap-2 p-2 bg-[var(--bg-surface)] rounded-[var(--radius-md)]">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setResponseView('preview')}
+                  className={clsx('ds-filter-tab', responseView === 'preview' && 'active')}
+                >
+                  <Eye size={12} />
+                  Preview
+                </button>
+                <button
+                  onClick={() => setResponseView('raw')}
+                  className={clsx('ds-filter-tab', responseView === 'raw' && 'active')}
+                >
+                  <Code size={12} />
+                  Raw
+                </button>
+              </div>
+
+              <div className="ml-auto flex items-center gap-1">
+                {responseBody?.body && (
+                  <>
+                    <CopyButton
+                      text={responseBody.base64Encoded ? atob(responseBody.body) : responseBody.body}
+                      title="Copy response"
+                    />
+                    <button
+                      onClick={handleDownloadResponse}
+                      className="ds-icon-btn"
+                      title="Download"
+                    >
+                      <Download size={14} />
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={loadResponseBody}
+                  className="ds-icon-btn"
+                  title="Refresh"
+                  disabled={isLoading}
+                >
+                  <RefreshCw size={14} className={clsx(isLoading && 'animate-spin')} />
+                </button>
+              </div>
             </div>
 
             {renderResponseBody()}
 
             {responseBody?.truncated && (
-              <div className="text-[var(--text-tertiary)] italic text-sm text-center pt-3 border-t border-[var(--border-subtle)]">
+              <div className="flex items-center justify-center gap-2 text-[var(--text-tertiary)] text-sm py-3 border-t border-[var(--border-subtle)]">
+                <AlertTriangle size={14} />
                 Response truncated due to size
               </div>
             )}
@@ -545,25 +1113,58 @@ export function NetworkRequestDetails({
 
         {/* Timing Tab */}
         {activeTab === 'timing' && renderTiming()}
+
+        {/* Cookies Tab */}
+        {activeTab === 'cookies' && renderCookies()}
+
+        {/* Initiator Tab */}
+        {activeTab === 'initiator' && renderInitiator()}
+
+        {/* Insights Tab */}
+        {activeTab === 'insights' && renderInsights()}
       </div>
 
-      {/* Footer Actions */}
-      <div className="flex gap-2 p-3 bg-[var(--bg-elevated)] border-t border-[var(--border-subtle)]">
+      {/* ─── Footer Actions ─────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 p-3 bg-[var(--bg-elevated)] border-t border-[var(--border-subtle)]">
         <button onClick={handleReplay} className="ds-btn primary">
           <Play size={14} />
           Replay
         </button>
-        <button onClick={handleCopyUrl} className="ds-btn">
+        <button onClick={() => handleCopy(request.url, 'URL')} className="ds-btn">
           <Link size={14} />
-          Copy URL
+          URL
         </button>
-        <button onClick={handleCopyCurl} className="ds-btn">
+        <button onClick={() => handleCopy(generateCurl(request), 'cURL')} className="ds-btn">
           <Terminal size={14} />
-          Copy cURL
+          cURL
         </button>
+        <button
+          onClick={() => {
+            const fetchCode = `fetch('${request.url}', ${JSON.stringify({
+              method: request.method,
+              headers: request.requestHeaders?.reduce((acc, h) => ({ ...acc, [h.name]: h.value }), {}),
+              body: request.postData || undefined,
+            }, null, 2)})`;
+            handleCopy(fetchCode, 'Fetch code');
+          }}
+          className="ds-btn"
+          title="Copy as fetch()"
+        >
+          <Code size={14} />
+          Fetch
+        </button>
+        <a
+          href={request.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ds-btn ml-auto"
+          title="Open in new tab"
+        >
+          <ExternalLink size={14} />
+        </a>
       </div>
 
-      {/* Toast */}
+      {/* ─── Toast ──────────────────────────────────────────────────────────── */}
       {toastMessage && (
         <div className="ds-toast-container">
           <div className="ds-toast">{toastMessage}</div>
@@ -571,6 +1172,32 @@ export function NetworkRequestDetails({
       )}
     </div>
   );
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+function getExtension(mimeType: string): string {
+  const map: Record<string, string> = {
+    'application/json': 'json',
+    'text/html': 'html',
+    'text/css': 'css',
+    'text/javascript': 'js',
+    'application/javascript': 'js',
+    'text/plain': 'txt',
+    'text/xml': 'xml',
+    'application/xml': 'xml',
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/gif': 'gif',
+    'image/svg+xml': 'svg',
+  };
+  
+  for (const [mime, ext] of Object.entries(map)) {
+    if (mimeType.includes(mime)) return ext;
+  }
+  return 'bin';
 }
 
 export default NetworkRequestDetails;

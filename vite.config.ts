@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 import { resolve } from 'path'
 
+const isProduction = process.env.NODE_ENV === 'production'
+
 export default defineConfig({
   plugins: [
     react(),
@@ -69,6 +71,11 @@ export default defineConfig({
     sourcemap: process.env.NODE_ENV === 'development',
     cssCodeSplit: true
   },
+  esbuild: isProduction
+    ? {
+        pure: ['console.log', 'console.info', 'console.debug']
+      }
+    : undefined,
   define: {
     global: 'globalThis',
     __DEV__: process.env.NODE_ENV === 'development'

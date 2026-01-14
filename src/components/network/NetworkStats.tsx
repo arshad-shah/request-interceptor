@@ -5,7 +5,6 @@
 
 import { useNetworkStats } from '../../stores/network-store';
 import { formatSize, formatTime } from '../../lib/network-api';
-
 export function NetworkStats() {
   const stats = useNetworkStats();
 
