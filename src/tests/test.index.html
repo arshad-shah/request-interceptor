@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request Interceptor Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+            line-height: 1.6;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        h2 {
+            color: #495057;
+            margin-top: 0;
+            font-size: 20px;
+            font-weight: 500;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 8px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 4px 8px 4px 0;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button.secondary {
+            background: #6c757d;
+        }
+        button.secondary:hover {
+            background: #545b62;
+        }
+        button.danger {
+            background: #dc3545;
+        }
+        button.danger:hover {
+            background: #c82333;
+        }
+        .response-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 16px;
+            margin: 12px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            color: #495057;
+        }
+        .instructions {
+            background: #e7f3ff;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+        .step {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 12px 0;
+        }
+        .code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            color: #e83e8c;
+        }
+        input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            margin: 6px 0;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        label {
+            font-weight: 500;
+            display: block;
+            margin-top: 12px;
+            color: #495057;
+        }
+        .result-success {
+            color: #155724;
+        }
+        .result-error {
+            color: #721c24;
+        }
+        .result-info {
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <h1>Request Interceptor Test Suite</h1>
+    
+    <div class="instructions">
+        <h3>Setup Instructions</h3>
+        <ol>
+            <li>Install/update your Request Interceptor extension</li>
+            <li>Open the extension panel</li>
+            <li>Enable the interceptor</li>
+            <li>Configure test routes using the examples below</li>
+            <li>Open browser DevTools (F12) to see console logs and network activity</li>
+        </ol>
+    </div>
+
+    <!-- Basic Interception Tests -->
+    <div class="container">
+        <h2>1. Basic Request Interception</h2>
+        <div class="test-section">
+            <div class="step">
+                <strong>Configuration:</strong> Add route <span class="code">GET /api/test</span> with status 200 and response: <span class="code">{"message": "Hello from interceptor!"}</span>
+            </div>
+            
+            <button onclick="testBasicFetch()">Test Fetch API</button>
+            <button onclick="testBasicXHR()">Test XMLHttpRequest</button>
+            <button onclick="testNonIntercepted()" class="secondary">Test Non-Intercepted</button>
+            
+            <div id="basic-results" class="response-box"></div>
+        </div>
+    </div>
+
+    <!-- Response Headers Tests -->
+    <div class="container">
+        <h2>2. Response Headers Testing</h2>
+        <div class="test-section">
+            <div class="step">
+                <strong>Configuration:</strong> Add route <span class="code">GET /api/headers-test</span> with response headers:
+                <br>• <span class="code">X-Custom-Header: CustomValue</span>
+                <br>• <span class="code">Cache-Control: no-cache</span>
+                <br>• <span class="code">Access-Control-Allow-Origin: *</span>
+            </div>
+            
+            <button onclick="testResponseHeaders()">Test Response Headers</button>
+            <button onclick="inspectResponseHeaders()" class="secondary">Inspect All Headers</button>
+            
+            <div id="response-headers-results" class="response-box"></div>
+        </div>
+    </div>
+
+    <!-- Request Headers Tests -->
+    <div class="container">
+        <h2>3. Request Headers Testing</h2>
+        <div class="test-section">
+            <div class="step">
+                <strong>Configuration:</strong> Add route <span class="code">POST /api/auth-test</span> with:
+                <br><strong>Response:</strong> <span class="code">{"message": "Headers modified", "success": true}</span>
+                <br><strong>Request Headers:</strong>
+                <br>• <span class="code">Authorization: Bearer test-token-123</span>
+                <br>• <span class="code">X-API-Key: test-api-key</span>
+                <br>• <span class="code">X-Custom-Header: added-by-interceptor</span>
+            </div>
+            
+            <label>Custom Request Headers (will be overridden by interceptor):</label>
+            <input type="text" id="custom-auth" placeholder="Authorization: Bearer original-token" value="Authorization: Bearer original-token">
+            <input type="text" id="custom-header" placeholder="X-Original-Header: original-value" value="X-Original-Header: original-value">
+            
+            <button onclick="testRequestHeaders()">Test Request Headers</button>
+            <button onclick="testRequestHeadersXHR()" class="secondary">Test XHR Request Headers</button>
+            
+            <div id="request-headers-results" class="response-box"></div>
+        </div>
+    </div>
+
+    <!-- Remove Headers Tests -->
+    <div class="container">
+        <h2>4. Remove Request Headers Testing</h2>
+        <div class="test-section">
+            <div class="step">
+                <strong>Configuration:</strong> Add route <span class="code">GET /api/remove-headers-test</span> with:
+                <br><strong>Response:</strong> <span class="code">{"message": "Headers removed", "success": true}</span>
+                <br><strong>Remove Request Headers:</strong>
+                <br>• <span class="code">Authorization</span>
+                <br>• <span class="code">User-Agent</span>
+                <br>• <span class="code">X-Remove-Me</span>
+            </div>
+            
+            <button onclick="testRemoveHeaders()">Test Header Removal</button>
+            <button onclick="testRemoveHeadersWithOriginal()" class="secondary">Test with XHR</button>
+            
+            <div id="remove-headers-results" class="response-box"></div>
+        </div>
+    </div>
+
+    <!-- CORS Testing -->
+    <div class="container">
+        <h2>5. CORS Headers Testing</h2>
+        <div class="test-section">
+            <div class="step">
+                <strong>Configuration:</strong> Add route <span class="code">OPTIONS /api/cors-test</span> with response headers:
+                <br>• <span class="code">Access-Control-Allow-Origin: *</span>
+                <br>• <span class="code">Access-Control-Allow-Methods: GET, POST, PUT, DELETE</span>
+                <br>• <span class="code">Access-Control-Allow-Headers: Content-Type, Authorization</span>
+            </div>
+            
+            <button onclick="testCORSPreflight()">Test CORS Preflight</button>
+            <button onclick="testCORSActualRequest()" class="secondary">Test CORS Request</button>
+            
+            <div id="cors-results" class="response-box"></div>
+        </div>
+    </div>
+
+    <!-- Performance Testing -->
+    <div class="container">
+        <h2>6. Performance Testing</h2>
+        <div class="test-section">
+            <div class="step">
+                <strong>Configuration:</strong> Add routes with different delays:
+                <br>• <span class="code">GET /api/fast</span> - 0ms delay, response: <span class="code">{"speed": "fast"}</span>
+                <br>• <span class="code">GET /api/slow</span> - 2000ms delay, response: <span class="code">{"speed": "slow"}</span>
+            </div>
+            
+            <button onclick="testFastResponse()">Test Fast Response</button>
+            <button onclick="testSlowResponse()">Test Slow Response (2s)</button>
+            
+            <div id="performance-results" class="response-box"></div>
+        </div>
+    </div>
+
+    <!-- Error Scenarios -->
+    <div class="container">
+        <h2>7. Error Scenarios Testing</h2>
+        <div class="test-section">
+            <div class="step">
+                <strong>Configuration:</strong> Add error routes:
+                <br>• <span class="code">GET /api/404-test</span> - Status 404, headers: <span class="code">X-Error: Not Found</span>
+                <br>• <span class="code">GET /api/500-test</span> - Status 500, headers: <span class="code">X-Error-ID: ERR-123</span>
+            </div>
+            
+            <button onclick="test404Error()">Test 404 Error</button>
+            <button onclick="test500Error()">Test 500 Error</button>
+            
+            <div id="error-results" class="response-box"></div>
+        </div>
+    </div>
+
+    <!-- DevTools Guide -->
+    <div class="container">
+        <h2>8. DevTools Inspection</h2>
+        <div class="instructions">
+            <h4>What to Check in Browser DevTools:</h4>
+            <ul>
+                <li><strong>Console Tab:</strong> Look for "[Request Interceptor]" logs showing header modifications</li>
+                <li><strong>Network Tab:</strong> Check if requests show "X-Request-Intercepted: true" header</li>
+                <li><strong>Network Tab:</strong> Verify response headers match your configuration</li>
+                <li><strong>Network Tab:</strong> Confirm request headers were modified/removed as expected</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'result-error' : type === 'success' ? 'result-success' : 'result-info';
+            element.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            element.scrollTop = element.scrollHeight;
+        }
+
+        function clearLog(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        // Basic Interception Tests
+        async function testBasicFetch() {
+            clearLog('basic-results');
+            log('basic-results', 'Testing basic fetch interception...', 'info');
+            
+            try {
+                const response = await fetch('/api/test');
+                const data = await response.json();
+                log('basic-results', `Fetch successful: ${JSON.stringify(data)}`, 'success');
+                log('basic-results', `Status: ${response.status}`, 'info');
+                log('basic-results', `Intercepted: ${response.headers.get('X-Request-Intercepted')}`, 'info');
+            } catch (error) {
+                log('basic-results', `Fetch failed: ${error.message}`, 'error');
+                log('basic-results', `Make sure route is configured: GET /api/test`, 'info');
+            }
+        }
+
+        async function testBasicXHR() {
+            log('basic-results', 'Testing basic XHR interception...', 'info');
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/test');
+            xhr.onload = function() {
+                log('basic-results', `XHR successful: ${this.responseText}`, 'success');
+                log('basic-results', `Status: ${this.status}`, 'info');
+                log('basic-results', `Intercepted: ${this.getResponseHeader('X-Request-Intercepted')}`, 'info');
+            };
+            xhr.onerror = function() {
+                log('basic-results', `XHR failed`, 'error');
+            };
+            xhr.send();
+        }
+
+        async function testNonIntercepted() {
+            log('basic-results', 'Testing non-intercepted request...', 'info');
+            
+            try {
+                const response = await fetch('/api/not-configured');
+                log('basic-results', `Real request status: ${response.status}`, 'info');
+            } catch (error) {
+                log('basic-results', `Expected error for non-intercepted: ${error.message}`, 'info');
+            }
+        }
+
+        // Response Headers Tests
+        async function testResponseHeaders() {
+            clearLog('response-headers-results');
+            log('response-headers-results', 'Testing response headers...', 'info');
+            
+            try {
+                const response = await fetch('/api/headers-test');
+                log('response-headers-results', `Request successful`, 'success');
+                log('response-headers-results', `X-Custom-Header: ${response.headers.get('X-Custom-Header')}`, 'info');
+                log('response-headers-results', `Cache-Control: ${response.headers.get('Cache-Control')}`, 'info');
+                log('response-headers-results', `CORS: ${response.headers.get('Access-Control-Allow-Origin')}`, 'info');
+                log('response-headers-results', `Intercepted: ${response.headers.get('X-Request-Intercepted')}`, 'info');
+            } catch (error) {
+                log('response-headers-results', `Failed: ${error.message}`, 'error');
+                log('response-headers-results', `Make sure route is configured: GET /api/headers-test`, 'info');
+            }
+        }
+
+        async function inspectResponseHeaders() {
+            log('response-headers-results', 'Inspecting all response headers...', 'info');
+            
+            try {
+                const response = await fetch('/api/headers-test');
+                log('response-headers-results', 'All Response Headers:', 'info');
+                for (let [key, value] of response.headers.entries()) {
+                    log('response-headers-results', `   ${key}: ${value}`, 'info');
+                }
+            } catch (error) {
+                log('response-headers-results', `Failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Request Headers Tests
+        async function testRequestHeaders() {
+            clearLog('request-headers-results');
+            log('request-headers-results', 'Testing request headers modification...', 'info');
+            
+            const customAuth = document.getElementById('custom-auth').value;
+            const customHeader = document.getElementById('custom-header').value;
+            
+            try {
+                const headers = {'Content-Type': 'application/json'};
+                if (customAuth) {
+                    const [key, value] = customAuth.split(': ');
+                    headers[key] = value;
+                }
+                if (customHeader) {
+                    const [key, value] = customHeader.split(': ');
+                    headers[key] = value;
+                }
+                
+                log('request-headers-results', `Sending with original headers: ${JSON.stringify(headers)}`, 'info');
+                
+                const response = await fetch('/api/auth-test', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ test: 'data' })
+                });
+                
+                // Handle both JSON and text responses
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    log('request-headers-results', `Response: ${JSON.stringify(data)}`, 'success');
+                } else {
+                    const text = await response.text();
+                    log('request-headers-results', `Response: ${text}`, 'success');
+                }
+                
+                log('request-headers-results', `Status: ${response.status}`, 'info');
+                log('request-headers-results', `Check console for header modification logs`, 'info');
+            } catch (error) {
+                log('request-headers-results', `Failed: ${error.message}`, 'error');
+                log('request-headers-results', `Make sure route is configured: POST /api/auth-test`, 'info');
+            }
+        }
+
+        async function testRequestHeadersXHR() {
+            log('request-headers-results', 'Testing XHR request headers modification...', 'info');
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/auth-test');
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('Authorization', 'Bearer original-token');
+            xhr.setRequestHeader('X-Original-Header', 'will-be-modified');
+            
+            xhr.onload = function() {
+                log('request-headers-results', `XHR Response: ${this.responseText}`, 'success');
+                log('request-headers-results', `XHR Status: ${this.status}`, 'info');
+                log('request-headers-results', `Check console for header modification logs`, 'info');
+            };
+            
+            xhr.onerror = function() {
+                log('request-headers-results', `XHR failed`, 'error');
+            };
+            
+            xhr.send(JSON.stringify({ test: 'xhr-data' }));
+        }
+
+        // Remove Headers Tests
+        async function testRemoveHeaders() {
+            clearLog('remove-headers-results');
+            log('remove-headers-results', 'Testing header removal...', 'info');
+            
+            try {
+                const response = await fetch('/api/remove-headers-test', {
+                    headers: {
+                        'Authorization': 'Bearer should-be-removed',
+                        'X-Remove-Me': 'this-should-be-removed',
+                        'X-Keep-Me': 'this-should-stay'
+                    }
+                });
+                
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    log('remove-headers-results', `Response: ${JSON.stringify(data)}`, 'success');
+                } else {
+                    const text = await response.text();
+                    log('remove-headers-results', `Response: ${text}`, 'success');
+                }
+                
+                log('remove-headers-results', `Status: ${response.status}`, 'info');
+                log('remove-headers-results', `Check console logs to verify header removal`, 'info');
+            } catch (error) {
+                log('remove-headers-results', `Failed: ${error.message}`, 'error');
+                log('remove-headers-results', `Make sure route is configured: GET /api/remove-headers-test`, 'info');
+            }
+        }
+
+        async function testRemoveHeadersWithOriginal() {
+            log('remove-headers-results', 'Testing XHR header removal...', 'info');
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/remove-headers-test');
+            xhr.setRequestHeader('Authorization', 'Bearer should-be-removed');
+            xhr.setRequestHeader('X-Remove-Me', 'this-should-be-removed');
+            xhr.setRequestHeader('X-Keep-Me', 'this-should-stay');
+            
+            xhr.onload = function() {
+                log('remove-headers-results', `XHR completed: ${this.responseText}`, 'success');
+                log('remove-headers-results', `Check console for removal logs`, 'info');
+            };
+            
+            xhr.send();
+        }
+
+        // CORS Tests
+        async function testCORSPreflight() {
+            clearLog('cors-results');
+            log('cors-results', 'Testing CORS preflight...', 'info');
+            
+            try {
+                const response = await fetch('/api/cors-test', {
+                    method: 'OPTIONS'
+                });
+                
+                log('cors-results', `Preflight successful`, 'success');
+                log('cors-results', `Allow-Origin: ${response.headers.get('Access-Control-Allow-Origin')}`, 'info');
+                log('cors-results', `Allow-Methods: ${response.headers.get('Access-Control-Allow-Methods')}`, 'info');
+                log('cors-results', `Allow-Headers: ${response.headers.get('Access-Control-Allow-Headers')}`, 'info');
+            } catch (error) {
+                log('cors-results', `Failed: ${error.message}`, 'error');
+                log('cors-results', `Make sure route is configured: OPTIONS /api/cors-test`, 'info');
+            }
+        }
+
+        async function testCORSActualRequest() {
+            log('cors-results', 'Testing CORS actual request...', 'info');
+            
+            try {
+                const response = await fetch('/api/cors-test', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log('cors-results', `CORS request successful`, 'success');
+                log('cors-results', `Status: ${response.status}`, 'info');
+            } catch (error) {
+                log('cors-results', `CORS request failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Performance Tests
+        async function testFastResponse() {
+            clearLog('performance-results');
+            log('performance-results', 'Testing fast response...', 'info');
+            
+            const start = performance.now();
+            try {
+                const response = await fetch('/api/fast');
+                const end = performance.now();
+                const data = await response.json();
+                log('performance-results', `Fast response: ${JSON.stringify(data)}`, 'success');
+                log('performance-results', `Time taken: ${Math.round(end - start)}ms`, 'info');
+            } catch (error) {
+                log('performance-results', `Failed: ${error.message}`, 'error');
+                log('performance-results', `Make sure route is configured: GET /api/fast`, 'info');
+            }
+        }
+
+        async function testSlowResponse() {
+            log('performance-results', 'Testing slow response (2s delay)...', 'info');
+            
+            const start = performance.now();
+            try {
+                const response = await fetch('/api/slow');
+                const end = performance.now();
+                const data = await response.json();
+                log('performance-results', `Slow response: ${JSON.stringify(data)}`, 'success');
+                log('performance-results', `Time taken: ${Math.round(end - start)}ms`, 'info');
+            } catch (error) {
+                log('performance-results', `Failed: ${error.message}`, 'error');
+                log('performance-results', `Make sure route is configured: GET /api/slow with 2000ms delay`, 'info');
+            }
+        }
+
+        // Error Tests
+        async function test404Error() {
+            clearLog('error-results');
+            log('error-results', 'Testing 404 error...', 'info');
+            
+            try {
+                const response = await fetch('/api/404-test');
+                log('error-results', `Status: ${response.status} ${response.statusText}`, 'error');
+                log('error-results', `X-Error: ${response.headers.get('X-Error')}`, 'info');
+                
+                try {
+                    const data = await response.json();
+                    log('error-results', `Error response: ${JSON.stringify(data)}`, 'info');
+                } catch (e) {
+                    const text = await response.text();
+                    log('error-results', `Error response: ${text}`, 'info');
+                }
+            } catch (error) {
+                log('error-results', `Request failed: ${error.message}`, 'error');
+                log('error-results', `Make sure route is configured: GET /api/404-test with status 404`, 'info');
+            }
+        }
+
+        async function test500Error() {
+            log('error-results', 'Testing 500 error...', 'info');
+            
+            try {
+                const response = await fetch('/api/500-test');
+                log('error-results', `Status: ${response.status} ${response.statusText}`, 'error');
+                log('error-results', `X-Error-ID: ${response.headers.get('X-Error-ID')}`, 'info');
+                
+                try {
+                    const data = await response.json();
+                    log('error-results', `Error response: ${JSON.stringify(data)}`, 'info');
+                } catch (e) {
+                    const text = await response.text();
+                    log('error-results', `Error response: ${text}`, 'info');
+                }
+            } catch (error) {
+                log('error-results', `Request failed: ${error.message}`, 'error');
+                log('error-results', `Make sure route is configured: GET /api/500-test with status 500`, 'info');
+            }
+        }
+
+        // Auto-run basic connectivity test on page load
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                log('basic-results', 'Page loaded! Ready for testing.', 'info');
+                log('basic-results', 'Make sure your Request Interceptor extension is enabled!', 'info');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

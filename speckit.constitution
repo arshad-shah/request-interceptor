@@ -1,0 +1,166 @@
+# Request Interceptor Extension Constitution
+## Code Quality, Testing Standards, User Experience & Performance Guidelines
+
+### Code Quality Standards
+
+#### Component Architecture
+- **Single Responsibility**: Each component should have one clear purpose
+- **Composition over Inheritance**: Prefer React composition patterns
+- **UI Component Consistency**: Follow established patterns from `/src/components/ui/`
+  - Use standardized prop interfaces (variant, size, className, disabled)
+  - Implement consistent styling with Tailwind classes and `cn()` utility
+  - Provide appropriate hover/focus states and accessibility features
+
+#### TypeScript Standards
+- **Strict Typing**: All components must have proper TypeScript interfaces
+- **No `any` Types**: Use proper type definitions or generics
+- **Interface Definitions**: Co-locate interfaces with components when specific to that component
+- **Shared Types**: Place reusable types in `/src/types/index.ts`
+
+#### Code Organization
+- **Path Aliases**: Use configured aliases (@components, @lib, @stores, etc.)
+- **Component Structure**: Follow established patterns:
+  ```tsx
+  interface ComponentProps extends HTMLAttributes<HTMLElement> {
+    variant?: 'primary' | 'secondary';
+    // ... other props
+  }
+
+  const Component: React.FC<ComponentProps> = ({ ... }) => {
+    // Implementation
+  };
+  ```
+- **Barrel Exports**: Use index files for clean imports
+- **Utility Functions**: Place in `/src/lib/utils.ts` or dedicated utility files
+
+#### Styling Standards
+- **Tailwind CSS**: Primary styling system
+- **Responsive Design**: Mobile-first approach with appropriate breakpoints
+- **Design Tokens**: Use consistent spacing, colors, and typography
+- **Motion**: Use Framer Motion for animations, following established patterns
+- **Accessibility**: Ensure proper focus states, ARIA labels, and keyboard navigation
+
+### Testing Standards
+
+#### Test Coverage Requirements
+- **Unit Tests**: All utility functions and complex business logic
+- **Component Tests**: UI components with user interactions
+- **Integration Tests**: Critical user flows and extension functionality
+- **Coverage Threshold**: Maintain >80% code coverage
+
+#### Testing Tools & Configuration
+- **Framework**: Vitest with React Testing Library
+- **Setup**: Use `/src/test/setup.ts` for test environment configuration
+- **Commands**:
+  - `pnpm run test` - Watch mode
+  - `pnpm run test:run` - Single run
+  - `pnpm run test:coverage` - Coverage report
+
+#### Test Organization
+- **Co-location**: Place tests near components when component-specific
+- **Test Utils**: Create reusable test utilities for common patterns
+- **Mock Strategy**: Mock external dependencies (Chrome APIs, Zustand stores)
+- **Test Data**: Create factories for consistent test data generation
+
+#### Test Standards
+- **Descriptive Names**: Test descriptions should clearly state what is being tested
+- **AAA Pattern**: Arrange, Act, Assert structure
+- **User-Centric**: Test user behaviors, not implementation details
+- **Accessibility Testing**: Include tests for keyboard navigation and screen readers
+
+### User Experience Consistency
+
+#### Design System Adherence
+- **Component Library**: Use established UI components from `/src/components/ui/`
+- **Visual Hierarchy**: Consistent typography, spacing, and color usage
+- **Interactive States**: Proper hover, focus, active, and disabled states
+- **Loading States**: Implement loading indicators for async operations
+
+#### Navigation & Flow
+- **Tab Management**: Consistent tab behavior between popup and sidepanel
+- **Route Management**: Clear navigation patterns for different sections
+- **Error Handling**: User-friendly error messages with actionable guidance
+- **Empty States**: Helpful empty states with clear next steps
+
+#### Accessibility Requirements
+- **WCAG 2.1 AA**: Meet accessibility standards
+- **Keyboard Navigation**: Full functionality without mouse
+- **Screen Reader Support**: Proper semantic markup and ARIA attributes
+- **Focus Management**: Clear focus indicators and logical tab order
+- **Color Contrast**: Ensure sufficient contrast ratios
+
+#### Browser Extension UX
+- **Context Awareness**: UI should reflect current page/request state
+- **Performance**: Minimal impact on page load and runtime
+- **Permissions**: Clear explanation of required permissions
+- **Data Persistence**: Reliable storage and sync across sessions
+
+### Performance Requirements
+
+#### Bundle Optimization
+- **Code Splitting**: Implement proper chunking for popup and sidepanel
+- **Tree Shaking**: Ensure dead code elimination
+- **Bundle Analysis**: Regular analysis of bundle size and dependencies
+- **Critical Path**: Optimize for fast initial load
+
+#### Runtime Performance
+- **Virtual Scrolling**: For large lists (route lists, request logs)
+- **Memoization**: Use React.memo, useMemo, useCallback appropriately
+- **State Management**: Efficient Zustand store updates
+- **DOM Updates**: Minimize unnecessary re-renders
+
+#### Chrome Extension Optimization
+- **Background Script**: Minimal memory footprint and CPU usage
+- **Content Script**: Lightweight injection with lazy loading
+- **Message Passing**: Efficient communication between contexts
+- **Storage**: Optimize Chrome storage API usage
+
+#### Monitoring & Metrics
+- **Bundle Size**: Track bundle size changes in CI/CD
+- **Runtime Metrics**: Monitor memory usage and render performance
+- **User Metrics**: Track extension usage patterns and performance
+- **Error Tracking**: Comprehensive error monitoring and reporting
+
+### Development Workflow
+
+#### Code Quality Gates
+- **TypeScript**: Must pass `pnpm run type-check`
+- **Linting**: Must pass `pnpm run lint` with zero warnings
+- **Testing**: All tests must pass before merge
+- **Build**: Must successfully build for production
+
+#### Git Workflow
+- **Feature Branches**: Use descriptive branch names
+- **Commit Messages**: Clear, actionable commit messages
+- **Pull Requests**: Include tests and documentation updates
+- **Code Review**: Required for all changes
+
+#### Documentation Standards
+- **Component Documentation**: JSDoc comments for public APIs
+- **README Updates**: Keep documentation current with changes
+- **Architecture Decisions**: Document significant technical decisions
+- **API Documentation**: Maintain up-to-date API documentation
+
+### Extension-Specific Standards
+
+#### Chrome API Usage
+- **Manifest V3**: Follow modern extension standards
+- **Permissions**: Request minimal necessary permissions
+- **CSP Compliance**: Ensure Content Security Policy compliance
+- **Cross-Context Communication**: Proper message passing patterns
+
+#### Security Considerations
+- **Input Sanitization**: Sanitize all user inputs and external data
+- **XSS Prevention**: Proper escaping and Content Security Policy
+- **Permission Principle**: Minimal privilege access
+- **Data Handling**: Secure storage and transmission of user data
+
+#### Browser Compatibility
+- **Chrome Support**: Primary target browser
+- **Feature Detection**: Graceful degradation for missing features
+- **Polyfills**: Include necessary polyfills for compatibility
+- **Testing**: Test across supported browser versions
+
+---
+
+This constitution should be reviewed and updated quarterly to reflect evolving best practices and project requirements.
