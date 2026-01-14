@@ -1,44 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Request Interceptor</title>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
-    <link rel="stylesheet" href="popup.css" />
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <div class="header-icon">
-          <i class="fas fa-bolt"></i>
-        </div>
-        <h1>Request Interceptor</h1>
-      </div>
-
-      <div class="toggle-container">
-        <span class="status" id="status-text">Disabled</span>
-        <label class="toggle">
-          <input type="checkbox" id="enableToggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="banner">
-        <p>Open the side panel to view and manage intercepted requests.</p>
-      </div>
-
-      <div class="stats">
-        <div class="stat-item">
-          <span class="stat-label">Active Routes</span>
-          <span class="stat-value" id="routes-count">0</span>
-        </div>
-      </div>
-    </div>
-
-    <script src="popup.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Request Interceptor</title>
+</head>
+<body>
+  <div id="popup-root"></div>
+  <script type="module" src="src/popup/main.tsx"></script>
+</body>
 </html>
