@@ -22,10 +22,7 @@ import 'ace-builds/src-noconflict/mode-html';
 import 'ace-builds/src-noconflict/mode-xml';
 import 'ace-builds/src-noconflict/mode-javascript';
 
-import 'ace-builds/src-noconflict/theme-monokai';
 import 'ace-builds/src-noconflict/theme-twilight';
-import 'ace-builds/src-noconflict/theme-solarized_dark';
-import 'ace-builds/src-noconflict/theme-terminal';
 
 import 'ace-builds/src-noconflict/ext-language_tools';
 import 'ace-builds/src-noconflict/ext-searchbox';
@@ -34,7 +31,6 @@ interface ReactAceEditorProps {
   value: string;
   onChange: (value: string) => void;
   language?: 'json' | 'text' | 'html' | 'xml' | 'javascript';
-  theme?: 'monokai' | 'twilight' | 'solarized_dark' | 'terminal';
   height?: string | number;
   className?: string;
   placeholder?: string;
@@ -54,7 +50,6 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
   value,
   onChange,
   language = 'json',
-  theme = 'monokai',
   height = 300,
   className,
   placeholder = 'Start coding...',
@@ -71,7 +66,6 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
 }) => {
   const [error, setError] = useState<string>('');
   const [isValid, setIsValid] = useState(true);
-  const [currentTheme, setCurrentTheme] = useState(theme);
   const [cursorPosition, setCursorPosition] = useState({ row: 1, column: 1 });
   const [showThemeMenu, setShowThemeMenu] = useState(false);
 
@@ -99,7 +93,6 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
     }
   ];
 
-  const currentThemeInfo = themes.find(t => t.value === currentTheme) || themes[0];
 
   // Language configuration with dark theme colors
   const languageConfig = {
@@ -224,46 +217,6 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
 
             {/* Compact Actions */}
             <div className="flex items-center gap-1">
-              {/* Theme Toggle */}
-              <div className="relative">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowThemeMenu(!showThemeMenu)}
-                  leftIcon={<currentThemeInfo.icon className="w-3 h-3" />}
-                  className="text-xs px-2"
-                >
-                  <span className="hidden sm:inline">{currentThemeInfo.label}</span>
-                </Button>
-
-                {showThemeMenu && (
-                  <div className="absolute top-full right-0 mt-1 w-48 bg-[var(--bg-elevated)] rounded-[var(--radius-md)] shadow-lg border border-[var(--border-subtle)] z-10">
-                    <div className="p-2 max-h-64 overflow-y-auto">
-                      {themes.map(theme => (
-                        <button
-                          key={theme.value}
-                          onClick={() => {
-                            setCurrentTheme(theme.value as any);
-                            setShowThemeMenu(false);
-                          }}
-                          className={cn(
-                            'w-full flex items-center gap-2 px-2 py-1.5 rounded-[var(--radius-sm)] text-xs transition-colors',
-                            currentTheme === theme.value
-                              ? 'bg-[rgba(6,182,212,0.15)] text-[var(--accent-cyan)]'
-                              : 'hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]'
-                          )}
-                        >
-                          <theme.icon className="w-3 h-3" />
-                          <span>{theme.label}</span>
-                          {currentTheme === theme.value && (
-                            <Check className="w-3 h-3 ml-auto text-[var(--accent-cyan)]" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {/* Action Buttons */}
               <Button
@@ -306,7 +259,7 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
           <div className="relative">
             <AceEditor
               mode={language}
-              theme={currentTheme}
+              theme={'twilight'}
               value={value}
               onChange={handleChange}
               onCursorChange={handleCursorChange}
@@ -363,11 +316,6 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
             <div className="flex items-center gap-3">
               <span className="font-mono">Ln {cursorPosition.row}, Col {cursorPosition.column}</span>
               <span className="hidden sm:inline">{value.length} chars</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span>{config.name}</span>
-              <span>•</span>
-              <span>{currentThemeInfo.label}</span>
             </div>
           </div>
         </div>
