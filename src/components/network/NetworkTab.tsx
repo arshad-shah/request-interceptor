@@ -21,6 +21,7 @@ import {
 } from '../../stores/network-store';
 import { useAppStore } from '../../stores/app-store';
 import type { NetworkRequest } from '../../types/network';
+import type { RouteConfig } from '../../types';
 import {
   getRequests,
   clearRequests as clearNetworkRequests,
@@ -147,15 +148,17 @@ export function NetworkTab() {
       }
 
       // Create new route config
-      const newRoute = {
+      const newRoute: RouteConfig = {
         enabled: true,
-        responseStatus: request.statusCode || 200,
-        responseBody: '',
-        responseHeaders: request.responseHeaders?.map((h) => ({
-          name: h.name,
-          value: h.value,
-        })) || [],
-        requestHeaders: [],
+        status: request.statusCode || 200,
+        response: '',
+        contentType: 'application/json',
+        timestamp: Date.now(),
+        responseHeaders: request.responseHeaders?.reduce((acc, h) => {
+          acc[h.name] = h.value;
+          return acc;
+        }, {} as Record<string, string>) || {},
+        requestHeaders: {},
         removeRequestHeaders: [],
         delay: 0,
         headersOnly: false,

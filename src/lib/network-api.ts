@@ -385,8 +385,8 @@ export function calculateTimingPhases(
   }
 
   // Blocked/Queued
-  if (timing.requestStart && timing.startTime) {
-    const blocked = timing.requestStart - timing.startTime;
+  if (timing.sendStart && timing.startTime) {
+    const blocked = (timing.sendStart - timing.startTime) * 1000;
     if (blocked > 0) {
       phases.push({ name: 'Blocked', value: blocked, className: 'blocked' });
     }
