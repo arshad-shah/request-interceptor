@@ -2,110 +2,67 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'icon' | 'success';
+  variant?: 'default' | 'primary' | 'danger' | 'success' | 'icon' | 'ghost' | 'secondary';
   size?: 'sm' | 'md' | 'lg';
-  isLoading?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  isLoading?: boolean;
 }
 
-const variants = {
-  primary: cn(
-    "bg-ds-accent-indigo hover:bg-ds-accent-indigo-hover",
-    "text-white",
-    "border border-ds-accent-indigo hover:border-ds-accent-indigo-hover"
-  ),
-  secondary: cn(
-    "bg-ds-bg-surface hover:bg-ds-bg-hover",
-    "text-ds-text-secondary hover:text-ds-text-primary",
-    "border border-ds-border-subtle hover:border-ds-border"
-  ),
-  danger: cn(
-    "bg-transparent hover:bg-ds-accent-rose/15",
-    "text-ds-accent-rose",
-    "border border-ds-accent-rose/50 hover:border-ds-accent-rose"
-  ),
-  success: cn(
-    "bg-ds-accent-emerald hover:bg-ds-accent-emerald/90",
-    "text-white",
-    "border border-ds-accent-emerald"
-  ),
-  ghost: cn(
-    "bg-transparent hover:bg-ds-bg-surface",
-    "text-ds-text-tertiary hover:text-ds-text-primary",
-    "border border-transparent"
-  ),
-  icon: cn(
-    "bg-transparent hover:bg-ds-bg-surface",
-    "text-ds-text-tertiary hover:text-ds-text-primary",
-    "border border-transparent"
-  )
-};
-
-const sizes = {
-  sm: "px-3 py-1.5 text-xs h-8 min-w-[70px]",
-  md: "px-4 py-2 text-sm h-9 min-w-[80px]",
-  lg: "px-5 py-2.5 text-sm h-10 min-w-[100px]"
-};
-
-const iconSizes = {
-  sm: "w-7 h-7 p-1.5",
-  md: "w-8 h-8 p-2",
-  lg: "w-9 h-9 p-2"
-};
-
-const Button: React.FC<ButtonProps> = ({
-  children,
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   className,
-  variant = 'primary',
+  variant = 'default',
   size = 'md',
-  isLoading = false,
   leftIcon,
   rightIcon,
+  children,
   disabled,
+  isLoading,
   ...props
-}) => {
-  const isDisabled = disabled || isLoading;
-  const isIconButton = variant === 'icon';
+}, ref) => {
+  const isIconOnly = variant === 'icon' || (!children && (leftIcon || rightIcon));
+
+  const baseClasses = isIconOnly ? 'ds-icon-btn' : 'ds-btn';
+
+  // Map variants to CSS classes
+  const variantClasses: Record<string, string> = {
+    default: '',
+    primary: 'primary',
+    danger: 'danger',
+    success: 'success',
+    icon: '',
+    ghost: '', // Ghost uses default styling with transparent bg
+    secondary: ''  // Secondary also uses default styling
+  };
+
+  const sizeClasses: Record<string, string> = {
+    sm: isIconOnly ? '' : 'text-[11px] px-3 py-1.5',
+    md: '',
+    lg: isIconOnly ? 'w-10 h-10' : 'text-[13px] px-5 py-2.5'
+  };
 
   return (
     <button
+      ref={ref}
       className={cn(
-        "inline-flex items-center justify-center gap-2",
-        "font-medium rounded-ds-md",
-        "transition-all duration-fast",
-        "focus:outline-none focus:ring-2 focus:ring-ds-border-focus focus:ring-offset-1 focus:ring-offset-ds-bg-base",
-        // Disabled state
-        isDisabled && "opacity-50 cursor-not-allowed",
-        !isDisabled && "cursor-pointer",
-        // Apply variant
-        variants[variant],
-        // Apply size
-        isIconButton ? iconSizes[size] : sizes[size],
-        // Icon button specific
-        isIconButton && "rounded-ds-sm min-w-0",
+        baseClasses,
+        variantClasses[variant],
+        sizeClasses[size],
+        (disabled || isLoading) && 'opacity-50 cursor-not-allowed',
         className
       )}
-      disabled={isDisabled}
+      disabled={disabled || isLoading}
       {...props}
     >
-      {isLoading && (
-        <div className="w-4 h-4 border-2 border-current rounded-full animate-ds-spin border-t-transparent" />
-      )}
-
-      {!isLoading && leftIcon && (
-        <span className="flex-shrink-0">{leftIcon}</span>
-      )}
-
-      {!isLoading && children && (
-        <span className={cn(isIconButton && "sr-only")}>{children}</span>
-      )}
-
-      {!isLoading && rightIcon && (
-        <span className="flex-shrink-0">{rightIcon}</span>
-      )}
+      {isLoading ? (
+        <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+      ) : leftIcon}
+      {children}
+      {!isLoading && rightIcon}
     </button>
   );
-};
+});
+
+Button.displayName = 'Button';
 
 export default Button;

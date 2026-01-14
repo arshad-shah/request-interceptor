@@ -8,8 +8,6 @@ import {
   Circle,
   Trash2,
   Download,
-  Settings,
-  Activity,
 } from 'lucide-react';
 import {
   useNetworkStore,
@@ -191,16 +189,10 @@ export function NetworkTab() {
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-base)] dark-theme relative">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
-        <div className="flex items-center gap-3">
-          <Activity size={20} className="text-[var(--accent-indigo)]" />
-          <h1 className="text-[15px] font-bold tracking-tight text-[var(--text-primary)]">
-            Network
-          </h1>
-          <div
-            className={`ds-status ${isRecording ? '' : 'paused'}`}
-          >
+      {/* Toolbar - compact controls without full header */}
+      <div className="flex items-center justify-between px-3 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
+        <div className="flex items-center gap-2">
+          <div className={`ds-status ${isRecording ? '' : 'paused'}`}>
             <span className="ds-status-dot" />
             <span>{isRecording ? 'Recording' : 'Paused'}</span>
           </div>
@@ -214,7 +206,7 @@ export function NetworkTab() {
             title={isRecording ? 'Pause Recording' : 'Resume Recording'}
           >
             <Circle
-              size={16}
+              size={14}
               fill={isRecording ? 'currentColor' : 'none'}
             />
           </button>
@@ -225,7 +217,7 @@ export function NetworkTab() {
             className="ds-icon-btn danger"
             title="Clear Requests"
           >
-            <Trash2 size={16} />
+            <Trash2 size={14} />
           </button>
 
           {/* Export Button */}
@@ -235,21 +227,10 @@ export function NetworkTab() {
             title="Export HAR"
             disabled={filteredRequests.length === 0}
           >
-            <Download size={16} />
-          </button>
-
-          {/* Settings Button */}
-          <button
-            onClick={() => {
-              // TODO: Open settings modal
-            }}
-            className="ds-icon-btn"
-            title="Settings"
-          >
-            <Settings size={16} />
+            <Download size={14} />
           </button>
         </div>
-      </header>
+      </div>
 
       {/* Stats Bar */}
       <NetworkStats />

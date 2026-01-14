@@ -16,7 +16,6 @@ import { chromeApi } from '@/lib/chrome-api';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
-import Card from '../ui/Card';
 import { ConfirmDialog } from '../ui/Dialog';
 
 const RouteControls: React.FC = () => {
@@ -112,32 +111,31 @@ const RouteControls: React.FC = () => {
 
   return (
     <>
-      <Card hover={false}>
-        <Card.Header>
+      <div className="ds-panel">
+        {/* Header */}
+        <div className="ds-panel-header">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
             {/* Route Statistics */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-ds-accent-indigo/15 text-ds-accent-indigo rounded-full text-sm font-medium">
-                  <BarChart3 className="w-4 h-4" />
-                  <span>{routeCount} Total</span>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[rgba(99,102,241,0.15)] text-[var(--accent-indigo)] rounded-[var(--radius-sm)] text-[12px] font-medium">
+                <BarChart3 size={14} />
+                <span>{routeCount} Total</span>
               </div>
 
-              <div className="flex items-center gap-3 text-sm">
+              <div className="flex items-center gap-2 text-[11px]">
                 {httpRoutes > 0 && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-ds-accent-emerald/15 text-ds-accent-emerald rounded-ds-sm">
-                    <Zap className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-1 px-2 py-1 bg-[rgba(16,185,129,0.15)] text-[var(--accent-emerald)] rounded-[var(--radius-sm)]">
+                    <Zap size={12} />
                     <span className="font-medium">{httpRoutes}</span>
-                    HTTP
+                    <span>HTTP</span>
                   </div>
                 )}
 
                 {wsRoutes > 0 && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-ds-accent-violet/15 text-ds-accent-violet rounded-ds-sm">
-                    <MessageSquare className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-1 px-2 py-1 bg-[rgba(139,92,246,0.15)] text-[var(--accent-violet)] rounded-[var(--radius-sm)]">
+                    <MessageSquare size={12} />
                     <span className="font-medium">{wsRoutes}</span>
-                    WS
+                    <span>WS</span>
                   </div>
                 )}
               </div>
@@ -147,11 +145,10 @@ const RouteControls: React.FC = () => {
             {routeCount > 0 && (
               <div className="flex items-center gap-2">
                 <Button
-                  variant="secondary"
+                  variant="default"
                   size="sm"
                   onClick={handleExport}
-                  leftIcon={<Download className="w-4 h-4" />}
-                  className="text-xs sm:text-sm"
+                  leftIcon={<Download size={14} />}
                 >
                   Export
                 </Button>
@@ -160,125 +157,115 @@ const RouteControls: React.FC = () => {
                   variant="danger"
                   size="sm"
                   onClick={() => setShowClearDialog(true)}
-                  leftIcon={<Trash2 className="w-4 h-4" />}
-                  className="text-xs sm:text-sm"
+                  leftIcon={<Trash2 size={14} />}
                 >
-                 Clear All
+                  Clear All
                 </Button>
               </div>
             )}
           </div>
-        </Card.Header>
+        </div>
 
-        <Card.Body>
+        {/* Search */}
+        <div className="ds-panel-body">
           <div className="relative">
             <Input
               placeholder="Search routes by URL, method, or description..."
               value={filters.search}
               onChange={(e) => setFilters({ search: e.target.value })}
-              leftIcon={<Search className="w-4 h-4" />}
+              leftIcon={<Search size={14} />}
               className="pr-24"
             />
 
             {/* Filter Toggle Button */}
             <button
               onClick={() => setFiltersExpanded(!filtersExpanded)}
-              className={`absolute right-2 top-1/2 transform -translate-y-1/2 px-2 py-1.5 rounded-ds-sm transition-all duration-200 text-sm font-medium flex items-center gap-1.5 ${
+              className={`absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded-[var(--radius-sm)] text-[11px] font-medium flex items-center gap-1 transition-colors ${
                 hasActiveFilters
-                  ? 'bg-ds-accent-indigo/15 text-ds-accent-indigo hover:bg-ds-accent-indigo/25'
-                  : 'bg-ds-bg-surface text-ds-text-tertiary hover:bg-ds-bg-hover hover:text-ds-text-secondary'
+                  ? 'bg-[rgba(99,102,241,0.15)] text-[var(--accent-indigo)]'
+                  : 'bg-[var(--bg-surface)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
               }`}
             >
-              <Filter className="w-3.5 h-3.5" />
+              <Filter size={12} />
               <span className="hidden sm:inline">Filters</span>
               {hasActiveFilters && (
-                <div className="w-2 h-2 bg-ds-accent-indigo rounded-full"></div>
+                <div className="w-1.5 h-1.5 bg-[var(--accent-indigo)] rounded-full" />
               )}
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                filtersExpanded ? 'rotate-180' : ''
-              }`} />
+              <ChevronDown size={12} className={`transition-transform ${filtersExpanded ? 'rotate-180' : ''}`} />
             </button>
           </div>
-        </Card.Body>
+        </div>
 
         {/* Expandable Filters Section */}
-        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          filtersExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-        }`}>
-          <Card.Body className="border-t border-ds-border-subtle">
+        {filtersExpanded && (
+          <div className="ds-panel-body border-t border-[var(--border-subtle)]">
             {/* Active Filters Indicator */}
             {hasActiveFilters && (
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2 text-sm text-ds-text-secondary">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
                   <span className="font-medium">Active filters:</span>
                   <div className="flex items-center gap-1">
                     {filters.search && (
-                      <span className="px-2 py-1 bg-ds-accent-indigo/15 text-ds-accent-indigo rounded-ds-sm text-xs">
+                      <span className="px-1.5 py-0.5 bg-[rgba(99,102,241,0.15)] text-[var(--accent-indigo)] rounded-[var(--radius-sm)]">
                         "{filters.search}"
                       </span>
                     )}
                     {filters.routeType && filters.routeType !== 'all' && (
-                      <span className="px-2 py-1 bg-ds-accent-emerald/15 text-ds-accent-emerald rounded-ds-sm text-xs">
+                      <span className="px-1.5 py-0.5 bg-[rgba(16,185,129,0.15)] text-[var(--accent-emerald)] rounded-[var(--radius-sm)]">
                         {filters.routeType}
                       </span>
                     )}
                     {filters.method && filters.method !== 'all' && (
-                      <span className="px-2 py-1 bg-ds-accent-violet/15 text-ds-accent-violet rounded-ds-sm text-xs">
+                      <span className="px-1.5 py-0.5 bg-[rgba(139,92,246,0.15)] text-[var(--accent-violet)] rounded-[var(--radius-sm)]">
                         {filters.method}
                       </span>
                     )}
                   </div>
                 </div>
-                <Button
-                  variant='ghost'
+                <button
                   onClick={clearAllFilters}
-                  leftIcon={<X className="w-3 h-3" />}
+                  className="ds-btn text-[11px] px-2 py-1 flex items-center gap-1"
                 >
+                  <X size={10} />
                   Clear all
-                </Button>
+                </button>
               </div>
             )}
 
             {/* Filter Controls Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Route Type Filter */}
-              <div className="space-y-2">
-                <Select
-                  value={filters.routeType || 'all'}
-                  onChange={(e) => setFilters({ routeType: e as any })}
-                  leftIcon={<Route className="w-4 h-4" />}
-                  className="w-full"
-                  label='Route Type'
-                >
-                  <option value="all">All Types</option>
-                  <option value="http">HTTP/HTTPS</option>
-                  <option value="websocket">WebSocket</option>
-                </Select>
-              </div>
+              <Select
+                value={filters.routeType || 'all'}
+                onChange={(e) => setFilters({ routeType: e as 'all' | 'http' | 'websocket' })}
+                leftIcon={<Route size={14} />}
+                label="Route Type"
+              >
+                <option value="all">All Types</option>
+                <option value="http">HTTP/HTTPS</option>
+                <option value="websocket">WebSocket</option>
+              </Select>
 
               {/* HTTP Method Filter */}
               {(filters.routeType === 'all' || filters.routeType === 'http' || !filters.routeType) && (
-                <div className="space-y-2">
-                  <Select
-                    value={filters.method}
-                    onChange={(e) => setFilters({ method: e as any })}
-                    leftIcon={<Filter className="w-4 h-4" />}
-                    className="w-full"
-                    label='HTTP Method'
-                  >
-                    <option value="all">All Methods</option>
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="DELETE">DELETE</option>
-                    <option value="PATCH">PATCH</option>
-                  </Select>
-                </div>
+                <Select
+                  value={filters.method}
+                  onChange={(e) => setFilters({ method: e as 'all' | 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' })}
+                  leftIcon={<Filter size={14} />}
+                  label="HTTP Method"
+                >
+                  <option value="all">All Methods</option>
+                  <option value="GET">GET</option>
+                  <option value="POST">POST</option>
+                  <option value="PUT">PUT</option>
+                  <option value="DELETE">DELETE</option>
+                  <option value="PATCH">PATCH</option>
+                </Select>
               )}
             </div>
-          </Card.Body>
-        </div>
-      </Card>
+          </div>
+        )}
+      </div>
 
       <ConfirmDialog
         isOpen={showClearDialog}

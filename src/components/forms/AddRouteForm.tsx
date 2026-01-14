@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Tag, 
-  Link, 
-  Check, 
-  Clock, 
-  X, 
-  Settings2, 
+import {
+  Tag,
+  Link,
+  Check,
+  Clock,
+  X,
+  Settings2,
   Filter,
   ArrowDownLeft,
   ArrowUpRight
@@ -13,21 +13,19 @@ import {
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, parseRouteKey, createRouteKey, validateJson, formatJson } from '@/lib/chrome-api';
 import { parseWebSocketKey } from '@/lib/utils';
-import { 
-  HttpMethod, 
+import {
+  HttpMethod,
   RouteFormData
 } from '@/types';
-import { 
+import {
   defaultFormData,
   commonResponseHeaders,
   commonRequestHeaders,
   commonRemoveHeaders
 } from '@/constants/route-form';
-import Card from '../ui/Card';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
-import Toggle from '../ui/Toggle';
 import Radio from '../ui/Radio';
 import ReactAceEditor from '@/components/common/ReactAceEditor';
 import HeaderEditor from './HeaderEditor';
@@ -36,16 +34,16 @@ import RouteTypeSelection from './RouteTypeSelection';
 import WebSocketRuleEditor from './WebSocketRuleEditor';
 
 const AddRouteForm: React.FC = () => {
-  const { 
-    routes, 
-    editingRoute, 
-    setActiveTab, 
-    setEditingRoute, 
+  const {
+    routes,
+    editingRoute,
+    setActiveTab,
+    setEditingRoute,
     addNotification,
     addRoute,
-    updateRoute 
+    updateRoute
   } = useAppStore();
-  
+
   const [formData, setFormData] = useState<RouteFormData>(defaultFormData);
   const [errors, setErrors] = useState<Partial<Record<keyof RouteFormData, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,7 +52,7 @@ const AddRouteForm: React.FC = () => {
   useEffect(() => {
     if (editingRoute && routes[editingRoute]) {
       const routeConfig = routes[editingRoute];
-      
+
       if (editingRoute.startsWith('WS:')) {
         // WebSocket route
         const { url, name } = parseWebSocketKey(editingRoute);
@@ -79,7 +77,7 @@ const AddRouteForm: React.FC = () => {
           status: (routeConfig as any).status,
           delay: routeConfig.delay ?? 0,
           contentType: (routeConfig as any).contentType,
-          response: typeof (routeConfig as any).response === 'object' 
+          response: typeof (routeConfig as any).response === 'object'
             ? formatJson((routeConfig as any).response)
             : String((routeConfig as any).response),
           responseHeaders: (routeConfig as any).responseHeaders || {},
@@ -123,7 +121,7 @@ const AddRouteForm: React.FC = () => {
         const hasResponseHeaders = Object.keys(formData.responseHeaders).length > 0;
         const hasRequestHeaders = Object.keys(formData.requestHeaders).length > 0;
         const hasRemoveHeaders = formData.removeRequestHeaders.length > 0;
-        
+
         if (!hasResponseHeaders && !hasRequestHeaders && !hasRemoveHeaders) {
           newErrors.responseHeaders = 'At least one header modification is required for headers-only mode';
         }
@@ -132,7 +130,7 @@ const AddRouteForm: React.FC = () => {
       // WebSocket validation
       const hasIncomingRules = formData.incomingRules.some(rule => rule.enabled && rule.match.trim());
       const hasOutgoingRules = formData.outgoingRules.some(rule => rule.enabled && rule.match.trim());
-      
+
       if (!hasIncomingRules && !hasOutgoingRules) {
         newErrors.incomingRules = 'At least one message rule is required for WebSocket interception';
       }
@@ -156,7 +154,7 @@ const AddRouteForm: React.FC = () => {
 
       if (formData.routeType === 'websocket') {
         // WebSocket route
-        routeKey = formData.name 
+        routeKey = formData.name
           ? `WS:${formData.url}|${formData.name}`
           : `WS:${formData.url}`;
 
@@ -210,7 +208,7 @@ const AddRouteForm: React.FC = () => {
       } else {
         const targetKey = isEditing ? editingRoute : routeKey;
         await chromeApi.addRoute(targetKey, routeConfig, formData.name);
-        
+
         if (isEditing) {
           updateRoute(targetKey, routeConfig);
         } else {
@@ -229,7 +227,7 @@ const AddRouteForm: React.FC = () => {
       });
 
       handleCancel();
-      
+
     } catch (error) {
       console.error('Error saving route:', error);
       addNotification({title: 'Error', message: 'Failed to save route', type: 'error', timestamp: Date.now()});
@@ -247,7 +245,7 @@ const AddRouteForm: React.FC = () => {
 
   const handleInputChange = (field: keyof RouteFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
+
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
@@ -272,61 +270,54 @@ const AddRouteForm: React.FC = () => {
   };
 
   return (
-    <Card className="max-w-4xl mx-auto">
-      <Card.Header>
+    <div className="ds-panel max-w-4xl mx-auto">
+      <div className="ds-panel-header">
         <div className="flex items-center gap-2">
-          <Settings2 className="w-5 h-5 text-primary-500" />
-          <span className="text-lg font-semibold">
+          <Settings2 size={18} className="text-[var(--accent-indigo)]" />
+          <span className="text-[14px] font-semibold text-[var(--text-primary)]">
             {isEditing ? 'Edit Route' : 'Add New Route'}
           </span>
           {isWebSocket ? (
-            <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-              WebSocket
-            </span>
+            <span className="ds-badge violet">WebSocket</span>
           ) : formData.headersOnly ? (
-            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-              Headers-Only
-            </span>
+            <span className="ds-badge info">Headers-Only</span>
           ) : (
-            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-              Full Response
-            </span>
+            <span className="ds-badge success">Full Response</span>
           )}
         </div>
-      </Card.Header>
+      </div>
 
-      <Card.Body className="space-y-6">
+      <div className="ds-panel-body space-y-4">
+        <RouteTypeSelection
+          formData={formData}
+          handleInputChange={(field: string, value: string) => handleInputChange(field as keyof RouteFormData, value)}
+        />
 
-      <RouteTypeSelection
-              formData={formData}
-              handleInputChange={(field: string, value: string) => handleInputChange(field as keyof RouteFormData, value)}
-            />
         {/* Route Name */}
         <Input
           label="Route Name (optional)"
           placeholder={isWebSocket ? "e.g. Chat Messages, Live Updates" : "e.g. Success Response, Error 404"}
           value={formData.name}
           onChange={(e) => handleInputChange('name', e.target.value)}
-          leftIcon={<Tag className="w-4 h-4" />}
+          leftIcon={<Tag size={14} />}
           helperText="Give your route a descriptive name to easily identify it"
         />
 
         {/* URL */}
         <Input
           label={isWebSocket ? "WebSocket URL to Intercept" : "URL to Intercept"}
-          placeholder={isWebSocket 
+          placeholder={isWebSocket
             ? "e.g. wss://api.example.com/chat or ws://localhost:8080/updates"
             : "e.g. /api/users or https://example.com/api/data"
           }
           value={formData.url}
           onChange={(e) => handleInputChange('url', e.target.value)}
-          leftIcon={<Link className="w-4 h-4" />}
+          leftIcon={<Link size={14} />}
           error={errors.url}
-          helperText={isWebSocket 
+          helperText={isWebSocket
             ? "Supports wildcards (*). Examples: wss://api.example.com/*, ws://localhost:*/chat"
             : "Supports wildcards (*) and query parameters. Examples: /api/users, /api/users/*, https://api.example.com/data"
           }
-          required
         />
 
         {/* HTTP-specific fields */}
@@ -334,44 +325,40 @@ const AddRouteForm: React.FC = () => {
           <>
             {/* Interception Mode */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Interception Mode
-              </label>
-              
-              <div className="border-2 rounded-xl bg-white border-gray-200 hover:border-gray-300 transition-all duration-200">
-                <div className="p-3">
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Radio
-                        checked={!formData.headersOnly}
-                        onChange={() => handleInputChange('headersOnly', false)}
-                        value="full"
-                        name="interceptionMode"
-                        size="sm"
-                      />
-                      <Settings2 className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm text-gray-900">Full Response</span>
-                    </label>
-                    
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Radio
-                        checked={formData.headersOnly}
-                        onChange={() => handleInputChange('headersOnly', true)}
-                        value="headers"
-                        name="interceptionMode"
-                        size="sm"
-                      />
-                      <Filter className="w-4 h-4 text-purple-600" />
-                      <span className="text-sm text-gray-900">Headers Only</span>
-                    </label>
-                  </div>
-                  
-                  <div className="mt-2 text-xs text-gray-500">
-                    {formData.headersOnly 
-                      ? 'Modify request/response headers while letting the original request proceed'
-                      : 'Replace the entire response with your mock data'
-                    }
-                  </div>
+              <label className="ds-label">Interception Mode</label>
+
+              <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-[var(--radius-md)] p-3">
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Radio
+                      checked={!formData.headersOnly}
+                      onChange={() => handleInputChange('headersOnly', false)}
+                      value="full"
+                      name="interceptionMode"
+                      size="sm"
+                    />
+                    <Settings2 size={14} className="text-[var(--accent-emerald)]" />
+                    <span className="text-[12px] text-[var(--text-primary)]">Full Response</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Radio
+                      checked={formData.headersOnly}
+                      onChange={() => handleInputChange('headersOnly', true)}
+                      value="headers"
+                      name="interceptionMode"
+                      size="sm"
+                    />
+                    <Filter size={14} className="text-[var(--accent-violet)]" />
+                    <span className="text-[12px] text-[var(--text-primary)]">Headers Only</span>
+                  </label>
+                </div>
+
+                <div className="mt-2 text-[11px] text-[var(--text-tertiary)]">
+                  {formData.headersOnly
+                    ? 'Modify request/response headers while letting the original request proceed'
+                    : 'Replace the entire response with your mock data'
+                  }
                 </div>
               </div>
             </div>
@@ -390,7 +377,7 @@ const AddRouteForm: React.FC = () => {
             </Select>
 
             {/* Status and Delay Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {!formData.headersOnly && (
                 <Select
                   label="Status Code"
@@ -422,7 +409,7 @@ const AddRouteForm: React.FC = () => {
                 min={0}
                 value={formData.delay}
                 onChange={(e) => handleInputChange('delay', parseInt(e.target.value) || 0)}
-                leftIcon={<Clock className="w-4 h-4" />}
+                leftIcon={<Clock size={14} />}
                 error={errors.delay}
                 helperText={formData.headersOnly ? "Delay before modifying headers" : "Delay before returning mock response"}
               />
@@ -445,8 +432,8 @@ const AddRouteForm: React.FC = () => {
             {/* Response Headers */}
             <HeaderEditor
               title="Response Headers"
-              description={formData.headersOnly 
-                ? "Headers to add/modify in the real server response" 
+              description={formData.headersOnly
+                ? "Headers to add/modify in the real server response"
                 : "Headers to include in the mock response"
               }
               headers={formData.responseHeaders}
@@ -474,35 +461,35 @@ const AddRouteForm: React.FC = () => {
               commonHeaders={commonRemoveHeaders}
             />
 
-            {/* Response Body - Only show for full interception or as optional for headers-only */}
+            {/* Response Body */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Response Body {formData.headersOnly && <span className="text-gray-500">(Optional)</span>}
+              <label className="ds-label">
+                Response Body {formData.headersOnly && <span className="text-[var(--text-tertiary)]">(Optional)</span>}
               </label>
-              
+
               {formData.headersOnly && (
-                <div className="text-sm text-gray-600 mb-2">
-                  In headers-only mode, you can optionally provide a response body for testing, 
+                <div className="text-[11px] text-[var(--text-secondary)] mb-2">
+                  In headers-only mode, you can optionally provide a response body for testing,
                   but the real server response will be used.
                 </div>
               )}
-              
+
               <ReactAceEditor
                 value={formData.response}
                 onChange={(value) => handleInputChange('response', value)}
                 language={getEditorLanguage()}
                 height={formData.headersOnly ? 200 : 300}
-                placeholder={formData.headersOnly 
-                  ? "Optional: Enter test response content here" 
+                placeholder={formData.headersOnly
+                  ? "Optional: Enter test response content here"
                   : "Enter your response content here"
                 }
               />
-              
+
               {errors.response && (
-                <p className="text-sm text-red-600">{errors.response}</p>
+                <p className="text-[11px] text-[var(--accent-rose)]">{errors.response}</p>
               )}
               {errors.responseHeaders && (
-                <p className="text-sm text-red-600">{errors.responseHeaders}</p>
+                <p className="text-[11px] text-[var(--accent-rose)]">{errors.responseHeaders}</p>
               )}
             </div>
           </>
@@ -517,7 +504,7 @@ const AddRouteForm: React.FC = () => {
               min={0}
               value={formData.delay}
               onChange={(e) => handleInputChange('delay', parseInt(e.target.value) || 0)}
-              leftIcon={<Clock className="w-4 h-4" />}
+              leftIcon={<Clock size={14} />}
               error={errors.delay}
               helperText="Delay before processing WebSocket messages"
             />
@@ -528,7 +515,7 @@ const AddRouteForm: React.FC = () => {
               rules={formData.incomingRules}
               onRulesChange={(rules) => handleInputChange('incomingRules', rules)}
               direction="incoming"
-              icon={<ArrowDownLeft className="w-4 h-4 text-green-600" />}
+              icon={<ArrowDownLeft size={14} className="text-[var(--accent-emerald)]" />}
             />
 
             <WebSocketRuleEditor
@@ -536,33 +523,34 @@ const AddRouteForm: React.FC = () => {
               rules={formData.outgoingRules}
               onRulesChange={(rules) => handleInputChange('outgoingRules', rules)}
               direction="outgoing"
-              icon={<ArrowUpRight className="w-4 h-4 text-blue-600" />}
+              icon={<ArrowUpRight size={14} className="text-[var(--accent-cyan)]" />}
             />
 
             {errors.incomingRules && (
-              <p className="text-sm text-red-600">{errors.incomingRules}</p>
+              <p className="text-[11px] text-[var(--accent-rose)]">{errors.incomingRules}</p>
             )}
           </>
         )}
-      </Card.Body>
+      </div>
 
-      <Card.Footer>
+      <div className="flex items-center justify-end gap-2 px-4 py-3 bg-[var(--bg-surface)] border-t border-[var(--border-subtle)]">
         <Button
-          variant="secondary"
+          variant="default"
           onClick={handleCancel}
-          leftIcon={<X className="w-4 h-4" />}
+          leftIcon={<X size={14} />}
         >
           Cancel
         </Button>
         <Button
+          variant="primary"
           onClick={handleSubmit}
-          isLoading={isSubmitting}
-          leftIcon={isEditing ? <Check className="w-4 h-4" /> : undefined}
+          disabled={isSubmitting}
+          leftIcon={isEditing ? <Check size={14} /> : undefined}
         >
-          {isEditing ? 'Save Changes' : 'Add Interception'}
+          {isSubmitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Add Interception'}
         </Button>
-      </Card.Footer>
-    </Card>
+      </div>
+    </div>
   );
 };
 
