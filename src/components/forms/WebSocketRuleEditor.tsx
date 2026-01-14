@@ -32,7 +32,7 @@ const WebSocketRuleEditor: React.FC<WebSocketRuleEditorProps> = ({
   };
 
   const updateRule = (index: number, updates: Partial<WebSocketRule>) => {
-    const updatedRules = rules.map((rule, i) => 
+    const updatedRules = rules.map((rule, i) =>
       i === index ? { ...rule, ...updates } : rule
     );
     onRulesChange(updatedRules);
@@ -45,30 +45,30 @@ const WebSocketRuleEditor: React.FC<WebSocketRuleEditorProps> = ({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">
+      <label className="ds-label">
         {title}
       </label>
-      
-      <div className="border-2 rounded-xl bg-white border-gray-200 hover:border-gray-300 transition-all duration-200">
+
+      <div className="border rounded-[var(--radius-lg)] bg-[var(--bg-surface)] border-[var(--border-subtle)] hover:border-[var(--border-default)] transition-all duration-200">
         {/* Header */}
-        <div 
-          className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+        <div
+          className="flex items-center justify-between p-3 cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {icon}
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-sm text-gray-600 truncate">
+              <span className="text-sm text-[var(--text-secondary)] truncate">
                 {direction === 'incoming' ? 'From server' : 'To server'}
               </span>
               {rules.length > 0 && (
-                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium flex-shrink-0">
+                <span className="px-2 py-0.5 bg-[rgba(6,182,212,0.15)] text-[var(--accent-cyan)] rounded-full text-xs font-medium flex-shrink-0">
                   {rules.length}
                 </span>
               )}
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -82,17 +82,17 @@ const WebSocketRuleEditor: React.FC<WebSocketRuleEditorProps> = ({
             >
               Add
             </Button>
-            <ChevronDown 
-              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+            <ChevronDown
+              className={`w-4 h-4 text-[var(--text-tertiary)] transition-transform duration-200 ${
                 isExpanded ? 'rotate-180' : ''
-              }`} 
+              }`}
             />
           </div>
         </div>
 
         {/* Content */}
         {isExpanded && (
-          <div className="border-t border-gray-100">
+          <div className="border-t border-[var(--border-subtle)]">
             {rules.length > 0 ? (
               <div className="p-3 space-y-2">
                 {rules.map((rule, index) => (
@@ -105,7 +105,7 @@ const WebSocketRuleEditor: React.FC<WebSocketRuleEditorProps> = ({
                 ))}
               </div>
             ) : (
-              <div className="p-4 text-center text-gray-500 text-sm">
+              <div className="p-4 text-center text-[var(--text-tertiary)] text-sm">
                 No rules yet. Click "Add" to create your first rule.
               </div>
             )}

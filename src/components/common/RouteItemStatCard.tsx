@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
 
 interface RouteItemStatCardProps {
@@ -10,43 +9,43 @@ interface RouteItemStatCardProps {
   color?: 'blue' | 'green' | 'orange' | 'purple' | 'gray' | 'red';
 }
 
-export const RouteItemStatCard = ({ 
-  label, 
-  value, 
-  icon, 
+export const RouteItemStatCard = ({
+  label,
+  value,
+  icon,
   variant = 'compact',
   className = '',
   color = 'gray'
 }: RouteItemStatCardProps) => {
   const isCompact = variant === 'compact';
-  
+
   const colorClasses = {
-    blue: 'border-blue-200 bg-gradient-to-br from-blue-50 to-white',
-    green: 'border-green-200 bg-gradient-to-br from-green-50 to-white',
-    orange: 'border-orange-200 bg-gradient-to-br from-orange-50 to-white',
-    purple: 'border-purple-200 bg-gradient-to-br from-purple-50 to-white',
-    gray: 'border-gray-200 bg-gradient-to-br from-gray-50 to-white',
-    red: 'border-red-200 bg-gradient-to-br from-red-50 to-white'
+    blue: 'border-[rgba(59,130,246,0.3)] bg-[rgba(59,130,246,0.1)]',
+    green: 'border-[rgba(16,185,129,0.3)] bg-[rgba(16,185,129,0.1)]',
+    orange: 'border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.1)]',
+    purple: 'border-[rgba(139,92,246,0.3)] bg-[rgba(139,92,246,0.1)]',
+    gray: 'border-[var(--border-subtle)] bg-[var(--bg-surface)]',
+    red: 'border-[rgba(244,63,94,0.3)] bg-[rgba(244,63,94,0.1)]'
   };
-  
+
   return (
     <div className={`
-      rounded-xl border shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5
+      rounded-[var(--radius-lg)] border transition-all duration-300 hover:border-[var(--border-default)]
       ${colorClasses[color]}
       ${isCompact ? 'p-3' : 'p-4'}
       ${className}
     `}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide truncate">
+        <span className="text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wide truncate">
           {label}
         </span>
         {icon && (
-          <span className="text-gray-400 flex-shrink-0 ml-2">
+          <span className="text-[var(--text-tertiary)] flex-shrink-0 ml-2">
             {icon}
           </span>
         )}
       </div>
-      <div className="text-sm font-bold text-gray-900 truncate">
+      <div className="text-sm font-bold text-[var(--text-primary)] truncate">
         {value}
       </div>
     </div>
@@ -54,35 +53,35 @@ export const RouteItemStatCard = ({
 };
 
 // Custom Type Display Component
-const TypeDisplay = ({ headersOnly, isWebSocket, ruleCount }: { 
-  headersOnly: boolean; 
-  isWebSocket: boolean; 
-  ruleCount: number; 
+const TypeDisplay = ({ headersOnly, isWebSocket, ruleCount }: {
+  headersOnly: boolean;
+  isWebSocket: boolean;
+  ruleCount: number;
 }) => {
   if (isWebSocket) {
     return (
       <div className="flex items-center gap-2">
-        <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-        <span className="text-purple-700 font-medium">WebSocket</span>
+        <div className="w-2 h-2 bg-[var(--accent-violet)] rounded-full animate-pulse"></div>
+        <span className="text-[var(--accent-violet)] font-medium">WebSocket</span>
       </div>
     );
   }
-  
+
   if (headersOnly) {
     return (
       <div className="flex items-center gap-2">
-        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-        <span className="text-blue-700 font-medium">Headers Only</span>
+        <div className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full"></div>
+        <span className="text-[var(--accent-cyan)] font-medium">Headers Only</span>
       </div>
     );
   }
-  
+
   return (
     <div className="flex items-center gap-2">
-      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-      <span className="text-green-700 font-medium">HTTP</span>
+      <div className="w-2 h-2 bg-[var(--accent-emerald)] rounded-full"></div>
+      <span className="text-[var(--accent-emerald)] font-medium">HTTP</span>
       {ruleCount > 0 && (
-        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+        <span className="text-xs bg-[var(--bg-elevated)] text-[var(--text-secondary)] px-2 py-0.5 rounded-full">
           {ruleCount} rules
         </span>
       )}
@@ -94,25 +93,25 @@ const TypeDisplay = ({ headersOnly, isWebSocket, ruleCount }: {
 const StatusDisplay = ({ status }: { status: number }) => {
   const getStatusInfo = (status: number) => {
     if (status >= 200 && status < 300) {
-      return { color: 'green', label: 'Success', bgColor: 'bg-green-100', textColor: 'text-green-800' };
+      return { label: 'Success', bgColor: 'bg-[rgba(16,185,129,0.15)]', textColor: 'text-[var(--accent-emerald)]' };
     } else if (status >= 300 && status < 400) {
-      return { color: 'blue', label: 'Redirect', bgColor: 'bg-blue-100', textColor: 'text-blue-800' };
+      return { label: 'Redirect', bgColor: 'bg-[rgba(59,130,246,0.15)]', textColor: 'text-[var(--accent-cyan)]' };
     } else if (status >= 400 && status < 500) {
-      return { color: 'orange', label: 'Client Error', bgColor: 'bg-orange-100', textColor: 'text-orange-800' };
+      return { label: 'Client Error', bgColor: 'bg-[rgba(249,115,22,0.15)]', textColor: 'text-[var(--accent-orange)]' };
     } else if (status >= 500) {
-      return { color: 'red', label: 'Server Error', bgColor: 'bg-red-100', textColor: 'text-red-800' };
+      return { label: 'Server Error', bgColor: 'bg-[rgba(244,63,94,0.15)]', textColor: 'text-[var(--accent-rose)]' };
     }
-    return { color: 'gray', label: 'Unknown', bgColor: 'bg-gray-100', textColor: 'text-gray-800' };
+    return { label: 'Unknown', bgColor: 'bg-[var(--bg-elevated)]', textColor: 'text-[var(--text-secondary)]' };
   };
 
   const statusInfo = getStatusInfo(status);
-  
+
   return (
     <div className="flex items-center gap-2">
-      <span className={`px-2 py-1 text-xs font-semibold rounded-lg ${statusInfo.bgColor} ${statusInfo.textColor}`}>
+      <span className={`px-2 py-1 text-xs font-semibold rounded-[var(--radius-sm)] ${statusInfo.bgColor} ${statusInfo.textColor}`}>
         {status}
       </span>
-      <span className="text-xs text-gray-600">{statusInfo.label}</span>
+      <span className="text-xs text-[var(--text-tertiary)]">{statusInfo.label}</span>
     </div>
   );
 };
@@ -167,7 +166,7 @@ export const RouteStatsGrid = ({
       label: 'Delay',
       value: (
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${config.delay && config.delay > 0 ? 'bg-orange-500' : 'bg-gray-300'}`}></div>
+          <div className={`w-2 h-2 rounded-full ${config.delay && config.delay > 0 ? 'bg-[var(--accent-orange)]' : 'bg-[var(--text-tertiary)]'}`}></div>
           <span className="font-mono">{config.delay ?? 0}ms</span>
         </div>
       ),
@@ -177,7 +176,7 @@ export const RouteStatsGrid = ({
     {
       label: 'Content Type',
       value: (
-        <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-md font-mono">
+        <span className="text-xs bg-[var(--bg-elevated)] text-[var(--text-secondary)] px-2 py-1 rounded-[var(--radius-sm)] font-mono">
           {contentTypeName}
         </span>
       ),
@@ -188,7 +187,7 @@ export const RouteStatsGrid = ({
       label: 'Created',
       value: (
         <div className="flex items-center gap-1">
-          <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3 h-3 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span className="text-xs">{timestamp}</span>
@@ -200,28 +199,17 @@ export const RouteStatsGrid = ({
   ].filter(stat => stat.show);
 
   return (
-    <motion.div 
-      className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
-      initial={{ y: 10, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ delay: 0.2 }}
-    >
-      {stats.map((stat, index) => (
-        <motion.div
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      {stats.map((stat) => (
+        <RouteItemStatCard
           key={stat.label}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: index * 0.1 }}
-        >
-          <RouteItemStatCard
-            label={stat.label}
-            value={stat.value}
-            color={stat.color as any}
-            variant="compact"
-          />
-        </motion.div>
+          label={stat.label}
+          value={stat.value}
+          color={stat.color as any}
+          variant="compact"
+        />
       ))}
-    </motion.div>
+    </div>
   );
 };
 

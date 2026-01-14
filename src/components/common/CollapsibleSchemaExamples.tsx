@@ -12,10 +12,10 @@ const CollapsibleSchemaExamples = () => {
       <Card.Header>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-between text-left hover:bg-gray-50 -m-4 p-4 rounded-lg transition-colors"
+          className="w-full flex items-center justify-between text-left hover:bg-[var(--bg-hover)] -m-4 p-4 rounded-[var(--radius-lg)] transition-colors"
         >
           <span>Schema Format Examples</span>
-          <div className="flex items-center gap-2 text-gray-500">
+          <div className="flex items-center gap-2 text-[var(--text-tertiary)]">
             <span className="text-xs">
               {isExpanded ? 'Hide examples' : 'Show examples'}
             </span>
@@ -27,20 +27,20 @@ const CollapsibleSchemaExamples = () => {
           </div>
         </button>
       </Card.Header>
-      
-      <div 
+
+      <div
         className={`transition-all duration-300 ease-in-out overflow-hidden ${
           isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
-        <Card.Body className="space-y-6 border-t border-gray-100">
+        <Card.Body className="space-y-6 border-t border-[var(--border-subtle)]">
           {/* Complete Export Example */}
           <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-              <FileCode className="w-4 h-4 text-blue-600" />
+            <h4 className="text-sm font-medium text-[var(--text-secondary)] mb-2 flex items-center gap-2">
+              <FileCode className="w-4 h-4 text-[var(--accent-cyan)]" />
               Complete Export/Import Schema
             </h4>
-            <div className="bg-gray-50 rounded-lg p-4 overflow-auto">
+            <div className="bg-[var(--bg-elevated)] rounded-[var(--radius-md)] p-4 overflow-auto">
               <CodeHighlighter code={JSON.stringify(complete_template, null, 2)} language="json" />
             </div>
           </div>
