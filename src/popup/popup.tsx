@@ -4,9 +4,6 @@ import { useAppStore } from '@/stores/app-store';
 import { chromeApi, addMessageListener } from '@/lib/chrome-api';
 import { cn } from '@/lib/utils';
 
-// Import design system styles
-import '@/styles/design-system.css';
-
 // Import custom UI components
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -98,37 +95,30 @@ const Popup: React.FC = () => {
   };
 
   return (
-    <div className="w-80 bg-ds-bg-base text-ds-text-primary">
+    <div className="w-80 bg-[var(--bg-base)] text-[var(--text-primary)] dark-theme">
       <div className="p-4 space-y-4">
         {/* Header Card */}
-        <Card className="bg-gradient-to-br from-ds-accent-indigo to-ds-accent-violet border-ds-accent-indigo text-white" hover={false}>
-          <Card.Body className="py-4">
-            <div className="flex items-center justify-center gap-3">
-              <div className="relative w-10 h-10 flex items-center justify-center bg-white/20 rounded-ds-md shadow-ds-lg overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent" />
-                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent transform rotate-45 translate-y-[-100%] animate-shine" />
-                <Zap className="w-5 h-5 text-white relative z-10" />
-              </div>
-              <div className="text-center">
-                <h1 className="text-lg font-bold">Request Interceptor</h1>
-                <p className="text-xs text-white/70">Chrome Extension</p>
-              </div>
+        <div className="bg-[var(--accent-indigo)] rounded-[var(--radius-lg)] p-4">
+          <div className="flex items-center justify-center gap-3">
+            <div className="w-10 h-10 flex items-center justify-center bg-white/20 rounded-[var(--radius-md)]">
+              <Zap className="w-5 h-5 text-white" />
             </div>
-          </Card.Body>
-        </Card>
+            <div className="text-center">
+              <h1 className="text-lg font-bold text-white">Request Interceptor</h1>
+              <p className="text-xs text-white/70">Chrome Extension</p>
+            </div>
+          </div>
+        </div>
 
         {/* Status Toggle Card */}
         <Card>
           <Card.Body className="py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Badge variant={enabled ? 'success' : 'error'} size="sm">
-                  <div className={cn(
-                    "w-2 h-2 rounded-full mr-2",
-                    enabled ? "bg-ds-accent-emerald animate-pulse" : "bg-ds-accent-rose"
-                  )} />
-                  {enabled ? 'Active' : 'Inactive'}
-                </Badge>
+                <div className={`ds-status ${enabled ? '' : 'paused'}`}>
+                  <span className="ds-status-dot" />
+                  <span>{enabled ? 'Active' : 'Inactive'}</span>
+                </div>
               </div>
               <Toggle
                 checked={enabled}
@@ -144,26 +134,26 @@ const Popup: React.FC = () => {
           <Card.Body className="py-3">
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-ds-text-secondary">
+                <span className="text-[12px] font-medium text-[var(--text-secondary)]">
                   Configured Routes
                 </span>
-                <Badge variant="info" size="sm">
+                <Badge variant="cyan" size="sm">
                   {routeCount}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-ds-text-secondary">
+                <span className="text-[12px] font-medium text-[var(--text-secondary)]">
                   Active Routes
                 </span>
-                <Badge variant={enabledRoutes > 0 ? 'success' : 'default'} size="sm">
+                <Badge variant={enabledRoutes > 0 ? 'emerald' : 'default'} size="sm">
                   {enabledRoutes}
                 </Badge>
               </div>
 
               {routeCount > 0 && (
-                <div className="w-full bg-ds-bg-surface rounded-full h-2 mt-2">
+                <div className="w-full bg-[var(--bg-surface)] rounded-full h-2 mt-2">
                   <div
-                    className="bg-gradient-to-r from-ds-accent-emerald to-ds-accent-cyan h-2 rounded-full transition-all duration-300"
+                    className="bg-[var(--accent-emerald)] h-2 rounded-full transition-all duration-300"
                     style={{ width: `${(enabledRoutes / routeCount) * 100}%` }}
                   />
                 </div>
@@ -178,20 +168,18 @@ const Popup: React.FC = () => {
             variant="primary"
             size="sm"
             className="w-full"
-            leftIcon={<ExternalLink className="w-4 h-4" />}
+            leftIcon={<ExternalLink size={14} />}
             onClick={handleOpenSidePanel}
           >
             Open Side Panel
           </Button>
 
           {routeCount === 0 && (
-            <Card className="bg-ds-accent-amber/10 border-ds-accent-amber/30">
-              <Card.Body className="py-3">
-                <p className="text-xs text-ds-accent-amber text-center font-medium">
-                  No routes configured yet. Open the side panel to create your first route interception.
-                </p>
-              </Card.Body>
-            </Card>
+            <div className="bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.3)] rounded-[var(--radius-md)] p-3">
+              <p className="text-[11px] text-[var(--accent-amber)] text-center font-medium">
+                No routes configured yet. Open the side panel to create your first route interception.
+              </p>
+            </div>
           )}
         </div>
       </div>

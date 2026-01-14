@@ -36,12 +36,12 @@ const HeaderEditor: React.FC<HeaderEditorProps> = ({
 
   const handleAddHeader = () => {
     if (!newKey.trim() || !newValue.trim()) return;
-    
+
     const updatedHeaders = {
       ...headers,
       [newKey.trim()]: newValue.trim()
     };
-    
+
     onHeadersChange(updatedHeaders);
     setNewKey('');
     setNewValue('');
@@ -50,13 +50,13 @@ const HeaderEditor: React.FC<HeaderEditorProps> = ({
 
   const handleUpdateHeader = (oldKey: string, newKey: string, newValue: string) => {
     if (!newKey.trim() || !newValue.trim()) return;
-    
+
     const updatedHeaders = { ...headers };
-    
+
     if (oldKey !== newKey.trim()) {
       delete updatedHeaders[oldKey];
     }
-    
+
     updatedHeaders[newKey.trim()] = newValue.trim();
     onHeadersChange(updatedHeaders);
   };
@@ -86,49 +86,47 @@ const HeaderEditor: React.FC<HeaderEditorProps> = ({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">
-        {title}
-      </label>
+      <label className="ds-label">{title}</label>
       {description && (
-        <p className="text-sm text-gray-600 -mt-1">{description}</p>
+        <p className="text-[11px] text-[var(--text-tertiary)] -mt-1">{description}</p>
       )}
-      
-      <div className="border-2 rounded-xl bg-white border-gray-200 hover:border-gray-300 transition-all duration-200">
+
+      <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-[var(--radius-md)] hover:border-[var(--border-default)] transition-colors">
         {/* Header */}
-        <div 
-          className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+        <div
+          className="flex items-center justify-between p-3 cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <span className="text-sm text-gray-600">
+            <span className="text-[12px] text-[var(--text-secondary)]">
               {hasHeaders ? `${headerEntries.length} headers` : 'No headers'}
             </span>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button
-              variant="ghost"
+              variant="default"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsExpanded(true);
               }}
-              leftIcon={<Plus className="w-3 h-3" />}
-              className="text-xs"
+              leftIcon={<Plus size={12} />}
             >
               Add
             </Button>
-            <ChevronDown 
-              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+            <ChevronDown
+              size={14}
+              className={`text-[var(--text-tertiary)] transition-transform duration-200 ${
                 isExpanded ? 'rotate-180' : ''
-              }`} 
+              }`}
             />
           </div>
         </div>
 
         {/* Content */}
         {isExpanded && (
-          <div className="border-t border-gray-100">
+          <div className="border-t border-[var(--border-subtle)]">
             {hasHeaders ? (
               <div className="p-3 space-y-2">
                 {headerEntries.map(([key, value]) => (
@@ -142,9 +140,9 @@ const HeaderEditor: React.FC<HeaderEditorProps> = ({
                 ))}
               </div>
             ) : null}
-            
+
             {/* Add new header section */}
-            <div className="p-3 border-t border-gray-100 space-y-3">
+            <div className="p-3 border-t border-[var(--border-subtle)] space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   placeholder={placeholder.key}
@@ -159,28 +157,26 @@ const HeaderEditor: React.FC<HeaderEditorProps> = ({
                   onKeyPress={handleKeyPress}
                 />
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <Button
                   variant="primary"
                   size="sm"
                   onClick={handleAddHeader}
                   disabled={!newKey.trim() || !newValue.trim()}
-                  leftIcon={<Plus className="w-3 h-3" />}
-                  className="text-xs"
+                  leftIcon={<Plus size={12} />}
                 >
                   Add
                 </Button>
-                
+
                 {commonHeaders.length > 0 && (
                   <Button
-                    variant="ghost"
+                    variant="default"
                     size="sm"
                     onClick={() => setShowCommonHeaders(!showCommonHeaders)}
-                    leftIcon={<ChevronDown className={`w-3 h-3 transition-transform ${
+                    leftIcon={<ChevronDown size={12} className={`transition-transform ${
                       showCommonHeaders ? 'rotate-180' : ''
                     }`} />}
-                    className="text-xs"
                   >
                     Common
                   </Button>
@@ -189,18 +185,18 @@ const HeaderEditor: React.FC<HeaderEditorProps> = ({
 
               {/* Common headers */}
               {showCommonHeaders && (
-                <div className="border-t border-gray-100 pt-3 space-y-1 max-h-40 overflow-y-auto">
+                <div className="border-t border-[var(--border-subtle)] pt-3 space-y-1 max-h-40 overflow-y-auto">
                   {commonHeaders.map((header) => (
                     <button
                       key={header.key}
                       onClick={() => handleAddCommonHeader(header.key, header.value)}
-                      className="w-full text-left p-2 rounded hover:bg-gray-50 transition-colors text-xs"
+                      className="w-full text-left p-2 rounded-[var(--radius-sm)] hover:bg-[var(--bg-hover)] transition-colors text-[11px] disabled:opacity-50"
                       disabled={headers[header.key] !== undefined}
                     >
-                      <div className="font-mono font-medium text-gray-900">
+                      <div className="font-mono font-medium text-[var(--text-primary)]">
                         {header.key}: {header.value}
                       </div>
-                      <div className="text-gray-500 mt-0.5">
+                      <div className="text-[var(--text-tertiary)] mt-0.5">
                         {header.description}
                       </div>
                     </button>
@@ -257,7 +253,7 @@ const HeaderRow: React.FC<HeaderRowProps> = ({
 
   if (isEditing) {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-3">
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-[var(--radius-sm)] p-3 space-y-3">
         <div className="grid grid-cols-2 gap-2">
           <Input
             value={editKey}
@@ -273,24 +269,22 @@ const HeaderRow: React.FC<HeaderRowProps> = ({
             placeholder="Header value"
           />
         </div>
-        
+
         <div className="flex items-center gap-2">
           <Button
             variant="primary"
             size="sm"
             onClick={handleSave}
             disabled={!editKey.trim() || !editValue.trim()}
-            leftIcon={<Check className="w-3 h-3" />}
-            className="text-xs"
+            leftIcon={<Check size={12} />}
           >
             Save
           </Button>
           <Button
-            variant="ghost"
+            variant="default"
             size="sm"
             onClick={handleCancel}
-            leftIcon={<X className="w-3 h-3" />}
-            className="text-xs"
+            leftIcon={<X size={12} />}
           >
             Cancel
           </Button>
@@ -300,31 +294,29 @@ const HeaderRow: React.FC<HeaderRowProps> = ({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-colors">
+    <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-[var(--radius-sm)] p-3 hover:border-[var(--border-default)] transition-colors">
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="font-mono text-sm">
-            <span className="font-medium text-gray-900">{headerKey}:</span>
-            <span className="text-gray-600 ml-2 break-all">{headerValue}</span>
+          <div className="font-mono text-[12px]">
+            <span className="font-medium text-[var(--accent-cyan)]">{headerKey}:</span>
+            <span className="text-[var(--text-secondary)] ml-2 break-all">{headerValue}</span>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-1 flex-shrink-0">
           <Button
-            variant="ghost"
+            variant="default"
             size="sm"
             onClick={() => setIsEditing(true)}
-            leftIcon={<Edit3 className="w-3 h-3" />}
-            className="text-xs"
+            leftIcon={<Edit3 size={12} />}
           >
             Edit
           </Button>
           <Button
-            variant="ghost"
+            variant="danger"
             size="sm"
             onClick={() => onRemove(headerKey)}
-            leftIcon={<Trash2 className="w-3 h-3" />}
-            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+            leftIcon={<Trash2 size={12} />}
           >
             Delete
           </Button>
