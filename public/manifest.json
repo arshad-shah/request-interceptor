@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Request Interceptor",
-  "version": "2.1.5",
+  "version": "3.0.0",
   "description": "Intercept and modify API, and websocket responses for UI testing",
   "icons": {
     "16": "icons/icon-16.png",
