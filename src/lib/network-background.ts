@@ -63,6 +63,7 @@ interface NetworkRequest {
   remoteIPAddress?: string;
   remotePort?: number;
   redirectedTo?: string;
+  responseBody?: ResponseBody;
 }
 
 interface ResponseBody {
@@ -492,13 +493,18 @@ export class NetworkManager {
         // Truncate if too large
         if (result.body.length <= MAX_BODY_SIZE) {
           this.requestBodies.set(requestId, body);
+          // Also store in the request object itself
+          this.upsertRequest(tabId, requestId, { responseBody: body });
         } else {
-          this.requestBodies.set(requestId, {
+          const truncatedBody: ResponseBody = {
             body: result.body.substring(0, 10000) + '\n\n... [Truncated - Response too large]',
             base64Encoded: false,
             mimeType,
             truncated: true,
-          });
+          };
+          this.requestBodies.set(requestId, truncatedBody);
+          // Also store in the request object itself
+          this.upsertRequest(tabId, requestId, { responseBody: truncatedBody });
         }
       }
     } catch {

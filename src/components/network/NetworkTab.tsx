@@ -223,17 +223,24 @@ export function NetworkTab() {
         return;
       }
 
+      // Use the response body from the request itself (fetched when request completed)
+      const responseContent = request.responseBody?.body || '';
+      const detectedContentType = request.mimeType || request.contentType || 'application/json';
+
       const newRoute: RouteConfig = {
         enabled: true,
         status: request.statusCode || 200,
-        response: '',
-        contentType: 'application/json',
+        response: responseContent,
+        contentType: detectedContentType,
         timestamp: Date.now(),
         responseHeaders: request.responseHeaders?.reduce((acc, h) => {
           acc[h.name] = h.value;
           return acc;
         }, {} as Record<string, string>) || {},
-        requestHeaders: {},
+        requestHeaders: request.requestHeaders?.reduce((acc, h) => {
+          acc[h.name] = h.value;
+          return acc;
+        }, {} as Record<string, string>) || {},
         removeRequestHeaders: [],
         delay: 0,
         headersOnly: false,

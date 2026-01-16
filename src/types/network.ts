@@ -147,6 +147,9 @@ export interface NetworkRequest {
 
   // Redirect
   redirectedTo?: string;
+
+  // Response Body (populated when request completes)
+  responseBody?: ResponseBody;
 }
 
 // ============================================
