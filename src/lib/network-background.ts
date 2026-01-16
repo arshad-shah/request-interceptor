@@ -536,7 +536,7 @@ export class NetworkManager {
         type: 'sent',
         timestamp: timestamp * 1000,
         opcode: response?.opcode || 1,
-        data: payloadData.length > 10000 ? payloadData.substring(0, 10000) + '...[truncated]' : payloadData,
+        data: payloadData.length > 100000 ? payloadData.substring(0, 100000) + '...[truncated]' : payloadData,
         length: payloadLength,
         mask: response?.mask,
       };
@@ -572,7 +572,7 @@ export class NetworkManager {
         type: 'received',
         timestamp: timestamp * 1000,
         opcode: response?.opcode || 1,
-        data: payloadData.length > 10000 ? payloadData.substring(0, 10000) + '...[truncated]' : payloadData,
+        data: payloadData.length > 100000 ? payloadData.substring(0, 100000) + '...[truncated]' : payloadData,
         length: payloadLength,
         mask: response?.mask,
       };
