@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, FileCode } from 'lucide-react';
-import CodeHighlighter from './Codehighlighter';
+import { JsonTreeViewer } from './JsonTreeViewer';
 import { complete_template } from '@/components/templates/schema_format_examples';
 import Card from '../ui/Card';
 
@@ -40,9 +40,13 @@ const CollapsibleSchemaExamples = () => {
               <FileCode className="w-4 h-4 text-[var(--accent-cyan)]" />
               Complete Export/Import Schema
             </h4>
-            <div className="bg-[var(--bg-elevated)] rounded-[var(--radius-md)] p-4 overflow-auto">
-              <CodeHighlighter code={JSON.stringify(complete_template, null, 2)} language="json" />
-            </div>
+            <JsonTreeViewer 
+              data={complete_template} 
+              maxHeight={600}
+              showToolbar={true}
+              initialExpandDepth={2}
+              searchable={true}
+            />
           </div>
         </Card.Body>
       </div>

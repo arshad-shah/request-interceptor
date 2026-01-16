@@ -29,6 +29,7 @@ import type { NetworkHeader } from '../../types/network';
 import type { PerformanceInsight, DecodedJwt, ParsedCookie } from './utils';
 import { highlightSearchTerm } from './utils';
 import { copyToClipboard } from '../../lib/network-api';
+import { JsonTreeViewer } from '../common/JsonTreeViewer';
 
 // ============================================================================
 // Custom Syntax Highlighter Theme (matches design system)
@@ -235,6 +236,10 @@ interface CodeBlockProps {
   searchTerm?: string;
   showCopy?: boolean;
   wrapLines?: boolean;
+  /** Enable tree view for JSON (default: true for json language) */
+  enableTreeView?: boolean;
+  /** Default view mode for JSON */
+  defaultView?: 'tree' | 'raw';
 }
 
 export function CodeBlock({
@@ -244,8 +249,25 @@ export function CodeBlock({
   searchTerm,
   showCopy = true,
   wrapLines = true,
+  enableTreeView = true,
+  defaultView = 'tree',
 }: CodeBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [viewMode, setViewMode] = useState<'tree' | 'raw'>(defaultView);
+
+  // Check if content is valid JSON
+  const parsedJson = useMemo(() => {
+    if (language === 'json' && enableTreeView) {
+      try {
+        return JSON.parse(content);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, [content, language, enableTreeView]);
+
+  const isJsonTreeAvailable = parsedJson !== null;
 
   // Format JSON if applicable
   const formattedContent = useMemo(() => {
@@ -265,8 +287,65 @@ export function CodeBlock({
     ? formattedContent.split('\n').slice(0, 50).join('\n') + '\n...'
     : formattedContent;
 
+  // If JSON tree view is available and selected, use it
+  if (isJsonTreeAvailable && viewMode === 'tree') {
+    return (
+      <div className="relative">
+        {/* View toggle */}
+        <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-[var(--bg-elevated)] rounded-[var(--radius-sm)] p-0.5 border border-[var(--border-subtle)]">
+          <button
+            onClick={() => setViewMode('tree')}
+            className="px-2 py-1 text-[10px] font-medium rounded transition-colors bg-[var(--accent-indigo)] text-white"
+          >
+            Tree
+          </button>
+          <button
+            onClick={() => setViewMode('raw')}
+            className="px-2 py-1 text-[10px] font-medium rounded transition-colors text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+          >
+            Raw
+          </button>
+        </div>
+        <JsonTreeViewer
+          data={parsedJson}
+          maxHeight={maxHeight}
+          showToolbar={true}
+          initialExpandDepth={3}
+          compact={false}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="relative group">
+      {/* View toggle for JSON */}
+      {isJsonTreeAvailable && (
+        <div className="absolute top-2 right-12 z-10 flex items-center gap-1 bg-[var(--bg-elevated)] rounded-[var(--radius-sm)] p-0.5 border border-[var(--border-subtle)]">
+          <button
+            onClick={() => setViewMode('tree')}
+            className={clsx(
+              'px-2 py-1 text-[10px] font-medium rounded transition-colors',
+              viewMode === 'tree'
+                ? 'bg-[var(--accent-indigo)] text-white'
+                : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
+            )}
+          >
+            Tree
+          </button>
+          <button
+            onClick={() => setViewMode('raw')}
+            className={clsx(
+              'px-2 py-1 text-[10px] font-medium rounded transition-colors',
+              viewMode === 'raw'
+                ? 'bg-[var(--accent-indigo)] text-white'
+                : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
+            )}
+          >
+            Raw
+          </button>
+        </div>
+      )}
       {showCopy && (
         <CopyButton
           text={formattedContent}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ChevronDown,
   Edit,
@@ -26,7 +26,7 @@ import { RouteConfig, WebSocketConfig } from '@/types';
 import Badge, { MethodBadge, StatusBadge } from '../ui/Badge';
 import Toggle from '../ui/Toggle';
 import Button from '../ui/Button';
-import CodeHighlighter from '@/components/common/Codehighlighter';
+import { JsonTreeViewer } from '@/components/common/JsonTreeViewer';
 import WebSocketRulesDisplay from './WebSocketRulesDisplay';
 import HeaderDisplay from '@/components/common/HeaderDisplay';
 import RemoveHeadersDisplay from '@/components/common/RemoveHeadersDisplayProps';
@@ -80,6 +80,19 @@ const RouteItem: React.FC<RouteItemProps> = ({
   const description = !isWebSocket ? getRouteDescription(method as any, url) : 'WebSocket message interception';
   const contentTypeName = !isWebSocket ? getContentTypeDisplay(httpConfig.contentType) : '';
   const isHeadersOnly = !isWebSocket && (httpConfig.headersOnly || false);
+
+  // Parse response for tree view
+  const parsedResponse = useMemo(() => {
+    if (isWebSocket || !httpConfig.response) return null;
+    try {
+      if (typeof httpConfig.response === 'object') {
+        return httpConfig.response;
+      }
+      return JSON.parse(String(httpConfig.response));
+    } catch {
+      return null;
+    }
+  }, [httpConfig.response, isWebSocket]);
 
   // WebSocket specific properties
   const wsConfig = config as WebSocketConfig;
@@ -328,10 +341,23 @@ const RouteItem: React.FC<RouteItemProps> = ({
                 <div
                   className={cn(
                     'bg-[var(--bg-base)] overflow-auto transition-all',
-                    isResponseExpanded ? 'max-h-96' : 'max-h-40'
+                    isResponseExpanded ? 'max-h-[500px]' : 'max-h-48'
                   )}
                 >
-                  <CodeHighlighter code={responsePreview} language="json" />
+                  {parsedResponse ? (
+                    <JsonTreeViewer
+                      data={parsedResponse}
+                      maxHeight={isResponseExpanded ? 500 : 180}
+                      showToolbar={isResponseExpanded}
+                      initialExpandDepth={isResponseExpanded ? 3 : 1}
+                      compact={!isResponseExpanded}
+                      searchable={isResponseExpanded}
+                    />
+                  ) : (
+                    <pre className="p-3 text-[11px] font-mono text-[var(--text-secondary)] whitespace-pre-wrap break-all">
+                      {responsePreview}
+                    </pre>
+                  )}
                 </div>
               </div>
             )}

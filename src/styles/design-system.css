@@ -1736,3 +1736,473 @@ mark.ds-search-highlight {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ============================================
+   JSON Tree Viewer Component
+   ============================================ */
+
+/* Container */
+.jt-container {
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.jt-container.jt-compact {
+  font-size: 11px;
+}
+
+/* Toolbar */
+.jt-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.jt-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.jt-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.jt-toolbar-center {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+/* Responsive toolbar */
+@media (max-width: 400px) {
+  .jt-toolbar {
+    padding: 4px 8px;
+  }
+  
+  .jt-brand span {
+    display: none;
+  }
+  
+  .jt-meta {
+    display: none;
+  }
+  
+  .jt-search-box {
+    min-width: 120px;
+  }
+}
+
+.jt-brand {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: var(--font-sans);
+  flex-shrink: 0;
+}
+
+.jt-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  flex-wrap: wrap;
+  overflow: hidden;
+}
+
+.jt-separator {
+  color: var(--border-default);
+}
+
+.jt-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.jt-toolbar-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Search Box */
+.jt-search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  min-width: 140px;
+  max-width: 220px;
+  flex: 1;
+  transition: border-color var(--transition-fast);
+}
+
+.jt-search-box:focus-within {
+  border-color: var(--accent-indigo);
+}
+
+.jt-search-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.jt-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: var(--font-sans);
+}
+
+.jt-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.jt-search-count {
+  font-size: 10px;
+  color: var(--accent-amber);
+  padding: 2px 6px;
+  background: var(--accent-amber)/10;
+  border-radius: var(--radius-sm);
+}
+
+.jt-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.jt-search-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Viewport */
+.jt-viewport {
+  overflow: auto;
+  padding: 8px 0;
+}
+
+.jt-content {
+  padding: 0 8px;
+}
+
+/* Line */
+.jt-line {
+  display: flex;
+  align-items: flex-start;
+  min-height: 24px;
+}
+
+.jt-compact .jt-line {
+  min-height: 20px;
+}
+
+.jt-line-number {
+  width: 40px;
+  flex-shrink: 0;
+  text-align: right;
+  padding-right: 12px;
+  color: var(--text-tertiary);
+  user-select: none;
+  font-size: 10px;
+}
+
+/* Row */
+.jt-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  transition: background-color var(--transition-fast);
+}
+
+.jt-row:hover {
+  background: var(--bg-hover);
+}
+
+.jt-row--matched {
+  background: rgba(251, 191, 36, 0.15) !important;
+}
+
+.jt-row--current-match {
+  background: rgba(251, 191, 36, 0.25) !important;
+  box-shadow: inset 0 0 0 1px var(--accent-amber);
+}
+
+/* Toggle */
+.jt-toggle-area {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jt-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0;
+  transition: all var(--transition-fast);
+}
+
+.jt-toggle:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.jt-toggle--collapsed {
+  color: var(--accent-indigo);
+}
+
+.jt-toggle-space {
+  width: 16px;
+}
+
+/* Key */
+.jt-key {
+  color: #a78bfa;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all var(--transition-fast);
+}
+
+.jt-key:hover {
+  background: rgba(167, 139, 250, 0.2);
+  text-decoration: underline;
+}
+
+.jt-colon {
+  color: var(--text-tertiary);
+}
+
+/* Values */
+.jt-string {
+  color: #34d399;
+  word-break: break-all;
+}
+
+.jt-string.jt-url {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.jt-number {
+  color: #fbbf24;
+}
+
+.jt-boolean {
+  color: #c084fc;
+  font-weight: 500;
+}
+
+.jt-null {
+  color: #f87171;
+  font-style: italic;
+}
+
+/* Brackets */
+.jt-bracket {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.jt-preview {
+  color: var(--text-secondary);
+}
+
+.jt-count {
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  background: var(--bg-hover);
+  color: var(--text-tertiary);
+  border-radius: 10px;
+}
+
+.jt-comma {
+  color: var(--text-tertiary);
+}
+
+/* Actions */
+.jt-actions {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: opacity var(--transition-fast);
+}
+
+.jt-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.jt-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+/* Path Tooltip */
+.jt-path-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  font-size: 11px;
+  white-space: nowrap;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.jt-path-label {
+  color: var(--text-tertiary);
+  margin-right: 6px;
+}
+
+.jt-path-value {
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+}
+
+/* Toast */
+.jt-toast {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--accent-emerald);
+  color: white;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  animation: jt-toast-in 0.3s ease;
+}
+
+@keyframes jt-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Legend */
+.jt-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.jt-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: var(--font-sans);
+}
+
+/* Parsed JSON indicator */
+.jt-parsed-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--accent-emerald);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.jt-parsed-indicator svg {
+  flex-shrink: 0;
+}
