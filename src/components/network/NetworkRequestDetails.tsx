@@ -82,6 +82,7 @@ import {
   StackTrace,
   CopyButton,
 } from './components';
+import { JsonTreeViewer } from '../common/JsonTreeViewer';
 
 // ============================================================================
 // Types
@@ -533,7 +534,7 @@ export function NetworkRequestDetails({
     return (
       <div className="flex flex-col h-full">
         {/* Toolbar */}
-        <div className="flex items-center gap-2 p-2 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)] flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-2 p-3 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)] flex-shrink-0">
           {/* Direction filter */}
           <div className="flex items-center gap-1">
             <button
@@ -566,30 +567,30 @@ export function NetworkRequestDetails({
           </div>
 
           {/* Search */}
-          <div className="flex-1 flex items-center gap-2 px-2 py-1 bg-[var(--bg-base)] rounded-[var(--radius-sm)] border border-[var(--border-subtle)]">
-            <Search size={12} className="text-[var(--text-tertiary)]" />
+          <div className="flex-1 min-w-[180px] max-w-[300px] flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-base)] rounded-[var(--radius-sm)] border border-[var(--border-subtle)]">
+            <Search size={12} className="text-[var(--text-tertiary)] flex-shrink-0" />
             <input
               type="text"
               value={wsSearch}
               onChange={e => setWsSearch(e.target.value)}
               placeholder="Filter messages..."
-              className="flex-1 bg-transparent border-none outline-none text-[11px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
+              className="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] min-w-0"
             />
             {wsSearch && (
-              <button onClick={() => setWsSearch('')} className="ds-icon-btn p-0.5">
+              <button onClick={() => setWsSearch('')} className="ds-icon-btn p-0.5 flex-shrink-0">
                 <X size={10} />
               </button>
             )}
           </div>
 
           {/* Stats */}
-          <div className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-2">
+          <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-3 ml-auto">
             <span className="flex items-center gap-1">
-              <ArrowUp size={10} className="text-emerald-500" />
+              <ArrowUp size={11} className="text-emerald-500" />
               {formatSize(request.wsSentSize || 0)}
             </span>
             <span className="flex items-center gap-1">
-              <ArrowDown size={10} className="text-rose-500" />
+              <ArrowDown size={11} className="text-rose-500" />
               {formatSize(request.wsReceivedSize || 0)}
             </span>
           </div>
@@ -598,9 +599,12 @@ export function NetworkRequestDetails({
         {/* Messages List */}
         <div className="flex-1 flex overflow-hidden">
           {/* Message list */}
-          <div className="flex-1 overflow-y-auto min-w-0">
+          <div className={clsx(
+            'overflow-y-auto min-w-0',
+            selectedFrame ? 'w-2/5 flex-shrink-0' : 'flex-1'
+          )}>
             {filteredFrames.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-[var(--text-tertiary)] text-sm">
+              <div className="flex items-center justify-center h-full text-[var(--text-tertiary)] text-sm p-4">
                 No messages match your filter
               </div>
             ) : (
@@ -614,24 +618,24 @@ export function NetworkRequestDetails({
                       key={`${frame.timestamp}-${index}`}
                       onClick={() => setSelectedFrame(isSelected ? null : frame)}
                       className={clsx(
-                        'flex items-start gap-2 px-3 py-2 cursor-pointer transition-colors',
+                        'group flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors',
                         'hover:bg-[var(--bg-elevated)]',
                         isSelected && 'bg-[var(--accent-indigo)]/10 border-l-2 border-l-[var(--accent-indigo)]',
-                        isSent ? 'bg-emerald-500/5' : 'bg-rose-500/5'
+                        !isSelected && (isSent ? 'bg-emerald-500/5' : 'bg-rose-500/5')
                       )}
                     >
                       {/* Direction icon */}
                       <div className={clsx(
-                        'flex-shrink-0 p-1 rounded',
+                        'flex-shrink-0 p-1.5 rounded-md',
                         isSent ? 'bg-emerald-500/20 text-emerald-500' : 'bg-rose-500/20 text-rose-500'
                       )}>
-                        {isSent ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+                        {isSent ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
                       </div>
 
                       {/* Content */}
                       <div className="flex-1 min-w-0 overflow-hidden">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] text-[var(--text-tertiary)] font-mono">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <span className="text-[11px] text-[var(--text-tertiary)] font-mono">
                             {formatFrameTime(frame.timestamp)}
                           </span>
                           <span className={clsx(
@@ -640,7 +644,7 @@ export function NetworkRequestDetails({
                           )}>
                             {frame.opcode === 1 ? 'text' : 'binary'}
                           </span>
-                          <span className="text-[10px] text-[var(--text-tertiary)]">
+                          <span className="text-[11px] text-[var(--text-tertiary)]">
                             {formatSize(frame.length)}
                           </span>
                           {isJson(frame.data) && (
@@ -648,7 +652,7 @@ export function NetworkRequestDetails({
                           )}
                         </div>
                         <div className={clsx(
-                          'font-mono text-[11px] break-all',
+                          'font-mono text-[12px] break-all leading-relaxed',
                           isSent ? 'text-emerald-400' : 'text-rose-400',
                           !isSelected && 'line-clamp-2'
                         )}>
@@ -665,7 +669,7 @@ export function NetworkRequestDetails({
                         className="ds-icon-btn flex-shrink-0 opacity-0 group-hover:opacity-100"
                         title="Copy message"
                       >
-                        <Copy size={12} />
+                        <Copy size={14} />
                       </button>
                     </div>
                   );
@@ -676,20 +680,23 @@ export function NetworkRequestDetails({
 
           {/* Selected frame detail panel */}
           {selectedFrame && (
-            <div className="w-1/2 border-l border-[var(--border-subtle)] flex flex-col bg-[var(--bg-base)]">
-              <div className="flex items-center justify-between px-3 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
-                <div className="flex items-center gap-2">
+            <div className="w-3/5 border-l border-[var(--border-subtle)] flex flex-col bg-[var(--bg-base)]">
+              <div className="flex items-center justify-between px-4 py-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
+                <div className="flex items-center gap-3">
                   <span className={clsx(
                     'ds-badge',
                     selectedFrame.type === 'sent' ? 'emerald' : 'rose'
                   )}>
                     {selectedFrame.type === 'sent' ? 'Sent' : 'Received'}
                   </span>
-                  <span className="text-[11px] text-[var(--text-tertiary)] font-mono">
+                  <span className="text-[12px] text-[var(--text-tertiary)] font-mono">
                     {formatFrameTime(selectedFrame.timestamp)}
                   </span>
+                  <span className="text-[11px] text-[var(--text-tertiary)]">
+                    {formatSize(selectedFrame.length)}
+                  </span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <CopyButton text={selectedFrame.data} title="Copy" />
                   <button
                     onClick={() => setSelectedFrame(null)}
@@ -700,12 +707,20 @@ export function NetworkRequestDetails({
                   </button>
                 </div>
               </div>
-              <div className="flex-1 overflow-auto p-3">
-                <CodeBlock
-                  content={formatFrameData(selectedFrame.data)}
-                  language={isJson(selectedFrame.data) ? 'json' : 'text'}
-                  maxHeight={400}
-                />
+              <div className="flex-1 overflow-auto p-4">
+                {isJson(selectedFrame.data) ? (
+                  <JsonTreeViewer 
+                    data={selectedFrame.data} 
+                    maxHeight={600}
+                    searchable
+                  />
+                ) : (
+                  <CodeBlock
+                    content={selectedFrame.data}
+                    language="text"
+                    maxHeight={600}
+                  />
+                )}
               </div>
             </div>
           )}

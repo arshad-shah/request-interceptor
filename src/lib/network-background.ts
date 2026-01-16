@@ -536,12 +536,12 @@ export class NetworkManager {
         type: 'sent',
         timestamp: timestamp * 1000,
         opcode: response?.opcode || 1,
-        data: payloadData.length > 100000 ? payloadData.substring(0, 100000) + '...[truncated]' : payloadData,
+        data: payloadData,
         length: payloadLength,
         mask: response?.mask,
       };
       
-      const wsFrames = [...existingFrames, newFrame].slice(-500);
+      const wsFrames = [...existingFrames, newFrame];
       
       this.upsertRequest(tabId, requestId, {
         wsFramesSent: frames + 1,
@@ -572,12 +572,12 @@ export class NetworkManager {
         type: 'received',
         timestamp: timestamp * 1000,
         opcode: response?.opcode || 1,
-        data: payloadData.length > 100000 ? payloadData.substring(0, 100000) + '...[truncated]' : payloadData,
+        data: payloadData,
         length: payloadLength,
         mask: response?.mask,
       };
       
-      const wsFrames = [...existingFrames, newFrame].slice(-500);
+      const wsFrames = [...existingFrames, newFrame];
       
       this.upsertRequest(tabId, requestId, {
         wsFramesReceived: frames + 1,
@@ -679,22 +679,10 @@ export class NetworkManager {
           mimeType,
         };
 
-        // Truncate if too large
-        if (result.body.length <= MAX_BODY_SIZE) {
-          this.requestBodies.set(requestId, body);
-          // Also store in the request object itself
-          this.upsertRequest(tabId, requestId, { responseBody: body });
-        } else {
-          const truncatedBody: ResponseBody = {
-            body: result.body.substring(0, 10000) + '\n\n... [Truncated - Response too large]',
-            base64Encoded: false,
-            mimeType,
-            truncated: true,
-          };
-          this.requestBodies.set(requestId, truncatedBody);
-          // Also store in the request object itself
-          this.upsertRequest(tabId, requestId, { responseBody: truncatedBody });
-        }
+        // Store the full body
+        this.requestBodies.set(requestId, body);
+        // Also store in the request object itself
+        this.upsertRequest(tabId, requestId, { responseBody: body });
       }
     } catch {
       // Body might not be available for some requests
@@ -1016,8 +1004,8 @@ export class NetworkManager {
         status: response.status,
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
-        body: text.substring(0, 50000),
-        truncated: text.length > 50000,
+        body: text,
+        truncated: false,
       };
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Unknown error' };

@@ -502,7 +502,7 @@ export function JsonTreeViewer({
       switch (type) {
         case 'string': {
           const strVal = value as string;
-          const displayVal = truncateString(strVal, 300);
+          const displayVal = truncateString(strVal, 5000);
           if (isUrl(strVal)) {
             return (
               <span className="jt-string jt-url group/url">
