@@ -9,17 +9,17 @@ import { NetworkTab } from '@/components/network';
 const TabContent: React.FC = () => {
   const { activeTab } = useAppStore();
 
-  // Network tab uses its own full-height layout
+  // Network tab uses its own full-height layout with no overflow
   if (activeTab === 'network') {
     return (
-      <div className="flex-1 overflow-hidden bg-[var(--bg-base)]">
+      <div className="flex-1 min-h-0 overflow-hidden bg-[var(--bg-base)]">
         <NetworkTab />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-[var(--bg-base)]">
+    <div className="flex-1 min-h-0 overflow-auto bg-[var(--bg-base)]">
       <div className="p-2">
         {activeTab === 'routes' && (
           <>

@@ -212,7 +212,7 @@ export function NetworkRequestList({
   // Empty state
   if (requests.length === 0) {
     return (
-      <div className="flex flex-col h-full min-h-0">
+      <div className="h-full w-full flex flex-col overflow-hidden">
         <NetworkEmptyState
           hasFilters={hasFilters}
           onClearFilters={clearFilters}
@@ -222,7 +222,7 @@ export function NetworkRequestList({
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+    <div className="h-full w-full flex flex-col overflow-hidden">
       {/* ─── Column Headers ─────────────────────────────────────────────── */}
       <div
         className={clsx(
@@ -267,7 +267,8 @@ export function NetworkRequestList({
       {/* ─── Request List (Scrollable) ──────────────────────────────────── */}
       <div 
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+        className="flex-1 overflow-y-auto overflow-x-hidden"
+        style={{ minHeight: 0 }}
       >
         {sortedRequests.map((request, index) => (
           <div

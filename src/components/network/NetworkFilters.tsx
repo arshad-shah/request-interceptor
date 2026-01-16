@@ -25,7 +25,7 @@ export function NetworkFilters() {
   const { setFilter, setSearch, clearFilters } = useNetworkStore();
 
   return (
-    <div className="flex flex-col gap-2 p-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
+    <div className="flex-none flex flex-col gap-2 p-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
       {/* Search Input */}
       <div className="ds-search-wrap">
         <Search size={14} />

@@ -12,7 +12,6 @@ import {
   Download,
   PanelBottomClose,
   PanelRightClose,
-  GripHorizontal,
 } from 'lucide-react';
 import {
   useNetworkStore,
@@ -24,11 +23,12 @@ import {
 } from '../../stores/network-store';
 import { useAppStore } from '../../stores/app-store';
 import type { NetworkRequest } from '../../types/network';
-import type { RouteConfig } from '../../types';
+import type { RouteConfig, WebSocketConfig } from '../../types';
 import {
   getRequests,
   clearRequests as clearNetworkRequests,
   attachDebugger,
+  detachDebugger,
   exportHAR,
   downloadFile,
   addNetworkMessageListener,
@@ -49,9 +49,9 @@ type PanelPosition = 'bottom' | 'right';
 // Constants
 // ============================================================================
 
-const MIN_PANEL_SIZE = 200;
-const DEFAULT_PANEL_SIZE_BOTTOM = 350;
-const DEFAULT_PANEL_SIZE_RIGHT = 450;
+const MIN_PANEL_SIZE = 150;
+const DEFAULT_PANEL_SIZE_BOTTOM = 280;
+const DEFAULT_PANEL_SIZE_RIGHT = 380;
 
 // ============================================================================
 // Main Component
@@ -76,63 +76,105 @@ export function NetworkTab() {
   const { setActiveTab, addRoute } = useAppStore();
 
   // Panel state
-  const [panelPosition, setPanelPosition] = useState<PanelPosition>('bottom');
-  const [panelSize, setPanelSize] = useState(DEFAULT_PANEL_SIZE_BOTTOM);
+  const [panelPosition, setPanelPosition] = useState<PanelPosition>('right');
+  const [panelSize, setPanelSize] = useState(DEFAULT_PANEL_SIZE_RIGHT);
   const [isResizing, setIsResizing] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const resizeStartRef = useRef<{ size: number; clientPos: number } | null>(null);
 
-  // ─── Initialize Network Monitoring ─────────────────────────────────────────
-  useEffect(() => {
-    let currentTabId: number | null = null;
+  // Track current tab ID
+  const currentTabIdRef = useRef<number | null>(null);
+  const isInitializedRef = useRef(false);
 
+  // ─── Initialize on mount ───────────────────────────────────────────────────
+  useEffect(() => {
     const initialize = async () => {
       const tabId = await getCurrentTabId();
       if (!tabId) return;
-      currentTabId = tabId;
+      currentTabIdRef.current = tabId;
 
+      // Attach debugger on mount (recording starts as true by default)
       const attached = await attachDebugger(tabId);
       setDebuggerAttached(attached);
 
+      // Load existing requests
       const { requests, settings } = await getRequests(tabId);
       setRequests(requests);
       updateSettings(settings);
+
+      isInitializedRef.current = true;
     };
 
     initialize();
+  }, [setDebuggerAttached, setRequests, updateSettings]);
 
+  // ─── Handle Recording State Changes (after initialization) ─────────────────
+  useEffect(() => {
+    // Skip during initial mount - initialization effect handles that
+    if (!isInitializedRef.current) return;
+
+    const handleRecordingChange = async () => {
+      const tabId = currentTabIdRef.current || await getCurrentTabId();
+      if (!tabId) return;
+      currentTabIdRef.current = tabId;
+
+      if (isRecording) {
+        // Attach debugger when starting to record
+        const attached = await attachDebugger(tabId);
+        setDebuggerAttached(attached);
+      } else {
+        // Detach debugger when pausing
+        await detachDebugger(tabId);
+        setDebuggerAttached(false);
+      }
+    };
+
+    handleRecordingChange();
+  }, [isRecording, setDebuggerAttached]);
+
+  // ─── Listen for Network Updates ────────────────────────────────────────────
+  useEffect(() => {
     const cleanup = addNetworkMessageListener((message) => {
+      // Only process updates if we're recording
       if (
         message.type === 'NETWORK_REQUESTS_UPDATED' &&
-        message.tabId === currentTabId
+        message.tabId === currentTabIdRef.current &&
+        isRecording
       ) {
         setRequests(message.requests as NetworkRequest[]);
       }
       if (
         message.type === 'NETWORK_DEBUGGER_DETACHED' &&
-        message.tabId === currentTabId
+        message.tabId === currentTabIdRef.current
       ) {
         setDebuggerAttached(false);
       }
     });
 
+    return cleanup;
+  }, [isRecording, setRequests, setDebuggerAttached]);
+
+  // ─── Handle Tab Changes ────────────────────────────────────────────────────
+  useEffect(() => {
     const interval = setInterval(async () => {
       const tabId = await getCurrentTabId();
-      if (tabId && tabId !== currentTabId) {
-        currentTabId = tabId;
-        const attached = await attachDebugger(tabId);
-        setDebuggerAttached(attached);
+      if (tabId && tabId !== currentTabIdRef.current) {
+        currentTabIdRef.current = tabId;
+        
+        // Only attach if recording
+        if (isRecording) {
+          const attached = await attachDebugger(tabId);
+          setDebuggerAttached(attached);
+        }
+        
         const { requests } = await getRequests(tabId);
         setRequests(requests);
       }
     }, 1000);
 
-    return () => {
-      cleanup();
-      clearInterval(interval);
-    };
-  }, []);
+    return () => clearInterval(interval);
+  }, [isRecording, setRequests, setDebuggerAttached]);
 
   // ─── Panel Position Change Handler ─────────────────────────────────────────
   useEffect(() => {
@@ -214,39 +256,64 @@ export function NetworkTab() {
 
   const handleInterceptRequest = useCallback(
     async (request: NetworkRequest) => {
-      const routeKey = `${request.method}:${request.url}`;
+      const isWebSocket = request.type === 'websocket';
       const routes = useAppStore.getState().routes;
       
+      // Build route key based on request type
+      let routeKey: string;
+      if (isWebSocket) {
+        // WebSocket routes use WS: prefix and can optionally have a name
+        routeKey = `WS:${request.url}`;
+      } else {
+        routeKey = `${request.method}:${request.url}`;
+      }
+      
+      // Check if route already exists
       if (routes[routeKey]) {
         useAppStore.getState().setEditingRoute(routeKey);
         setActiveTab('add');
         return;
       }
 
-      // Use the response body from the request itself (fetched when request completed)
-      const responseContent = request.responseBody?.body || '';
-      const detectedContentType = request.mimeType || request.contentType || 'application/json';
+      if (isWebSocket) {
+        // Create WebSocket config
+        const newRoute: WebSocketConfig = {
+          enabled: true,
+          timestamp: Date.now(),
+          name: request.hostname,
+          incomingRules: [],
+          outgoingRules: [],
+          delay: 0,
+        };
 
-      const newRoute: RouteConfig = {
-        enabled: true,
-        status: request.statusCode || 200,
-        response: responseContent,
-        contentType: detectedContentType,
-        timestamp: Date.now(),
-        responseHeaders: request.responseHeaders?.reduce((acc, h) => {
-          acc[h.name] = h.value;
-          return acc;
-        }, {} as Record<string, string>) || {},
-        requestHeaders: request.requestHeaders?.reduce((acc, h) => {
-          acc[h.name] = h.value;
-          return acc;
-        }, {} as Record<string, string>) || {},
-        removeRequestHeaders: [],
-        delay: 0,
-        headersOnly: false,
-      };
+        await addRoute(routeKey, newRoute);
+      } else {
+        // Create HTTP config
+        const responseContent = request.responseBody?.body || '';
+        const detectedContentType = request.mimeType || request.contentType || 'application/json';
 
-      await addRoute(routeKey, newRoute);
+        const newRoute: RouteConfig = {
+          enabled: true,
+          status: request.statusCode || 200,
+          response: responseContent,
+          contentType: detectedContentType,
+          timestamp: Date.now(),
+          responseHeaders: request.responseHeaders?.reduce((acc, h) => {
+            acc[h.name] = h.value;
+            return acc;
+          }, {} as Record<string, string>) || {},
+          requestHeaders: request.requestHeaders?.reduce((acc, h) => {
+            acc[h.name] = h.value;
+            return acc;
+          }, {} as Record<string, string>) || {},
+          removeRequestHeaders: [],
+          delay: 0,
+          headersOnly: false,
+        };
+
+        await addRoute(routeKey, newRoute);
+      }
+
       useAppStore.getState().setEditingRoute(routeKey);
       setActiveTab('add');
     },
@@ -273,36 +340,40 @@ export function NetworkTab() {
   return (
     <div 
       ref={containerRef}
-      className="flex flex-col h-full bg-[var(--bg-base)] dark-theme overflow-hidden"
+      className="h-full w-full flex flex-col bg-[var(--bg-base)] dark-theme"
+      style={{ overflow: 'hidden' }}
     >
-      {/* ─── Toolbar ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-3 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)] flex-shrink-0">
+      {/* ═══════════════════════════════════════════════════════════════════════
+          TOOLBAR - Fixed at top
+          ═══════════════════════════════════════════════════════════════════════ */}
+      <div className="flex-none flex items-center justify-between px-3 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
         <div className="flex items-center gap-2">
           <div className={clsx('ds-status', !isRecording && 'paused')}>
             <span className="ds-status-dot" />
             <span>{isRecording ? 'Recording' : 'Paused'}</span>
           </div>
+          {/* Debugger warning - inline in toolbar */}
+          {!debuggerAttached && (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-[rgba(245,158,11,0.15)] border border-[rgba(245,158,11,0.3)] rounded text-[11px] text-[var(--accent-amber)]">
+              <span>⚠</span>
+              <span>Debugger not attached</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-1">
-          {/* Panel Position Toggle */}
           {hasSelection && (
             <button
               onClick={() => setPanelPosition(p => p === 'bottom' ? 'right' : 'bottom')}
               className="ds-icon-btn"
               title={`Switch to ${isBottomPanel ? 'side' : 'bottom'} panel`}
             >
-              {isBottomPanel ? (
-                <PanelRightClose size={14} />
-              ) : (
-                <PanelBottomClose size={14} />
-              )}
+              {isBottomPanel ? <PanelRightClose size={14} /> : <PanelBottomClose size={14} />}
             </button>
           )}
 
           <div className="w-px h-4 bg-[var(--border-subtle)] mx-1" />
 
-          {/* Record/Pause Button */}
           <button
             onClick={toggleRecording}
             className={clsx('ds-icon-btn', isRecording && 'recording')}
@@ -311,7 +382,6 @@ export function NetworkTab() {
             <Circle size={14} fill={isRecording ? 'currentColor' : 'none'} />
           </button>
 
-          {/* Clear Button */}
           <button
             onClick={handleClearRequests}
             className="ds-icon-btn danger"
@@ -320,7 +390,6 @@ export function NetworkTab() {
             <Trash2 size={14} />
           </button>
 
-          {/* Export Button */}
           <button
             onClick={handleExportHAR}
             className="ds-icon-btn"
@@ -332,33 +401,41 @@ export function NetworkTab() {
         </div>
       </div>
 
-      {/* ─── Stats Bar ────────────────────────────────────────────────────── */}
-      <NetworkStats />
+      {/* ═══════════════════════════════════════════════════════════════════════
+          STATS & FILTERS - Fixed below toolbar
+          ═══════════════════════════════════════════════════════════════════════ */}
+      <div className="flex-none">
+        <NetworkStats />
+        <NetworkFilters />
+      </div>
 
-      {/* ─── Filters ──────────────────────────────────────────────────────── */}
-      <NetworkFilters />
-
-      {/* ─── Main Content Area ────────────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          MAIN SPLIT PANEL AREA
+          Takes ALL remaining space, contains list + details
+          ═══════════════════════════════════════════════════════════════════════ */}
       <div 
         className={clsx(
-          'flex-1 min-h-0 flex relative',
+          'flex-1 flex',
           isBottomPanel ? 'flex-col' : 'flex-row'
         )}
+        style={{ minHeight: 0, minWidth: 0, overflow: 'hidden' }}
       >
-        {/* Request List Container */}
+        {/* ─── Request List Pane ──────────────────────────────────────────── */}
         <div 
-          className={clsx(
-            'flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden',
-            // When panel is open, constrain the list
-            hasSelection && isBottomPanel && 'flex-shrink-0',
-            hasSelection && !isBottomPanel && 'flex-shrink-0'
-          )}
+          className="overflow-hidden"
           style={
             hasSelection
-              ? isBottomPanel
-                ? { height: `calc(100% - ${panelSize}px)` }
-                : { width: `calc(100% - ${panelSize}px)` }
-              : undefined
+              ? {
+                  [isBottomPanel ? 'height' : 'width']: `calc(100% - ${panelSize}px - 4px)`,
+                  [isBottomPanel ? 'minHeight' : 'minWidth']: 0,
+                  flexShrink: 0,
+                  flexGrow: 0,
+                }
+              : {
+                  flex: '1 1 auto',
+                  minHeight: 0,
+                  minWidth: 0,
+                }
           }
         >
           <NetworkRequestList
@@ -369,51 +446,66 @@ export function NetworkTab() {
           />
         </div>
 
-        {/* ─── Details Panel ────────────────────────────────────────────── */}
+        {/* ─── Resize Handle + Details Panel ──────────────────────────────── */}
         {hasSelection && (
           <>
             {/* Resize Handle */}
             <div
               className={clsx(
-                'flex-shrink-0 z-20 group',
+                'relative group flex-shrink-0',
                 isBottomPanel 
-                  ? 'h-1.5 cursor-row-resize hover:bg-[var(--accent-blue)]/20'
-                  : 'w-1.5 cursor-col-resize hover:bg-[var(--accent-blue)]/20',
-                isResizing && 'bg-[var(--accent-blue)]/30'
+                  ? 'h-[5px] cursor-row-resize bg-[var(--bg-elevated)] border-y border-[var(--border-default)]'
+                  : 'w-[5px] cursor-col-resize bg-[var(--bg-elevated)] border-x border-[var(--border-default)]'
               )}
               onMouseDown={handleResizeStart}
             >
+              {/* Larger invisible hit area */}
               <div
                 className={clsx(
-                  'flex items-center justify-center',
-                  isBottomPanel 
-                    ? 'h-full w-12 mx-auto' 
-                    : 'w-full h-12 my-auto'
+                  'absolute z-10',
+                  isBottomPanel
+                    ? '-top-2 -bottom-2 left-0 right-0'
+                    : '-left-2 -right-2 top-0 bottom-0'
+                )}
+              />
+              {/* Center dots indicator */}
+              <div
+                className={clsx(
+                  'absolute inset-0 flex items-center justify-center',
+                  isBottomPanel ? 'flex-row gap-1' : 'flex-col gap-1'
                 )}
               >
-                <GripHorizontal 
-                  size={12} 
-                  className={clsx(
-                    'text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100 transition-opacity',
-                    !isBottomPanel && 'rotate-90'
-                  )} 
-                />
+                {[0, 1, 2].map(i => (
+                  <div
+                    key={i}
+                    className={clsx(
+                      'rounded-full bg-[var(--text-tertiary)] transition-colors',
+                      'w-1 h-1',
+                      'group-hover:bg-[var(--accent-blue)]',
+                      isResizing && 'bg-[var(--accent-blue)]'
+                    )}
+                  />
+                ))}
               </div>
+              {/* Highlight on hover/drag */}
+              <div
+                className={clsx(
+                  'absolute inset-0 transition-colors pointer-events-none',
+                  isResizing 
+                    ? 'bg-[var(--accent-blue)]/30' 
+                    : 'group-hover:bg-[var(--accent-blue)]/20'
+                )}
+              />
             </div>
 
             {/* Details Panel */}
             <div
-              className={clsx(
-                'flex-shrink-0 bg-[var(--bg-base)] overflow-hidden',
-                isBottomPanel 
-                  ? 'border-t border-[var(--border-default)]' 
-                  : 'border-l border-[var(--border-default)]'
-              )}
-              style={
-                isBottomPanel
-                  ? { height: panelSize }
-                  : { width: panelSize }
-              }
+              className="overflow-hidden bg-[var(--bg-base)] flex-shrink-0"
+              style={{
+                [isBottomPanel ? 'height' : 'width']: panelSize,
+                minHeight: 0,
+                minWidth: 0,
+              }}
             >
               <NetworkRequestDetails
                 request={selectedRequest}
@@ -426,16 +518,14 @@ export function NetworkTab() {
         )}
       </div>
 
-      {/* ─── Debugger Status Warning ──────────────────────────────────────── */}
-      {!debuggerAttached && (
-        <div className="absolute bottom-4 left-4 right-4 p-3 bg-[rgba(245,158,11,0.15)] border border-[rgba(245,158,11,0.3)] rounded-[var(--radius-md)] text-sm text-[var(--accent-amber)] z-30">
-          Network monitoring limited - debugger not attached
-        </div>
-      )}
-
-      {/* Resize Overlay (prevents iframe/selection issues while dragging) */}
+      {/* Resize overlay */}
       {isResizing && (
-        <div className="fixed inset-0 z-50 cursor-row-resize" />
+        <div 
+          className={clsx(
+            'fixed inset-0 z-50',
+            isBottomPanel ? 'cursor-row-resize' : 'cursor-col-resize'
+          )} 
+        />
       )}
     </div>
   );

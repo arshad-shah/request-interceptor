@@ -48,7 +48,19 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
   // Request Management
   // ============================================
   setRequests: (requests: NetworkRequest[]) => {
-    set({ requests });
+    set((state) => {
+      // Sync selected request with updated data if it exists in the new list
+      let selectedRequest = state.selectedRequest;
+      if (selectedRequest) {
+        const updatedSelected = requests.find(
+          (r) => r.requestId === selectedRequest!.requestId
+        );
+        if (updatedSelected) {
+          selectedRequest = updatedSelected;
+        }
+      }
+      return { requests, selectedRequest };
+    });
     get().updateStats();
   },
 
@@ -76,7 +88,13 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
         newRequests = newRequests.slice(-500);
       }
 
-      return { requests: newRequests };
+      // Sync selected request if it's the one being updated
+      const selectedRequest =
+        state.selectedRequest?.requestId === request.requestId
+          ? { ...state.selectedRequest, ...request }
+          : state.selectedRequest;
+
+      return { requests: newRequests, selectedRequest };
     });
     get().updateStats();
   },

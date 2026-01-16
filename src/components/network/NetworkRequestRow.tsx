@@ -192,7 +192,8 @@ export const NetworkRequestRow = memo(function NetworkRequestRow({
             request.method === 'PATCH' && 'cyan',
             request.method === 'DELETE' && 'rose',
             request.method === 'OPTIONS' && 'gray',
-            !['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'].includes(request.method) && 'gray'
+            request.method === 'WS' && 'violet',
+            !['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'WS'].includes(request.method) && 'gray'
           )}
         >
           {request.method}

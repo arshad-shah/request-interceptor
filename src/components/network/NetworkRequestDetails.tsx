@@ -20,8 +20,6 @@ import {
   Eye,
   Download,
   ExternalLink,
-  Maximize2,
-  Minimize2,
   Sparkles,
   Lock,
   Unlock,
@@ -36,8 +34,11 @@ import {
   AlertTriangle,
   Zap,
   Shield,
+  ArrowUp,
+  ArrowDown,
+  MessageSquare,
 } from 'lucide-react';
-import type { NetworkRequest, ResponseBody, ResponseView } from '../../types/network';
+import type { NetworkRequest, ResponseBody, ResponseView, WebSocketFrame } from '../../types/network';
 import {
   getStatusClass,
   getStatusText,
@@ -62,7 +63,10 @@ import {
   analyzePerformance,
   getInitiatorInfo,
   getLanguageFromMime,
+  parseRequestBody,
+  getBodyTypeLabel,
   type ExtendedDetailTab,
+  type ParsedFormField,
 } from './utils';
 import {
   Section,
@@ -117,12 +121,15 @@ export function NetworkRequestDetails({
   // ─── State ─────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<ExtendedDetailTab>('headers');
   const [responseView, setResponseView] = useState<ResponseView>('preview');
+  const [bodyView, setBodyView] = useState<'parsed' | 'raw'>('parsed');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [wsFilter, setWsFilter] = useState<'all' | 'sent' | 'received'>('all');
+  const [wsSearch, setWsSearch] = useState('');
+  const [selectedFrame, setSelectedFrame] = useState<WebSocketFrame | null>(null);
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -158,6 +165,14 @@ export function NetworkRequestDetails({
     [request.query]
   );
 
+  const parsedBody = useMemo(() => {
+    if (!request.postData) return null;
+    const contentType = request.requestHeaders?.find(
+      h => h.name.toLowerCase() === 'content-type'
+    )?.value;
+    return parseRequestBody(request.postData, contentType);
+  }, [request.postData, request.requestHeaders]);
+
   const timingPhases = useMemo(
     () => calculateTimingPhases(request.timing, request.duration),
     [request.timing, request.duration]
@@ -176,9 +191,14 @@ export function NetworkRequestDetails({
   // Load response body when response tab is selected
   useEffect(() => {
     if (activeTab === 'response' && !responseBody && !isLoading) {
-      loadResponseBody();
+      // First check if request already has response body embedded
+      if (request.responseBody?.body) {
+        onLoadResponseBody(request.responseBody);
+      } else {
+        loadResponseBody();
+      }
     }
-  }, [activeTab, request.requestId]);
+  }, [activeTab, request.requestId, request.responseBody]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -262,16 +282,17 @@ export function NetworkRequestDetails({
   };
 
   const handleDownloadResponse = () => {
-    if (!responseBody?.body) {
+    const body = responseBody || request.responseBody;
+    if (!body?.body) {
       showToast('No response to download');
       return;
     }
 
     try {
-      let content = responseBody.body;
-      let mimeType = responseBody.mimeType || 'application/octet-stream';
+      let content = body.body;
+      let mimeType = body.mimeType || 'application/octet-stream';
 
-      if (responseBody.base64Encoded) {
+      if (body.base64Encoded) {
         const byteChars = atob(content);
         const byteNumbers = new Array(byteChars.length);
         for (let i = 0; i < byteChars.length; i++) {
@@ -332,6 +353,16 @@ export function NetworkRequestDetails({
       items.push({ label: 'Served From', value: 'Service Worker' });
     }
 
+    // WebSocket specific info
+    if (request.type === 'websocket') {
+      if (request.wsFramesSent !== undefined) {
+        items.push({ label: 'Frames Sent', value: `${request.wsFramesSent} (${formatSize(request.wsSentSize || 0)})` });
+      }
+      if (request.wsFramesReceived !== undefined) {
+        items.push({ label: 'Frames Received', value: `${request.wsFramesReceived} (${formatSize(request.wsReceivedSize || 0)})` });
+      }
+    }
+
     return (
       <div className="space-y-0.5">
         {items.map(item => (
@@ -361,7 +392,10 @@ export function NetworkRequestDetails({
       );
     }
 
-    if (!responseBody?.body) {
+    // Use responseBody prop or fall back to request's embedded responseBody
+    const body = responseBody || request.responseBody;
+
+    if (!body?.body) {
       return (
         <EmptyState
           icon={<FileText size={32} />}
@@ -371,11 +405,11 @@ export function NetworkRequestDetails({
       );
     }
 
-    let content = responseBody.body;
-    const mimeType = responseBody.mimeType || request.mimeType || '';
+    let content = body.body;
+    const mimeType = body.mimeType || request.mimeType || '';
 
     // Handle base64 encoded content
-    if (responseBody.base64Encoded) {
+    if (body.base64Encoded) {
       if (mimeType.startsWith('image/')) {
         return (
           <div className="flex flex-col items-center gap-3">
@@ -431,6 +465,252 @@ export function NetworkRequestDetails({
         searchTerm={searchTerm}
         maxHeight={500}
       />
+    );
+  };
+
+  // ─── WebSocket Messages ────────────────────────────────────────────────────
+  
+  const filteredFrames = useMemo(() => {
+    if (!request.wsFrames) return [];
+    
+    let frames = request.wsFrames;
+    
+    // Filter by direction
+    if (wsFilter !== 'all') {
+      frames = frames.filter(f => f.type === wsFilter);
+    }
+    
+    // Filter by search
+    if (wsSearch) {
+      const search = wsSearch.toLowerCase();
+      frames = frames.filter(f => f.data.toLowerCase().includes(search));
+    }
+    
+    return frames;
+  }, [request.wsFrames, wsFilter, wsSearch]);
+
+  const renderMessages = () => {
+    const frames = request.wsFrames || [];
+    
+    if (frames.length === 0) {
+      return (
+        <EmptyState
+          icon={<MessageSquare size={32} />}
+          title="No messages yet"
+          description="WebSocket messages will appear here once sent or received"
+        />
+      );
+    }
+
+    const formatFrameTime = (timestamp: number) => {
+      const date = new Date(timestamp);
+      const h = String(date.getHours()).padStart(2, '0');
+      const m = String(date.getMinutes()).padStart(2, '0');
+      const s = String(date.getSeconds()).padStart(2, '0');
+      const ms = String(date.getMilliseconds()).padStart(3, '0');
+      return `${h}:${m}:${s}.${ms}`;
+    };
+
+    const formatFrameData = (data: string) => {
+      // Try to parse as JSON for pretty display
+      try {
+        const parsed = JSON.parse(data);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return data;
+      }
+    };
+
+    const isJson = (data: string) => {
+      try {
+        JSON.parse(data);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        {/* Toolbar */}
+        <div className="flex items-center gap-2 p-2 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)] flex-shrink-0">
+          {/* Direction filter */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setWsFilter('all')}
+              className={clsx('ds-filter-tab', wsFilter === 'all' && 'active')}
+            >
+              All
+              <span className="ds-badge gray text-[9px] ml-1">{frames.length}</span>
+            </button>
+            <button
+              onClick={() => setWsFilter('sent')}
+              className={clsx('ds-filter-tab', wsFilter === 'sent' && 'active')}
+            >
+              <ArrowUp size={10} className="text-emerald-500" />
+              Sent
+              <span className="ds-badge gray text-[9px] ml-1">
+                {frames.filter(f => f.type === 'sent').length}
+              </span>
+            </button>
+            <button
+              onClick={() => setWsFilter('received')}
+              className={clsx('ds-filter-tab', wsFilter === 'received' && 'active')}
+            >
+              <ArrowDown size={10} className="text-rose-500" />
+              Received
+              <span className="ds-badge gray text-[9px] ml-1">
+                {frames.filter(f => f.type === 'received').length}
+              </span>
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="flex-1 flex items-center gap-2 px-2 py-1 bg-[var(--bg-base)] rounded-[var(--radius-sm)] border border-[var(--border-subtle)]">
+            <Search size={12} className="text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              value={wsSearch}
+              onChange={e => setWsSearch(e.target.value)}
+              placeholder="Filter messages..."
+              className="flex-1 bg-transparent border-none outline-none text-[11px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
+            />
+            {wsSearch && (
+              <button onClick={() => setWsSearch('')} className="ds-icon-btn p-0.5">
+                <X size={10} />
+              </button>
+            )}
+          </div>
+
+          {/* Stats */}
+          <div className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-2">
+            <span className="flex items-center gap-1">
+              <ArrowUp size={10} className="text-emerald-500" />
+              {formatSize(request.wsSentSize || 0)}
+            </span>
+            <span className="flex items-center gap-1">
+              <ArrowDown size={10} className="text-rose-500" />
+              {formatSize(request.wsReceivedSize || 0)}
+            </span>
+          </div>
+        </div>
+
+        {/* Messages List */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Message list */}
+          <div className="flex-1 overflow-y-auto min-w-0">
+            {filteredFrames.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-[var(--text-tertiary)] text-sm">
+                No messages match your filter
+              </div>
+            ) : (
+              <div className="divide-y divide-[var(--border-subtle)]">
+                {filteredFrames.map((frame, index) => {
+                  const isSent = frame.type === 'sent';
+                  const isSelected = selectedFrame === frame;
+                  
+                  return (
+                    <div
+                      key={`${frame.timestamp}-${index}`}
+                      onClick={() => setSelectedFrame(isSelected ? null : frame)}
+                      className={clsx(
+                        'flex items-start gap-2 px-3 py-2 cursor-pointer transition-colors',
+                        'hover:bg-[var(--bg-elevated)]',
+                        isSelected && 'bg-[var(--accent-indigo)]/10 border-l-2 border-l-[var(--accent-indigo)]',
+                        isSent ? 'bg-emerald-500/5' : 'bg-rose-500/5'
+                      )}
+                    >
+                      {/* Direction icon */}
+                      <div className={clsx(
+                        'flex-shrink-0 p-1 rounded',
+                        isSent ? 'bg-emerald-500/20 text-emerald-500' : 'bg-rose-500/20 text-rose-500'
+                      )}>
+                        {isSent ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] text-[var(--text-tertiary)] font-mono">
+                            {formatFrameTime(frame.timestamp)}
+                          </span>
+                          <span className={clsx(
+                            'ds-badge text-[9px]',
+                            frame.opcode === 1 ? 'blue' : 'violet'
+                          )}>
+                            {frame.opcode === 1 ? 'text' : 'binary'}
+                          </span>
+                          <span className="text-[10px] text-[var(--text-tertiary)]">
+                            {formatSize(frame.length)}
+                          </span>
+                          {isJson(frame.data) && (
+                            <span className="ds-badge amber text-[9px]">JSON</span>
+                          )}
+                        </div>
+                        <div className={clsx(
+                          'font-mono text-[11px] break-all',
+                          isSent ? 'text-emerald-400' : 'text-rose-400',
+                          !isSelected && 'line-clamp-2'
+                        )}>
+                          {isSelected ? formatFrameData(frame.data) : frame.data}
+                        </div>
+                      </div>
+
+                      {/* Copy button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopy(frame.data, 'Message');
+                        }}
+                        className="ds-icon-btn flex-shrink-0 opacity-0 group-hover:opacity-100"
+                        title="Copy message"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Selected frame detail panel */}
+          {selectedFrame && (
+            <div className="w-1/2 border-l border-[var(--border-subtle)] flex flex-col bg-[var(--bg-base)]">
+              <div className="flex items-center justify-between px-3 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
+                <div className="flex items-center gap-2">
+                  <span className={clsx(
+                    'ds-badge',
+                    selectedFrame.type === 'sent' ? 'emerald' : 'rose'
+                  )}>
+                    {selectedFrame.type === 'sent' ? 'Sent' : 'Received'}
+                  </span>
+                  <span className="text-[11px] text-[var(--text-tertiary)] font-mono">
+                    {formatFrameTime(selectedFrame.timestamp)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <CopyButton text={selectedFrame.data} title="Copy" />
+                  <button
+                    onClick={() => setSelectedFrame(null)}
+                    className="ds-icon-btn"
+                    title="Close"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto p-3">
+                <CodeBlock
+                  content={formatFrameData(selectedFrame.data)}
+                  language={isJson(selectedFrame.data) ? 'json' : 'text'}
+                  maxHeight={400}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     );
   };
 
@@ -743,6 +1023,10 @@ export function NetworkRequestDetails({
 
   // ─── Tab Configuration ─────────────────────────────────────────────────────
 
+  const wsFrameCount = request.wsFrames?.length || 0;
+  
+  const isWebSocket = request.type === 'websocket';
+  
   const tabs: Array<{
     id: ExtendedDetailTab;
     label: string;
@@ -751,8 +1035,14 @@ export function NetworkRequestDetails({
     badgeType?: 'default' | 'warning' | 'error';
   }> = [
     { id: 'headers', label: 'Headers' },
-    { id: 'payload', label: 'Payload' },
-    { id: 'response', label: 'Response' },
+    // For WebSocket: show Messages tab; For HTTP: show Payload tab
+    ...(isWebSocket ? [{
+      id: 'messages' as ExtendedDetailTab,
+      label: 'Messages',
+      badge: wsFrameCount > 0 ? wsFrameCount : undefined,
+    }] : [{ id: 'payload' as ExtendedDetailTab, label: 'Payload' }]),
+    // Hide Response tab for WebSocket requests
+    ...(!isWebSocket ? [{ id: 'response' as ExtendedDetailTab, label: 'Response' }] : []),
     { id: 'timing', label: 'Timing' },
     {
       id: 'cookies',
@@ -785,12 +1075,7 @@ export function NetworkRequestDetails({
     <div
       ref={panelRef}
       tabIndex={-1}
-      className={clsx(
-        'absolute top-0 right-0 bottom-0',
-        'bg-[var(--bg-base)] border-l border-[var(--border-default)]',
-        'flex flex-col z-10 shadow-lg transition-all duration-200 outline-none',
-        isExpanded ? 'w-full' : 'w-1/2 min-w-[420px] max-w-[600px]'
-      )}
+      className="h-full w-full bg-[var(--bg-base)] flex flex-col outline-none overflow-hidden"
     >
       {/* ─── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-3 p-4 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
@@ -846,13 +1131,6 @@ export function NetworkRequestDetails({
 
         {/* Header actions */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="ds-icon-btn"
-            title={isExpanded ? 'Collapse' : 'Expand'}
-          >
-            {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-          </button>
           <button onClick={onClose} className="ds-icon-btn" title="Close (Esc)">
             <X size={16} />
           </button>
@@ -932,7 +1210,7 @@ export function NetworkRequestDetails({
       </div>
 
       {/* ─── Content ────────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-[var(--border-default)] scrollbar-track-transparent">
         {/* Headers Tab */}
         {activeTab === 'headers' && (
           <div className="space-y-3">
@@ -1032,16 +1310,84 @@ export function NetworkRequestDetails({
               onToggle={() => toggleSection('request-body')}
               actions={
                 request.postData ? (
-                  <CopyButton text={request.postData} title="Copy body" />
+                  <div className="flex items-center gap-2">
+                    {parsedBody && parsedBody.type !== 'text' && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setBodyView('parsed')}
+                          className={clsx('ds-filter-tab text-[10px]', bodyView === 'parsed' && 'active')}
+                        >
+                          Parsed
+                        </button>
+                        <button
+                          onClick={() => setBodyView('raw')}
+                          className={clsx('ds-filter-tab text-[10px]', bodyView === 'raw' && 'active')}
+                        >
+                          Raw
+                        </button>
+                      </div>
+                    )}
+                    <CopyButton text={request.postData} title="Copy body" />
+                  </div>
                 ) : undefined
               }
             >
               {request.postData ? (
-                <CodeBlock
-                  content={request.postData}
-                  language={looksLikeJson(request.postData) ? 'json' : 'text'}
-                  maxHeight={300}
-                />
+                <>
+                  {/* Parsed View */}
+                  {bodyView === 'parsed' && parsedBody && parsedBody.type !== 'text' ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-[11px] text-[var(--text-tertiary)] mb-2">
+                        <span className="ds-badge gray">{getBodyTypeLabel(parsedBody.type)}</span>
+                        {parsedBody.type === 'form-data' && Array.isArray(parsedBody.parsed) && (
+                          <span>{parsedBody.parsed.length} fields</span>
+                        )}
+                        {parsedBody.type === 'url-encoded' && Array.isArray(parsedBody.parsed) && (
+                          <span>{parsedBody.parsed.length} parameters</span>
+                        )}
+                      </div>
+                      
+                      {parsedBody.type === 'json' && parsedBody.parsed && (
+                        <CodeBlock
+                          content={JSON.stringify(parsedBody.parsed, null, 2)}
+                          language="json"
+                          maxHeight={300}
+                        />
+                      )}
+                      
+                      {(parsedBody.type === 'form-data' || parsedBody.type === 'url-encoded') && 
+                        Array.isArray(parsedBody.parsed) && (
+                        <div className="ds-header-group">
+                          {(parsedBody.parsed as ParsedFormField[]).map((field, i) => (
+                            <div key={`${field.name}-${i}`} className="ds-header-row">
+                              <span className="ds-header-name flex items-center gap-1.5">
+                                {field.name}
+                                {field.isFile && (
+                                  <span className="ds-badge violet text-[9px]">file</span>
+                                )}
+                              </span>
+                              <span className="ds-header-value break-all">
+                                {field.value}
+                                {field.contentType && (
+                                  <span className="text-[var(--text-tertiary)] text-[10px] ml-2">
+                                    ({field.contentType})
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Raw View */
+                    <CodeBlock
+                      content={request.postData}
+                      language={looksLikeJson(request.postData) ? 'json' : 'text'}
+                      maxHeight={300}
+                    />
+                  )}
+                </>
               ) : (
                 <div className="text-[var(--text-tertiary)] italic text-sm py-2">
                   No request body
@@ -1074,10 +1420,13 @@ export function NetworkRequestDetails({
               </div>
 
               <div className="ml-auto flex items-center gap-1">
-                {responseBody?.body && (
+                {(responseBody?.body || request.responseBody?.body) && (
                   <>
                     <CopyButton
-                      text={responseBody.base64Encoded ? atob(responseBody.body) : responseBody.body}
+                      text={(() => {
+                        const b = responseBody || request.responseBody;
+                        return b?.base64Encoded ? atob(b.body) : (b?.body || '');
+                      })()}
                       title="Copy response"
                     />
                     <button
@@ -1122,6 +1471,9 @@ export function NetworkRequestDetails({
 
         {/* Insights Tab */}
         {activeTab === 'insights' && renderInsights()}
+
+        {/* WebSocket Messages Tab */}
+        {activeTab === 'messages' && renderMessages()}
       </div>
 
       {/* ─── Footer Actions ─────────────────────────────────────────────────── */}

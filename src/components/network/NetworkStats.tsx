@@ -9,7 +9,7 @@ export function NetworkStats() {
   const stats = useNetworkStats();
 
   return (
-    <div className="flex gap-2 p-3 bg-[var(--bg-base)] border-b border-[var(--border-subtle)]">
+    <div className="flex-none flex gap-2 p-3 bg-[var(--bg-base)] border-b border-[var(--border-subtle)]">
       <div className="ds-stat-card compact flex-1">
         <span className="ds-stat-value">{stats.requestCount}</span>
         <span className="ds-stat-label">Requests</span>

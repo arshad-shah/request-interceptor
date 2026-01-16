@@ -64,6 +64,12 @@ interface NetworkRequest {
   remotePort?: number;
   redirectedTo?: string;
   responseBody?: ResponseBody;
+  // WebSocket specific fields
+  wsFramesSent?: number;
+  wsFramesReceived?: number;
+  wsSentSize?: number;
+  wsReceivedSize?: number;
+  wsFrames?: WebSocketFrame[];
 }
 
 interface ResponseBody {
@@ -71,6 +77,15 @@ interface ResponseBody {
   base64Encoded: boolean;
   mimeType?: string;
   truncated?: boolean;
+}
+
+interface WebSocketFrame {
+  type: 'sent' | 'received';
+  timestamp: number;
+  opcode: number; // 1 = text, 2 = binary
+  data: string;
+  length: number;
+  mask?: boolean;
 }
 
 interface NetworkSettings {
@@ -246,6 +261,25 @@ export class NetworkManager {
       case 'Network.dataReceived':
         this.handleDataReceived(tabId, params);
         break;
+      // WebSocket events
+      case 'Network.webSocketCreated':
+        this.handleWebSocketCreated(tabId, params);
+        break;
+      case 'Network.webSocketWillSendHandshakeRequest':
+        this.handleWebSocketHandshakeRequest(tabId, params);
+        break;
+      case 'Network.webSocketHandshakeResponseReceived':
+        this.handleWebSocketHandshakeResponse(tabId, params);
+        break;
+      case 'Network.webSocketFrameSent':
+        this.handleWebSocketFrameSent(tabId, params);
+        break;
+      case 'Network.webSocketFrameReceived':
+        this.handleWebSocketFrameReceived(tabId, params);
+        break;
+      case 'Network.webSocketClosed':
+        this.handleWebSocketClosed(tabId, params);
+        break;
     }
   }
 
@@ -415,6 +449,161 @@ export class NetworkManager {
         responseEnd: timestamp * 1000,
       },
     });
+  }
+
+  // ============================================
+  // WebSocket Event Handlers
+  // ============================================
+
+  private handleWebSocketCreated(tabId: number, params: any): void {
+    const { requestId, url, initiator } = params;
+
+    // Parse URL
+    let hostname = '',
+      pathname = '',
+      filename = '';
+    try {
+      const urlObj = new URL(url);
+      hostname = urlObj.hostname;
+      pathname = urlObj.pathname;
+      filename = urlObj.pathname.split('/').pop() || urlObj.hostname;
+      if (!filename || filename === '/') filename = hostname;
+    } catch {
+      hostname = url.substring(0, 50);
+      filename = hostname;
+    }
+
+    this.upsertRequest(tabId, requestId, {
+      requestId,
+      url,
+      method: 'WS',
+      type: 'websocket',
+      resourceType: 'WebSocket',
+      tabId,
+      hostname,
+      pathname,
+      filename,
+      query: '',
+      initiator: initiator?.url || initiator?.type || 'unknown',
+      requestHeaders: [],
+      responseHeaders: [],
+      startTime: Date.now(),
+      status: 'pending',
+    });
+  }
+
+  private handleWebSocketHandshakeRequest(tabId: number, params: any): void {
+    const { requestId, timestamp, request } = params;
+
+    this.upsertRequest(tabId, requestId, {
+      requestHeaders: this.headersToArray(request?.headers || {}),
+      startTime: timestamp * 1000,
+      status: 'loading',
+    });
+  }
+
+  private handleWebSocketHandshakeResponse(tabId: number, params: any): void {
+    const { requestId, timestamp, response } = params;
+
+    this.upsertRequest(tabId, requestId, {
+      statusCode: response?.status || 101,
+      statusLine: response?.statusText || 'Switching Protocols',
+      responseHeaders: this.headersToArray(response?.headers || {}),
+      status: 'complete',
+      timing: {
+        responseStart: timestamp * 1000,
+      },
+    });
+  }
+
+  private handleWebSocketFrameSent(tabId: number, params: any): void {
+    const { requestId, timestamp, response } = params;
+    const requestMap = this.tabRequests.get(tabId);
+    const request = requestMap?.get(requestId);
+    
+    if (request) {
+      // Track frame count and data
+      const frames = (request as any).wsFramesSent || 0;
+      const totalSize = (request as any).wsSentSize || 0;
+      const payloadData = response?.payloadData || '';
+      const payloadLength = payloadData.length;
+      
+      // Get existing frames or create new array
+      const existingFrames: WebSocketFrame[] = (request as any).wsFrames || [];
+      
+      // Add new frame (limit to last 500 frames to prevent memory issues)
+      const newFrame: WebSocketFrame = {
+        type: 'sent',
+        timestamp: timestamp * 1000,
+        opcode: response?.opcode || 1,
+        data: payloadData.length > 10000 ? payloadData.substring(0, 10000) + '...[truncated]' : payloadData,
+        length: payloadLength,
+        mask: response?.mask,
+      };
+      
+      const wsFrames = [...existingFrames, newFrame].slice(-500);
+      
+      this.upsertRequest(tabId, requestId, {
+        wsFramesSent: frames + 1,
+        wsSentSize: totalSize + payloadLength,
+        wsFrames,
+        duration: timestamp * 1000 - request.startTime,
+      } as any);
+    }
+  }
+
+  private handleWebSocketFrameReceived(tabId: number, params: any): void {
+    const { requestId, timestamp, response } = params;
+    const requestMap = this.tabRequests.get(tabId);
+    const request = requestMap?.get(requestId);
+    
+    if (request) {
+      // Track frame count and data
+      const frames = (request as any).wsFramesReceived || 0;
+      const totalSize = (request as any).wsReceivedSize || 0;
+      const payloadData = response?.payloadData || '';
+      const payloadLength = payloadData.length;
+      
+      // Get existing frames or create new array
+      const existingFrames: WebSocketFrame[] = (request as any).wsFrames || [];
+      
+      // Add new frame (limit to last 500 frames to prevent memory issues)
+      const newFrame: WebSocketFrame = {
+        type: 'received',
+        timestamp: timestamp * 1000,
+        opcode: response?.opcode || 1,
+        data: payloadData.length > 10000 ? payloadData.substring(0, 10000) + '...[truncated]' : payloadData,
+        length: payloadLength,
+        mask: response?.mask,
+      };
+      
+      const wsFrames = [...existingFrames, newFrame].slice(-500);
+      
+      this.upsertRequest(tabId, requestId, {
+        wsFramesReceived: frames + 1,
+        wsReceivedSize: totalSize + payloadLength,
+        wsFrames,
+        size: totalSize + payloadLength,
+        duration: timestamp * 1000 - request.startTime,
+      } as any);
+    }
+  }
+
+  private handleWebSocketClosed(tabId: number, params: any): void {
+    const { requestId, timestamp } = params;
+    const requestMap = this.tabRequests.get(tabId);
+    const request = requestMap?.get(requestId);
+    
+    if (request) {
+      this.upsertRequest(tabId, requestId, {
+        status: 'complete',
+        duration: timestamp * 1000 - request.startTime,
+        timing: {
+          ...request.timing,
+          responseEnd: timestamp * 1000,
+        },
+      });
+    }
   }
 
   // ============================================

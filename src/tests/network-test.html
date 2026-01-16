@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Network Tab Test Suite</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-card: #12121a;
+      --border: #2a2a3a;
+      --text: #e0e0e0;
+      --text-dim: #888;
+      --accent: #6366f1;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+      min-height: 100vh;
+    }
+    
+    h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+    
+    .subtitle {
+      color: var(--text-dim);
+      margin-bottom: 24px;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+    
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    
+    .card h2 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .card h2::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    button:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button.success { background: var(--success); }
+    button.warning { background: var(--warning); color: #000; }
+    button.error { background: var(--error); }
+    button.outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    
+    .log {
+      margin-top: 16px;
+      padding: 12px;
+      background: #000;
+      border-radius: 8px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 11px;
+      max-height: 200px;
+      overflow-y: auto;
+      color: var(--success);
+    }
+    
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    
+    .log-entry.error { color: var(--error); }
+    .log-entry.warning { color: var(--warning); }
+    
+    .status {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    
+    .status.connected { background: var(--success); color: #000; }
+    .status.disconnected { background: var(--error); }
+    
+    #wsStatus { margin-left: 8px; }
+    
+    .info-box {
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    
+    .info-box code {
+      background: rgba(0,0,0,0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔬 Network Tab Test Suite</h1>
+  <p class="subtitle">Test all features of the Request Interceptor Network tab</p>
+  
+  <div class="info-box">
+    Open the <strong>Request Interceptor</strong> extension sidebar and navigate to the <code>Network</code> tab to see captured requests.
+  </div>
+
+  <div class="grid">
+    <!-- Basic HTTP Methods -->
+    <div class="card">
+      <h2>HTTP Methods</h2>
+      <div class="btn-group">
+        <button onclick="testGet()">GET</button>
+        <button onclick="testPost()" class="success">POST</button>
+        <button onclick="testPut()" class="warning">PUT</button>
+        <button onclick="testPatch()" class="outline">PATCH</button>
+        <button onclick="testDelete()" class="error">DELETE</button>
+        <button onclick="testOptions()" class="outline">OPTIONS</button>
+      </div>
+    </div>
+
+    <!-- Status Codes -->
+    <div class="card">
+      <h2>Status Codes</h2>
+      <div class="btn-group">
+        <button onclick="testStatus(200)" class="success">200 OK</button>
+        <button onclick="testStatus(201)" class="success">201 Created</button>
+        <button onclick="testStatus(301)" class="warning">301 Redirect</button>
+        <button onclick="testStatus(400)" class="error">400 Bad Request</button>
+        <button onclick="testStatus(401)" class="error">401 Unauthorized</button>
+        <button onclick="testStatus(403)" class="error">403 Forbidden</button>
+        <button onclick="testStatus(404)" class="error">404 Not Found</button>
+        <button onclick="testStatus(500)" class="error">500 Server Error</button>
+      </div>
+    </div>
+
+    <!-- JWT Tokens -->
+    <div class="card">
+      <h2>JWT / Auth Tokens</h2>
+      <div class="btn-group">
+        <button onclick="testJwtBearer()">Bearer Token</button>
+        <button onclick="testJwtHeader()">X-Auth-Token</button>
+        <button onclick="testJwtCookie()">JWT Cookie</button>
+        <button onclick="testExpiredJwt()" class="warning">Expired JWT</button>
+        <button onclick="testBasicAuth()" class="outline">Basic Auth</button>
+      </div>
+    </div>
+
+    <!-- Cookies -->
+    <div class="card">
+      <h2>Cookies</h2>
+      <div class="btn-group">
+        <button onclick="testSetCookie()">Set Cookie</button>
+        <button onclick="testMultipleCookies()">Multiple Cookies</button>
+        <button onclick="testSecureCookie()">Secure Cookie</button>
+        <button onclick="testHttpOnlyCookie()">HttpOnly Cookie</button>
+        <button onclick="clearCookies()" class="error">Clear Cookies</button>
+      </div>
+    </div>
+
+    <!-- Content Types -->
+    <div class="card">
+      <h2>Content Types</h2>
+      <div class="btn-group">
+        <button onclick="testJson()">JSON</button>
+        <button onclick="testHtml()">HTML</button>
+        <button onclick="testXml()">XML</button>
+        <button onclick="testPlainText()">Plain Text</button>
+        <button onclick="testImage()">Image</button>
+        <button onclick="testPdf()" class="outline">PDF</button>
+      </div>
+    </div>
+
+    <!-- Response Sizes -->
+    <div class="card">
+      <h2>Response Sizes</h2>
+      <div class="btn-group">
+        <button onclick="testSmallResponse()">Small (100B)</button>
+        <button onclick="testMediumResponse()">Medium (10KB)</button>
+        <button onclick="testLargeResponse()">Large (100KB)</button>
+        <button onclick="testHugeResponse()" class="warning">Huge (1MB)</button>
+      </div>
+    </div>
+
+    <!-- Timing & Performance -->
+    <div class="card">
+      <h2>Timing & Performance</h2>
+      <div class="btn-group">
+        <button onclick="testFastRequest()">Fast (&lt;50ms)</button>
+        <button onclick="testSlowRequest()">Slow (500ms)</button>
+        <button onclick="testVerySlowRequest()" class="warning">Very Slow (2s)</button>
+        <button onclick="testParallelRequests()">Parallel (5x)</button>
+        <button onclick="testSequentialRequests()">Sequential (3x)</button>
+      </div>
+    </div>
+
+    <!-- Query Parameters -->
+    <div class="card">
+      <h2>Query Parameters</h2>
+      <div class="btn-group">
+        <button onclick="testSimpleQuery()">Simple Query</button>
+        <button onclick="testComplexQuery()">Complex Query</button>
+        <button onclick="testArrayQuery()">Array Params</button>
+        <button onclick="testEncodedQuery()">Encoded Chars</button>
+      </div>
+    </div>
+
+    <!-- Request Bodies -->
+    <div class="card">
+      <h2>Request Bodies</h2>
+      <div class="btn-group">
+        <button onclick="testJsonBody()">JSON Body</button>
+        <button onclick="testFormData()">Form Data</button>
+        <button onclick="testUrlEncoded()">URL Encoded</button>
+        <button onclick="testNestedJson()">Nested JSON</button>
+        <button onclick="testLargeBody()" class="warning">Large Body</button>
+      </div>
+    </div>
+
+    <!-- Headers -->
+    <div class="card">
+      <h2>Custom Headers</h2>
+      <div class="btn-group">
+        <button onclick="testCustomHeaders()">Custom Headers</button>
+        <button onclick="testCorsHeaders()">CORS Headers</button>
+        <button onclick="testCacheHeaders()">Cache Headers</button>
+        <button onclick="testSecurityHeaders()">Security Headers</button>
+      </div>
+    </div>
+
+    <!-- Error Scenarios -->
+    <div class="card">
+      <h2>Error Scenarios</h2>
+      <div class="btn-group">
+        <button onclick="testNetworkError()" class="error">Network Error</button>
+        <button onclick="testTimeout()" class="error">Timeout</button>
+        <button onclick="testAbort()" class="warning">Aborted</button>
+        <button onclick="testCorsError()" class="error">CORS Error</button>
+      </div>
+    </div>
+
+    <!-- WebSocket -->
+    <div class="card">
+      <h2>WebSocket <span id="wsStatus" class="status disconnected">Disconnected</span></h2>
+      <div class="btn-group">
+        <button onclick="wsConnect()">Connect</button>
+        <button onclick="wsSendMessage()">Send Text</button>
+        <button onclick="wsSendJson()">Send JSON</button>
+        <button onclick="wsSendBurst()" class="warning">Burst (10x)</button>
+        <button onclick="wsSendLarge()" class="outline">Large Payload</button>
+        <button onclick="wsDisconnect()" class="error">Disconnect</button>
+      </div>
+    </div>
+
+    <!-- Batch Tests -->
+    <div class="card">
+      <h2>Batch Tests</h2>
+      <div class="btn-group">
+        <button onclick="runAllBasicTests()">Run Basic Tests</button>
+        <button onclick="runAllAuthTests()">Run Auth Tests</button>
+        <button onclick="runStressTest()" class="warning">Stress Test (20 req)</button>
+        <button onclick="clearLog()" class="outline">Clear Log</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Output -->
+  <div class="card" style="margin-top: 24px;">
+    <h2>Request Log</h2>
+    <div id="log" class="log">
+      <div class="log-entry">Ready to test...</div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // Logging
+    // ============================================
+    function log(message, type = 'info') {
+      const logEl = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    
+    function clearLog() {
+      document.getElementById('log').innerHTML = '<div class="log-entry">Log cleared</div>';
+    }
+
+    // ============================================
+    // JWT Tokens (for testing JWT detection)
+    // ============================================
+    
+    // Valid JWT with typical claims
+    const VALID_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiZW1haWwiOiJqb2huQGV4YW1wbGUuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzA0MDY3MjAwLCJleHAiOjE4MDAwMDAwMDB9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+    
+    // Expired JWT
+    const EXPIRED_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjN9.4Adcj3UFYzPUVaVF43FmMab6RlaQD8A9V8wFzzht-KQ';
+
+    // ============================================
+    // API Endpoints (using public test APIs)
+    // ============================================
+    const API = {
+      jsonplaceholder: 'https://jsonplaceholder.typicode.com',
+      httpbin: 'https://httpbin.org',
+      reqres: 'https://reqres.in/api',
+      dummyjson: 'https://dummyjson.com',
+    };
+
+    // ============================================
+    // HTTP Methods Tests
+    // ============================================
+    async function testGet() {
+      log('Testing GET request...');
+      try {
+        const res = await fetch(`${API.jsonplaceholder}/posts/1`);
+        const data = await res.json();
+        log(`GET successful: ${data.title.substring(0, 30)}...`, 'success');
+      } catch (e) {
+        log(`GET failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testPost() {
+      log('Testing POST request...');
+      try {
+        const res = await fetch(`${API.jsonplaceholder}/posts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: 'Test Post',
+            body: 'This is a test post body',
+            userId: 1
+          })
+        });
+        const data = await res.json();
+        log(`POST successful: Created post ID ${data.id}`, 'success');
+      } catch (e) {
+        log(`POST failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testPut() {
+      log('Testing PUT request...');
+      try {
+        const res = await fetch(`${API.jsonplaceholder}/posts/1`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: 1,
+            title: 'Updated Title',
+            body: 'Updated body content',
+            userId: 1
+          })
+        });
+        const data = await res.json();
+        log(`PUT successful: Updated post ${data.id}`, 'success');
+      } catch (e) {
+        log(`PUT failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testPatch() {
+      log('Testing PATCH request...');
+      try {
+        const res = await fetch(`${API.jsonplaceholder}/posts/1`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'Patched Title' })
+        });
+        const data = await res.json();
+        log(`PATCH successful: Patched post ${data.id}`, 'success');
+      } catch (e) {
+        log(`PATCH failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testDelete() {
+      log('Testing DELETE request...');
+      try {
+        const res = await fetch(`${API.jsonplaceholder}/posts/1`, {
+          method: 'DELETE'
+        });
+        log(`DELETE successful: Status ${res.status}`, 'success');
+      } catch (e) {
+        log(`DELETE failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testOptions() {
+      log('Testing OPTIONS request...');
+      try {
+        const res = await fetch(`${API.httpbin}/get`, {
+          method: 'OPTIONS'
+        });
+        log(`OPTIONS successful: Status ${res.status}`, 'success');
+      } catch (e) {
+        log(`OPTIONS failed: ${e.message}`, 'error');
+      }
+    }
+
+    // ============================================
+    // Status Code Tests
+    // ============================================
+    async function testStatus(code) {
+      log(`Testing ${code} status...`);
+      try {
+        const res = await fetch(`${API.httpbin}/status/${code}`);
+        log(`Status ${code}: ${res.statusText}`, res.ok ? 'success' : 'warning');
+      } catch (e) {
+        log(`Status ${code} failed: ${e.message}`, 'error');
+      }
+    }
+
+    // ============================================
+    // JWT / Auth Tests
+    // ============================================
+    async function testJwtBearer() {
+      log('Testing Bearer token auth...');
+      try {
+        const res = await fetch(`${API.httpbin}/bearer`, {
+          headers: {
+            'Authorization': `Bearer ${VALID_JWT}`
+          }
+        });
+        const data = await res.json();
+        log(`Bearer auth: ${data.authenticated ? 'Authenticated' : 'Failed'}`, 'success');
+      } catch (e) {
+        log(`Bearer auth failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testJwtHeader() {
+      log('Testing X-Auth-Token header...');
+      try {
+        const res = await fetch(`${API.httpbin}/headers`, {
+          headers: {
+            'X-Auth-Token': VALID_JWT,
+            'X-API-Key': 'api_key_12345'
+          }
+        });
+        const data = await res.json();
+        log('X-Auth-Token header sent successfully', 'success');
+      } catch (e) {
+        log(`X-Auth-Token failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testJwtCookie() {
+      log('Testing JWT in cookie...');
+      document.cookie = `auth_token=${VALID_JWT}; path=/`;
+      try {
+        const res = await fetch(`${API.httpbin}/cookies`, {
+          credentials: 'include'
+        });
+        log('JWT cookie set and request sent', 'success');
+      } catch (e) {
+        log(`JWT cookie test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testExpiredJwt() {
+      log('Testing expired JWT...');
+      try {
+        const res = await fetch(`${API.httpbin}/bearer`, {
+          headers: {
+            'Authorization': `Bearer ${EXPIRED_JWT}`
+          }
+        });
+        log('Expired JWT sent (check Insights tab for expiry detection)', 'warning');
+      } catch (e) {
+        log(`Expired JWT test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testBasicAuth() {
+      log('Testing Basic auth...');
+      try {
+        const res = await fetch(`${API.httpbin}/basic-auth/user/passwd`, {
+          headers: {
+            'Authorization': 'Basic ' + btoa('user:passwd')
+          }
+        });
+        const data = await res.json();
+        log(`Basic auth: ${data.authenticated ? 'Authenticated' : 'Failed'}`, 'success');
+      } catch (e) {
+        log(`Basic auth failed: ${e.message}`, 'error');
+      }
+    }
+
+    // ============================================
+    // Cookie Tests
+    // ============================================
+    async function testSetCookie() {
+      log('Testing Set-Cookie response...');
+      try {
+        const res = await fetch(`${API.httpbin}/cookies/set?session_id=abc123&user_pref=dark`);
+        log('Cookies set via response headers', 'success');
+      } catch (e) {
+        log(`Set cookie failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testMultipleCookies() {
+      log('Testing multiple cookies...');
+      document.cookie = 'cookie1=value1; path=/';
+      document.cookie = 'cookie2=value2; path=/';
+      document.cookie = 'cookie3=value3; path=/';
+      try {
+        const res = await fetch(`${API.httpbin}/cookies`, {
+          credentials: 'include'
+        });
+        log('Multiple cookies sent', 'success');
+      } catch (e) {
+        log(`Multiple cookies test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testSecureCookie() {
+      log('Testing Secure cookie attribute...');
+      try {
+        const res = await fetch(`${API.httpbin}/cookies/set?secure_cookie=secret; Secure`);
+        log('Secure cookie request sent', 'success');
+      } catch (e) {
+        log(`Secure cookie test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testHttpOnlyCookie() {
+      log('Testing HttpOnly cookie...');
+      try {
+        const res = await fetch(`${API.httpbin}/response-headers?Set-Cookie=httponly_test=value; HttpOnly`);
+        log('HttpOnly cookie request sent', 'success');
+      } catch (e) {
+        log(`HttpOnly cookie test failed: ${e.message}`, 'error');
+      }
+    }
+
+    function clearCookies() {
+      document.cookie.split(";").forEach(c => {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+      log('Cookies cleared', 'success');
+    }
+
+    // ============================================
+    // Content Type Tests
+    // ============================================
+    async function testJson() {
+      log('Testing JSON response...');
+      try {
+        const res = await fetch(`${API.dummyjson}/products/1`);
+        const data = await res.json();
+        log(`JSON response: ${data.title}`, 'success');
+      } catch (e) {
+        log(`JSON test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testHtml() {
+      log('Testing HTML response...');
+      try {
+        const res = await fetch(`${API.httpbin}/html`);
+        const html = await res.text();
+        log(`HTML response: ${html.length} chars`, 'success');
+      } catch (e) {
+        log(`HTML test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testXml() {
+      log('Testing XML response...');
+      try {
+        const res = await fetch(`${API.httpbin}/xml`);
+        const xml = await res.text();
+        log(`XML response: ${xml.length} chars`, 'success');
+      } catch (e) {
+        log(`XML test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testPlainText() {
+      log('Testing plain text response...');
+      try {
+        const res = await fetch(`${API.httpbin}/robots.txt`);
+        const text = await res.text();
+        log(`Plain text: ${text.substring(0, 50)}...`, 'success');
+      } catch (e) {
+        log(`Plain text test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testImage() {
+      log('Testing image response...');
+      try {
+        const res = await fetch(`${API.httpbin}/image/png`);
+        const blob = await res.blob();
+        log(`Image response: ${blob.size} bytes, type: ${blob.type}`, 'success');
+      } catch (e) {
+        log(`Image test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testPdf() {
+      log('Testing PDF download simulation...');
+      try {
+        const res = await fetch(`${API.httpbin}/bytes/1024`, {
+          headers: { 'Accept': 'application/pdf' }
+        });
+        const blob = await res.blob();
+        log(`Binary response: ${blob.size} bytes`, 'success');
+      } catch (e) {
+        log(`PDF test failed: ${e.message}`, 'error');
+      }
+    }
+
+    // ============================================
+    // Response Size Tests
+    // ============================================
+    async function testSmallResponse() {
+      log('Testing small response (100 bytes)...');
+      try {
+        const res = await fetch(`${API.httpbin}/bytes/100`);
+        const blob = await res.blob();
+        log(`Small response: ${blob.size} bytes`, 'success');
+      } catch (e) {
+        log(`Small response test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testMediumResponse() {
+      log('Testing medium response (10KB)...');
+      try {
+        const res = await fetch(`${API.httpbin}/bytes/10240`);
+        const blob = await res.blob();
+        log(`Medium response: ${blob.size} bytes`, 'success');
+      } catch (e) {
+        log(`Medium response test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testLargeResponse() {
+      log('Testing large response (100KB)...');
+      try {
+        const res = await fetch(`${API.httpbin}/bytes/102400`);
+        const blob = await res.blob();
+        log(`Large response: ${blob.size} bytes`, 'success');
+      } catch (e) {
+        log(`Large response test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testHugeResponse() {
+      log('Testing huge response (1MB) - may be truncated...');
+      try {
+        const res = await fetch(`${API.httpbin}/bytes/1048576`);
+        const blob = await res.blob();
+        log(`Huge response: ${blob.size} bytes`, 'success');
+      } catch (e) {
+        log(`Huge response test failed: ${e.message}`, 'error');
+      }
+    }
+
+    // ============================================
+    // Timing Tests
+    // ============================================
+    async function testFastRequest() {
+      log('Testing fast request...');
+      const start = Date.now();
+      try {
+        const res = await fetch(`${API.jsonplaceholder}/posts/1`);
+        const time = Date.now() - start;
+        log(`Fast request: ${time}ms`, 'success');
+      } catch (e) {
+        log(`Fast request failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testSlowRequest() {
+      log('Testing slow request (500ms delay)...');
+      const start = Date.now();
+      try {
+        const res = await fetch(`${API.httpbin}/delay/0.5`);
+        const time = Date.now() - start;
+        log(`Slow request: ${time}ms`, 'success');
+      } catch (e) {
+        log(`Slow request failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testVerySlowRequest() {
+      log('Testing very slow request (2s delay)...');
+      const start = Date.now();
+      try {
+        const res = await fetch(`${API.httpbin}/delay/2`);
+        const time = Date.now() - start;
+        log(`Very slow request: ${time}ms`, 'success');
+      } catch (e) {
+        log(`Very slow request failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testParallelRequests() {
+      log('Testing 5 parallel requests...');
+      const start = Date.now();
+      try {
+        await Promise.all([
+          fetch(`${API.jsonplaceholder}/posts/1`),
+          fetch(`${API.jsonplaceholder}/posts/2`),
+          fetch(`${API.jsonplaceholder}/posts/3`),
+          fetch(`${API.jsonplaceholder}/posts/4`),
+          fetch(`${API.jsonplaceholder}/posts/5`),
+        ]);
+        const time = Date.now() - start;
+        log(`5 parallel requests: ${time}ms total`, 'success');
+      } catch (e) {
+        log(`Parallel requests failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testSequentialRequests() {
+      log('Testing 3 sequential requests...');
+      const start = Date.now();
+      try {
+        await fetch(`${API.jsonplaceholder}/posts/1`);
+        await fetch(`${API.jsonplaceholder}/posts/2`);
+        await fetch(`${API.jsonplaceholder}/posts/3`);
+        const time = Date.now() - start;
+        log(`3 sequential requests: ${time}ms total`, 'success');
+      } catch (e) {
+        log(`Sequential requests failed: ${e.message}`, 'error');
+      }
+    }
+
+    // ============================================
+    // Query Parameter Tests
+    // ============================================
+    async function testSimpleQuery() {
+      log('Testing simple query parameters...');
+      try {
+        const res = await fetch(`${API.httpbin}/get?name=John&age=30`);
+        const data = await res.json();
+        log(`Query params received: ${JSON.stringify(data.args)}`, 'success');
+      } catch (e) {
+        log(`Simple query test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testComplexQuery() {
+      log('Testing complex query parameters...');
+      try {
+        const res = await fetch(`${API.httpbin}/get?filter[status]=active&filter[type]=user&sort=-created_at&page=1&limit=10`);
+        const data = await res.json();
+        log(`Complex query received: ${Object.keys(data.args).length} params`, 'success');
+      } catch (e) {
+        log(`Complex query test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testArrayQuery() {
+      log('Testing array query parameters...');
+      try {
+        const res = await fetch(`${API.httpbin}/get?ids[]=1&ids[]=2&ids[]=3&tags=a&tags=b`);
+        const data = await res.json();
+        log(`Array query received: ${JSON.stringify(data.args)}`, 'success');
+      } catch (e) {
+        log(`Array query test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testEncodedQuery() {
+      log('Testing URL-encoded query parameters...');
+      try {
+        const res = await fetch(`${API.httpbin}/get?message=${encodeURIComponent('Hello World! Special chars: @#$%')}&emoji=${encodeURIComponent('🚀🎉')}`);
+        const data = await res.json();
+        log(`Encoded query received: ${data.args.message}`, 'success');
+      } catch (e) {
+        log(`Encoded query test failed: ${e.message}`, 'error');
+      }
+    }
+
+    // ============================================
+    // Request Body Tests
+    // ============================================
+    async function testJsonBody() {
+      log('Testing JSON request body...');
+      try {
+        const res = await fetch(`${API.httpbin}/post`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Test User',
+            email: 'test@example.com',
+            age: 25,
+            active: true
+          })
+        });
+        const data = await res.json();
+        log(`JSON body received: ${JSON.stringify(data.json)}`, 'success');
+      } catch (e) {
+        log(`JSON body test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testFormData() {
+      log('Testing FormData body...');
+      try {
+        const formData = new FormData();
+        formData.append('username', 'testuser');
+        formData.append('password', 'secret123');
+        formData.append('remember', 'true');
+        
+        const res = await fetch(`${API.httpbin}/post`, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        log(`FormData received: ${JSON.stringify(data.form)}`, 'success');
+      } catch (e) {
+        log(`FormData test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testUrlEncoded() {
+      log('Testing URL-encoded body...');
+      try {
+        const res = await fetch(`${API.httpbin}/post`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'grant_type=password&username=user&password=pass'
+        });
+        const data = await res.json();
+        log(`URL-encoded received: ${JSON.stringify(data.form)}`, 'success');
+      } catch (e) {
+        log(`URL-encoded test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testNestedJson() {
+      log('Testing nested JSON body...');
+      try {
+        const res = await fetch(`${API.httpbin}/post`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user: {
+              profile: {
+                name: 'John Doe',
+                settings: {
+                  theme: 'dark',
+                  notifications: {
+                    email: true,
+                    push: false
+                  }
+                }
+              }
+            },
+            metadata: {
+              timestamp: Date.now(),
+              version: '1.0.0'
+            }
+          })
+        });
+        const data = await res.json();
+        log('Nested JSON received successfully', 'success');
+      } catch (e) {
+        log(`Nested JSON test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testLargeBody() {
+      log('Testing large request body (50KB)...');
+      try {
+        const largeData = { items: [] };
+        for (let i = 0; i < 500; i++) {
+          largeData.items.push({
+            id: i,
+            name: `Item ${i}`,
+            description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+            value: Math.random() * 1000
+          });
+        }
+        
+        const res = await fetch(`${API.httpbin}/post`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(largeData)
+        });
+        const data = await res.json();
+        log(`Large body sent: ${JSON.stringify(largeData).length} chars`, 'success');
+      } catch (e) {
+        log(`Large body test failed: ${e.message}`, 'error');
+      }
+    }
+
+    // ============================================
+    // Custom Headers Tests
+    // ============================================
+    async function testCustomHeaders() {
+      log('Testing custom headers...');
+      try {
+        const res = await fetch(`${API.httpbin}/headers`, {
+          headers: {
+            'X-Custom-Header': 'custom-value',
+            'X-Request-ID': 'req-12345',
+            'X-Client-Version': '2.0.0',
+            'Accept-Language': 'en-US,en;q=0.9'
+          }
+        });
+        const data = await res.json();
+        log(`Custom headers received: ${Object.keys(data.headers).length} headers`, 'success');
+      } catch (e) {
+        log(`Custom headers test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testCorsHeaders() {
+      log('Testing CORS-related headers...');
+      try {
+        const res = await fetch(`${API.httpbin}/response-headers?Access-Control-Allow-Origin=*&Access-Control-Allow-Methods=GET,POST`);
+        log('CORS headers request sent', 'success');
+      } catch (e) {
+        log(`CORS headers test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testCacheHeaders() {
+      log('Testing cache control headers...');
+      try {
+        const res = await fetch(`${API.httpbin}/cache/60`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+        log(`Cache headers: ${res.headers.get('cache-control') || 'none'}`, 'success');
+      } catch (e) {
+        log(`Cache headers test failed: ${e.message}`, 'error');
+      }
+    }
+
+    async function testSecurityHeaders() {
+      log('Testing security headers...');
+      try {
+        const res = await fetch(`${API.httpbin}/response-headers?X-Frame-Options=DENY&X-Content-Type-Options=nosniff&Strict-Transport-Security=max-age=31536000`);
+        log('Security headers request sent', 'success');
+      } catch (e) {
+        log(`Security headers test failed: ${e.message}`, 'error');
+      }
+    }
+
+    // ============================================
+    // Error Scenario Tests
+    // ============================================
+    async function testNetworkError() {
+      log('Testing network error (invalid domain)...');
+      try {
+        await fetch('https://this-domain-definitely-does-not-exist-12345.com/api');
+        log('Should have failed!', 'error');
+      } catch (e) {
+        log(`Network error caught: ${e.message}`, 'warning');
+      }
+    }
+
+    async function testTimeout() {
+      log('Testing request timeout (simulated with AbortController)...');
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), 500);
+      
+      try {
+        await fetch(`${API.httpbin}/delay/5`, {
+          signal: controller.signal
+        });
+        log('Should have timed out!', 'error');
+      } catch (e) {
+        log(`Timeout caught: ${e.message}`, 'warning');
+      }
+    }
+
+    async function testAbort() {
+      log('Testing aborted request...');
+      const controller = new AbortController();
+      
+      const fetchPromise = fetch(`${API.httpbin}/delay/2`, {
+        signal: controller.signal
+      });
+      
+      setTimeout(() => controller.abort(), 100);
+      
+      try {
+        await fetchPromise;
+        log('Should have been aborted!', 'error');
+      } catch (e) {
+        log(`Abort caught: ${e.message}`, 'warning');
+      }
+    }
+
+    async function testCorsError() {
+      log('Testing CORS error (may vary by browser)...');
+      try {
+        await fetch('https://example.com/api', {
+          mode: 'cors'
+        });
+        log('CORS request completed (may have succeeded or been blocked)', 'warning');
+      } catch (e) {
+        log(`CORS error caught: ${e.message}`, 'warning');
+      }
+    }
+
+    // ============================================
+    // WebSocket Tests
+    // ============================================
+    let ws = null;
+
+    function updateWsStatus(connected) {
+      const el = document.getElementById('wsStatus');
+      el.textContent = connected ? 'Connected' : 'Disconnected';
+      el.className = `status ${connected ? 'connected' : 'disconnected'}`;
+    }
+
+    function wsConnect() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        log('WebSocket already connected', 'warning');
+        return;
+      }
+      
+      log('Connecting to WebSocket...');
+      ws = new WebSocket('wss://echo.websocket.org');
+      
+      ws.onopen = () => {
+        log('WebSocket connected!', 'success');
+        updateWsStatus(true);
+      };
+      
+      ws.onmessage = (event) => {
+        log(`WS message received: ${event.data.substring(0, 50)}...`, 'success');
+      };
+      
+      ws.onerror = (error) => {
+        log('WebSocket error', 'error');
+      };
+      
+      ws.onclose = () => {
+        log('WebSocket disconnected', 'warning');
+        updateWsStatus(false);
+      };
+    }
+
+    function wsSendMessage() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log('WebSocket not connected', 'error');
+        return;
+      }
+      
+      const message = `Hello at ${new Date().toLocaleTimeString()}`;
+      ws.send(message);
+      log(`WS message sent: ${message}`, 'success');
+    }
+
+    function wsSendJson() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log('WebSocket not connected', 'error');
+        return;
+      }
+      
+      const data = {
+        type: 'chat',
+        payload: {
+          user: 'TestUser',
+          message: 'Hello WebSocket!',
+          timestamp: Date.now()
+        }
+      };
+      ws.send(JSON.stringify(data));
+      log(`WS JSON sent: ${JSON.stringify(data)}`, 'success');
+    }
+
+    function wsSendBurst() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log('WebSocket not connected', 'error');
+        return;
+      }
+      
+      log('Sending burst of 10 messages...');
+      for (let i = 1; i <= 10; i++) {
+        const data = {
+          type: 'burst',
+          index: i,
+          total: 10,
+          timestamp: Date.now()
+        };
+        ws.send(JSON.stringify(data));
+      }
+      log('Burst complete - 10 messages sent', 'success');
+    }
+
+    function wsSendLarge() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log('WebSocket not connected', 'error');
+        return;
+      }
+      
+      // Send a larger payload
+      const largeData = {
+        type: 'large-payload',
+        items: Array.from({ length: 100 }, (_, i) => ({
+          id: i + 1,
+          name: `Item ${i + 1}`,
+          description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+          value: Math.random() * 1000,
+          active: i % 2 === 0
+        }))
+      };
+      ws.send(JSON.stringify(largeData));
+      log(`Large JSON sent: ${JSON.stringify(largeData).length} bytes`, 'success');
+    }
+
+    function wsDisconnect() {
+      if (ws) {
+        ws.close();
+        ws = null;
+        log('WebSocket disconnecting...', 'warning');
+      } else {
+        log('WebSocket not connected', 'warning');
+      }
+    }
+
+    // ============================================
+    // Batch Tests
+    // ============================================
+    async function runAllBasicTests() {
+      log('Running all basic tests...');
+      await testGet();
+      await testPost();
+      await testJson();
+      await testSimpleQuery();
+      await testCustomHeaders();
+      log('Basic tests complete!', 'success');
+    }
+
+    async function runAllAuthTests() {
+      log('Running all auth tests...');
+      await testJwtBearer();
+      await testJwtHeader();
+      await testExpiredJwt();
+      await testBasicAuth();
+      await testSetCookie();
+      log('Auth tests complete!', 'success');
+    }
+
+    async function runStressTest() {
+      log('Running stress test (20 requests)...');
+      const start = Date.now();
+      const requests = [];
+      
+      for (let i = 1; i <= 20; i++) {
+        requests.push(fetch(`${API.jsonplaceholder}/posts/${i}`));
+      }
+      
+      try {
+        await Promise.all(requests);
+        const time = Date.now() - start;
+        log(`Stress test complete: 20 requests in ${time}ms`, 'success');
+      } catch (e) {
+        log(`Stress test failed: ${e.message}`, 'error');
+      }
+    }
+
+    // Initial log message
+    log('Test suite ready. Click buttons to test features.', 'success');
+  </script>
+</body>
+</html>

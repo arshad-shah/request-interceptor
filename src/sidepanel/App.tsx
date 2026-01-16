@@ -61,7 +61,7 @@ const App: React.FC = () => {
   }, [setEnabled, setRoutes]);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] flex flex-col dark-theme">
+    <div className="h-screen w-full flex flex-col bg-[var(--bg-base)] dark-theme overflow-hidden">
       <Header />
       <Navigation />
       <TabContent />

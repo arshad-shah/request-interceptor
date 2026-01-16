@@ -29,7 +29,8 @@ export type HttpMethod =
   | 'DELETE'
   | 'PATCH'
   | 'OPTIONS'
-  | 'HEAD';
+  | 'HEAD'
+  | 'WS';
 
 // ============================================
 // Header Types
@@ -150,6 +151,26 @@ export interface NetworkRequest {
 
   // Response Body (populated when request completes)
   responseBody?: ResponseBody;
+
+  // WebSocket specific fields
+  wsFramesSent?: number;
+  wsFramesReceived?: number;
+  wsSentSize?: number;
+  wsReceivedSize?: number;
+  wsFrames?: WebSocketFrame[];
+}
+
+// ============================================
+// WebSocket Frame
+// ============================================
+
+export interface WebSocketFrame {
+  type: 'sent' | 'received';
+  timestamp: number;
+  opcode: number; // 1 = text, 2 = binary
+  data: string;
+  length: number;
+  mask?: boolean;
 }
 
 // ============================================
