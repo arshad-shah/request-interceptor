@@ -1,5 +1,11 @@
 // Enhanced Background script for Request Interceptor Chrome Extension with WebSocket Support - FIXED
 
+// Import network monitoring functionality
+import { networkManager } from './lib/network-background';
+
+// Initialize network manager (imported for side effects - sets up listeners)
+console.log('[Background] Network manager initialized:', !!networkManager);
+
 interface HeaderConfig {
   [key: string]: string;
 }

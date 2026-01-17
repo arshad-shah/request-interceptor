@@ -122,7 +122,7 @@ export interface ChromeMessage {
   [key: string]: any;
 }
 
-export type TabId = 'routes' | 'add' | 'templates';
+export type TabId = 'routes' | 'add' | 'templates' | 'network';
 
 export interface RouteFormData {
   routeType: RouteType;

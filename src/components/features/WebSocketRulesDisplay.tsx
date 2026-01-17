@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { WebSocketRule } from '@/types';
@@ -11,11 +10,11 @@ interface WebSocketRulesDisplayProps {
     direction: 'incoming' | 'outgoing';
 }
 
-const WebSocketRulesDisplay: React.FC<WebSocketRulesDisplayProps> = ({ 
-    rules, 
-    title, 
-    icon, 
-    direction 
+const WebSocketRulesDisplay: React.FC<WebSocketRulesDisplayProps> = ({
+    rules,
+    title,
+    icon,
+    direction
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const enabledRules = rules.filter(rule => rule.enabled);
@@ -26,96 +25,87 @@ const WebSocketRulesDisplay: React.FC<WebSocketRulesDisplayProps> = ({
     }
 
     return (
-        <div className="bg-purple-50 rounded-lg overflow-hidden border border-purple-200">
+        <div className="bg-[rgba(139,92,246,0.1)] rounded-[var(--radius-md)] overflow-hidden border border-[rgba(139,92,246,0.3)]">
             <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="w-full flex items-center justify-between p-3 text-left hover:bg-purple-100 transition-colors"
+                className="w-full flex items-center justify-between p-3 text-left hover:bg-[rgba(139,92,246,0.15)] transition-colors"
             >
                 <div className="flex items-center gap-2">
                     {icon}
-                    <span className="text-sm font-medium text-purple-700">{title}</span>
+                    <span className="text-sm font-medium text-[var(--accent-violet)]">{title}</span>
                     {hasRules && (
-                        <span className="px-2 py-0.5 bg-purple-200 text-purple-800 rounded-full text-xs font-medium">
+                        <span className="px-2 py-0.5 bg-[rgba(139,92,246,0.2)] text-[var(--accent-violet)] rounded-full text-xs font-medium">
                             {enabledRules.length}/{rules.length}
                         </span>
                     )}
                 </div>
-                <motion.div
-                    animate={{ rotate: isExpanded ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
+                <div
+                    className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                 >
-                    <ChevronDown className="w-4 h-4 text-purple-400" />
-                </motion.div>
+                    <ChevronDown className="w-4 h-4 text-[var(--accent-violet)]" />
+                </div>
             </button>
 
-            <AnimatePresence>
-                {isExpanded && (
-                    <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="border-t border-purple-200 overflow-hidden"
-                    >
-                        {hasRules ? (
-                            <div className="p-3 space-y-2">
-                                {rules.map((rule, index) => (
-                                    <div
-                                        key={rule.id}
-                                        className={cn(
-                                            "p-2 rounded border",
-                                            rule.enabled 
-                                                ? "bg-white border-purple-200" 
-                                                : "bg-gray-50 border-gray-200 opacity-60"
-                                        )}
-                                    >
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className={cn(
-                                                "text-xs px-2 py-1 rounded font-medium",
-                                                rule.type === 'replace' ? 'bg-blue-100 text-blue-700' :
-                                                rule.type === 'block' ? 'bg-red-100 text-red-700' :
-                                                'bg-green-100 text-green-700'
-                                            )}>
-                                                {rule.type.toUpperCase()}
+            {isExpanded && (
+                <div className="border-t border-[rgba(139,92,246,0.3)]">
+                    {hasRules ? (
+                        <div className="p-3 space-y-2">
+                            {rules.map((rule) => (
+                                <div
+                                    key={rule.id}
+                                    className={cn(
+                                        "p-2 rounded-[var(--radius-sm)] border",
+                                        rule.enabled
+                                            ? "bg-[var(--bg-elevated)] border-[rgba(139,92,246,0.3)]"
+                                            : "bg-[var(--bg-surface)] border-[var(--border-subtle)] opacity-60"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className={cn(
+                                            "text-xs px-2 py-1 rounded-[var(--radius-sm)] font-medium",
+                                            rule.type === 'replace' ? 'bg-[rgba(59,130,246,0.15)] text-[var(--accent-cyan)]' :
+                                            rule.type === 'block' ? 'bg-[rgba(244,63,94,0.15)] text-[var(--accent-rose)]' :
+                                            'bg-[rgba(16,185,129,0.15)] text-[var(--accent-emerald)]'
+                                        )}>
+                                            {rule.type.toUpperCase()}
+                                        </span>
+                                        <span className="text-xs px-2 py-1 bg-[var(--bg-surface)] text-[var(--text-secondary)] rounded-[var(--radius-sm)]">
+                                            {rule.matchType.toUpperCase()}
+                                        </span>
+                                        {!rule.enabled && (
+                                            <span className="text-xs px-2 py-1 bg-[var(--bg-elevated)] text-[var(--text-tertiary)] rounded-[var(--radius-sm)]">
+                                                DISABLED
                                             </span>
-                                            <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
-                                                {rule.matchType.toUpperCase()}
-                                            </span>
-                                            {!rule.enabled && (
-                                                <span className="text-xs px-2 py-1 bg-gray-200 text-gray-600 rounded">
-                                                    DISABLED
-                                                </span>
-                                            )}
-                                        </div>
-                                        
-                                        <div className="text-xs">
-                                            <span className="font-medium text-gray-900">Match:</span>
-                                            <span className="ml-2 font-mono text-gray-600 break-all">{rule.match}</span>
-                                        </div>
-                                        
-                                        {rule.replacement && (
-                                            <div className="text-xs mt-1">
-                                                <span className="font-medium text-gray-900">
-                                                    {rule.type === 'inject' ? 'Inject:' : 'Replace:'}
-                                                </span>
-                                                <span className="ml-2 font-mono text-gray-600 break-all">{rule.replacement}</span>
-                                            </div>
-                                        )}
-                                        
-                                        {rule.description && (
-                                            <div className="text-xs text-gray-500 mt-1">{rule.description}</div>
                                         )}
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="p-3 text-sm text-purple-600 text-center">
-                                No {direction} rules configured
-                            </div>
-                        )}
-                    </motion.div>
-                )}
-            </AnimatePresence>
+
+                                    <div className="text-xs">
+                                        <span className="font-medium text-[var(--text-primary)]">Match:</span>
+                                        <span className="ml-2 font-mono text-[var(--text-secondary)] break-all">{rule.match}</span>
+                                    </div>
+
+                                    {rule.replacement && (
+                                        <div className="text-xs mt-1">
+                                            <span className="font-medium text-[var(--text-primary)]">
+                                                {rule.type === 'inject' ? 'Inject:' : 'Replace:'}
+                                            </span>
+                                            <span className="ml-2 font-mono text-[var(--text-secondary)] break-all">{rule.replacement}</span>
+                                        </div>
+                                    )}
+
+                                    {rule.description && (
+                                        <div className="text-xs text-[var(--text-tertiary)] mt-1">{rule.description}</div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="p-3 text-sm text-[var(--accent-violet)] text-center">
+                            No {direction} rules configured
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

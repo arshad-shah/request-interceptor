@@ -36,7 +36,7 @@ const Popup: React.FC = () => {
     };
 
     const cleanup = addMessageListener(messageListener);
-    
+
     // Cleanup on unmount
     return cleanup;
   }, [setEnabled, setRoutes]);
@@ -64,7 +64,7 @@ const Popup: React.FC = () => {
     try {
       // Get the current window first
       const currentWindow = await chrome.windows.getCurrent();
-      
+
       if (currentWindow?.id && chrome.sidePanel) {
         //@ts-ignore
         await chrome.sidePanel.open({ windowId: currentWindow.id });
@@ -76,7 +76,7 @@ const Popup: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to open side panel:', error);
-      
+
       // Fallback: open extension page in new tab
       try {
         await chrome.tabs.create({
@@ -95,40 +95,33 @@ const Popup: React.FC = () => {
   };
 
   return (
-    <div className="w-80 bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900">
+    <div className="w-80 bg-[var(--bg-base)] text-[var(--text-primary)] dark-theme">
       <div className="p-4 space-y-4">
         {/* Header Card */}
-        <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-blue-600 text-white" hover={false}>
-          <Card.Body className="py-4">
-            <div className="flex items-center justify-center gap-3">
-              <div className="relative w-10 h-10 flex items-center justify-center bg-white/20 rounded-lg shadow-lg overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent" />
-                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent transform rotate-45 translate-y-[-100%] animate-shine" />
-                <Zap className="w-5 h-5 text-white relative z-10" />
-              </div>
-              <div className="text-center">
-                <h1 className="text-lg font-bold">Request Interceptor</h1>
-                <p className="text-xs text-blue-100 opacity-90">Chrome Extension</p>
-              </div>
+        <div className="bg-[var(--accent-indigo)] rounded-[var(--radius-lg)] p-4">
+          <div className="flex items-center justify-center gap-3">
+            <div className="w-10 h-10 flex items-center justify-center bg-white/20 rounded-[var(--radius-md)]">
+              <Zap className="w-5 h-5 text-white" />
             </div>
-          </Card.Body>
-        </Card>
+            <div className="text-center">
+              <h1 className="text-lg font-bold text-white">Request Interceptor</h1>
+              <p className="text-xs text-white/70">Chrome Extension</p>
+            </div>
+          </div>
+        </div>
 
         {/* Status Toggle Card */}
         <Card>
           <Card.Body className="py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Badge variant={enabled ? 'success' : 'error'} size="sm">
-                  <div className={cn(
-                    "w-2 h-2 rounded-full mr-2",
-                    enabled ? "bg-green-500 animate-pulse" : "bg-red-500"
-                  )} />
-                  {enabled ? 'Active' : 'Inactive'}
-                </Badge>
+                <div className={`ds-status ${enabled ? '' : 'paused'}`}>
+                  <span className="ds-status-dot" />
+                  <span>{enabled ? 'Active' : 'Inactive'}</span>
+                </div>
               </div>
-              <Toggle 
-                checked={enabled} 
+              <Toggle
+                checked={enabled}
                 onChange={handleToggle}
                 size="md"
               />
@@ -141,26 +134,26 @@ const Popup: React.FC = () => {
           <Card.Body className="py-3">
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-600">
+                <span className="text-[12px] font-medium text-[var(--text-secondary)]">
                   Configured Routes
                 </span>
-                <Badge variant="info" size="sm">
+                <Badge variant="cyan" size="sm">
                   {routeCount}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-600">
+                <span className="text-[12px] font-medium text-[var(--text-secondary)]">
                   Active Routes
                 </span>
-                <Badge variant={enabledRoutes > 0 ? 'success' : 'default'} size="sm">
+                <Badge variant={enabledRoutes > 0 ? 'emerald' : 'default'} size="sm">
                   {enabledRoutes}
                 </Badge>
               </div>
-              
+
               {routeCount > 0 && (
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div 
-                    className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300"
+                <div className="w-full bg-[var(--bg-surface)] rounded-full h-2 mt-2">
+                  <div
+                    className="bg-[var(--accent-emerald)] h-2 rounded-full transition-all duration-300"
                     style={{ width: `${(enabledRoutes / routeCount) * 100}%` }}
                   />
                 </div>
@@ -171,24 +164,22 @@ const Popup: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="space-y-2">
-          <Button 
-            variant="primary" 
-            size="sm" 
-            className="w-full" 
-            leftIcon={<ExternalLink className="w-4 h-4" />}
+          <Button
+            variant="primary"
+            size="sm"
+            className="w-full"
+            leftIcon={<ExternalLink size={14} />}
             onClick={handleOpenSidePanel}
           >
             Open Side Panel
           </Button>
-          
+
           {routeCount === 0 && (
-            <Card className="bg-amber-50 border-amber-200">
-              <Card.Body className="py-3">
-                <p className="text-xs text-amber-700 text-center font-medium">
-                  No routes configured yet. Open the side panel to create your first route interception.
-                </p>
-              </Card.Body>
-            </Card>
+            <div className="bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.3)] rounded-[var(--radius-md)] p-3">
+              <p className="text-[11px] text-[var(--accent-amber)] text-center font-medium">
+                No routes configured yet. Open the side panel to create your first route interception.
+              </p>
+            </div>
           )}
         </div>
       </div>

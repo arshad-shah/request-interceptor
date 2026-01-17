@@ -1,329 +1,535 @@
-import React, { forwardRef, useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { ChevronDown, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { forwardRef, useId } from 'react';
+import * as SelectPrimitive from '@radix-ui/react-select';
+import { clsx } from 'clsx';
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+} from 'lucide-react';
 
-interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'onChange'> {
-  label?: string;
-  error?: string;
-  helperText?: string;
-  leftIcon?: React.ReactNode;
-  onChange?: (value: string) => void;
-  placeholder?: string;
-}
+// ============================================================================
+// Types
+// ============================================================================
 
-interface OptionProps {
+type SelectVariant = 'default' | 'outlined' | 'filled' | 'ghost';
+type SelectSize = 'sm' | 'md' | 'lg';
+type SelectStatus = 'default' | 'error' | 'success' | 'warning';
+
+export interface SelectOption {
   value: string;
   label: string;
+  description?: string;
+  icon?: React.ReactNode;
   disabled?: boolean;
 }
 
-const Select = forwardRef<HTMLSelectElement, SelectProps>(({
-  className,
-  children,
-  label,
-  error,
-  helperText,
-  leftIcon,
-  id,
-  value,
-  onChange,
-  placeholder = "Select an option...",
-  disabled,
-  ...props
-}, ref) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedValue, setSelectedValue] = useState(value || '');
-  const [focusedIndex, setFocusedIndex] = useState(-1);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
-  const selectId = id || `select-${Math.random().toString(36).substr(2, 9)}`;
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+export interface SelectGroup {
+  label: string;
+  options: SelectOption[];
+}
 
-  // Parse options from children
-  const options: OptionProps[] = React.Children.toArray(children)
-    .filter((child): child is React.ReactElement => React.isValidElement(child))
-    .map((child) => ({
-      value: child.props.value || '',
-      label: child.props.children || child.props.value || '',
-      disabled: child.props.disabled || false
-    }));
+export interface SelectProps {
+  /** Current value (controlled) */
+  value?: string;
+  /** Default value (uncontrolled) */
+  defaultValue?: string;
+  /** Callback when value changes */
+  onChange?: (value: string) => void;
+  /** Visual style variant */
+  variant?: SelectVariant;
+  /** Size of the select */
+  size?: SelectSize;
+  /** Status state for validation feedback */
+  status?: SelectStatus;
+  /** Label text above the select */
+  label?: string;
+  /** Error message (also sets status to error) */
+  error?: string;
+  /** Helper text below the select */
+  helperText?: string;
+  /** Icon on the left side of trigger */
+  leftIcon?: React.ReactNode;
+  /** Show loading spinner */
+  loading?: boolean;
+  /** Placeholder text when no selection */
+  placeholder?: string;
+  /** Flat options array */
+  options?: SelectOption[];
+  /** Grouped options */
+  groups?: SelectGroup[];
+  /** Disabled state */
+  disabled?: boolean;
+  /** Required field */
+  required?: boolean;
+  /** Make the select take full width */
+  fullWidth?: boolean;
+  /** Additional wrapper className */
+  wrapperClassName?: string;
+  /** Additional trigger className */
+  className?: string;
+  /** ID for the select */
+  id?: string;
+  /** Name for form submission */
+  name?: string;
+  /** Dropdown side preference */
+  side?: 'top' | 'bottom';
+  /** Dropdown alignment */
+  align?: 'start' | 'center' | 'end';
+}
 
-  const selectedOption = options.find(option => option.value === selectedValue);
+// ============================================================================
+// Styles
+// ============================================================================
 
-  // Calculate dropdown position
-  const updateDropdownPosition = () => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const scrollY = window.scrollY || window.pageYOffset;
-      const scrollX = window.scrollX || window.pageXOffset;
-      
-      setDropdownPosition({
-        top: rect.bottom + scrollY + 8, // 8px gap
-        left: rect.left + scrollX,
-        width: rect.width
-      });
-    }
-  };
+const variantStyles: Record<SelectVariant, string> = {
+  default: `
+    bg-[var(--bg-surface)]
+    border border-[var(--border-subtle)]
+    hover:border-[var(--border-default)]
+    data-[state=open]:border-[var(--border-focus)]
+  `,
+  outlined: `
+    bg-transparent
+    border-2 border-[var(--border-default)]
+    hover:border-[var(--accent-indigo)]/50
+    data-[state=open]:border-[var(--accent-indigo)]
+    data-[state=open]:bg-[var(--bg-surface)]/30
+  `,
+  filled: `
+    bg-[var(--bg-elevated)]
+    border border-transparent
+    hover:bg-[var(--bg-surface)]
+    data-[state=open]:bg-[var(--bg-surface)]
+    data-[state=open]:border-[var(--border-focus)]
+  `,
+  ghost: `
+    bg-transparent
+    border border-transparent
+    hover:bg-[var(--bg-surface)]
+    data-[state=open]:bg-[var(--bg-surface)]
+    data-[state=open]:border-[var(--border-subtle)]
+  `,
+};
 
-  // Sync selectedValue with value prop changes
-  useEffect(() => {
-    setSelectedValue(value || '');
-  }, [value]);
+const sizeStyles: Record<SelectSize, {
+  trigger: string;
+  icon: string;
+  label: string;
+  chevron: number;
+  content: string;
+  item: string;
+  itemIcon: string;
+}> = {
+  sm: {
+    trigger: 'h-8 px-2.5 text-[11px] rounded-[var(--radius-sm)] gap-1.5',
+    icon: 'w-3.5 h-3.5',
+    label: 'text-[10px]',
+    chevron: 12,
+    content: 'rounded-[var(--radius-sm)]',
+    item: 'px-2.5 py-1.5 text-[11px] rounded-[var(--radius-sm)]',
+    itemIcon: 'w-3.5 h-3.5',
+  },
+  md: {
+    trigger: 'h-9 px-3 text-[12px] rounded-[var(--radius-md)] gap-2',
+    icon: 'w-4 h-4',
+    label: 'text-[10px]',
+    chevron: 14,
+    content: 'rounded-[var(--radius-md)]',
+    item: 'px-3 py-2 text-[12px] rounded-[var(--radius-sm)]',
+    itemIcon: 'w-4 h-4',
+  },
+  lg: {
+    trigger: 'h-11 px-4 text-[13px] rounded-[var(--radius-md)] gap-2.5',
+    icon: 'w-5 h-5',
+    label: 'text-[11px]',
+    chevron: 16,
+    content: 'rounded-[var(--radius-lg)]',
+    item: 'px-4 py-2.5 text-[13px] rounded-[var(--radius-md)]',
+    itemIcon: 'w-5 h-5',
+  },
+};
 
-  // Handle outside clicks
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current && 
-        !dropdownRef.current.contains(event.target as Node) &&
-        triggerRef.current &&
-        !triggerRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-        setFocusedIndex(-1);
-      }
-    };
+const statusStyles: Record<SelectStatus, { border: string; text: string; icon: React.ReactNode }> = {
+  default: {
+    border: '',
+    text: 'text-[var(--text-tertiary)]',
+    icon: null,
+  },
+  error: {
+    border: 'border-[var(--accent-rose)]! hover:border-[var(--accent-rose)]! data-[state=open]:border-[var(--accent-rose)]!',
+    text: 'text-[var(--accent-rose)]',
+    icon: <AlertCircle className="text-[var(--accent-rose)]" />,
+  },
+  success: {
+    border: 'border-[var(--accent-emerald)]! hover:border-[var(--accent-emerald)]! data-[state=open]:border-[var(--accent-emerald)]!',
+    text: 'text-[var(--accent-emerald)]',
+    icon: <CheckCircle className="text-[var(--accent-emerald)]" />,
+  },
+  warning: {
+    border: 'border-[var(--accent-amber)]! hover:border-[var(--accent-amber)]! data-[state=open]:border-[var(--accent-amber)]!',
+    text: 'text-[var(--accent-amber)]',
+    icon: <AlertCircle className="text-[var(--accent-amber)]" />,
+  },
+};
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+// ============================================================================
+// Sub-Components
+// ============================================================================
 
-  // Update position when opened
-  useEffect(() => {
-    if (isOpen) {
-      updateDropdownPosition();
-      
-      // Update position on scroll/resize
-      const handleReposition = () => updateDropdownPosition();
-      window.addEventListener('scroll', handleReposition, true);
-      window.addEventListener('resize', handleReposition);
-      
-      return () => {
-        window.removeEventListener('scroll', handleReposition, true);
-        window.removeEventListener('resize', handleReposition);
-      };
-    }
-  }, [isOpen]);
+interface SelectItemProps extends React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item> {
+  size?: SelectSize;
+  description?: string;
+  icon?: React.ReactNode;
+}
 
-  // Handle keyboard navigation
-  const handleKeyDown = (event: React.KeyboardEvent) => {
-    if (disabled) return;
+const SelectItem = forwardRef<React.ElementRef<typeof SelectPrimitive.Item>, SelectItemProps>(
+  ({ className, children, size = 'md', description, icon, ...props }, ref) => {
+    const sizeStyle = sizeStyles[size];
 
-    switch (event.key) {
-      case 'Enter':
-      case ' ':
-        event.preventDefault();
-        if (!isOpen) {
-          setIsOpen(true);
-          setFocusedIndex(0);
-        } else if (focusedIndex >= 0) {
-          handleOptionSelect(options[focusedIndex].value);
-        }
-        break;
-      case 'Escape':
-        setIsOpen(false);
-        setFocusedIndex(-1);
-        triggerRef.current?.focus();
-        break;
-      case 'ArrowDown':
-        event.preventDefault();
-        if (!isOpen) {
-          setIsOpen(true);
-          setFocusedIndex(0);
-        } else {
-          setFocusedIndex(prev => 
-            prev < options.length - 1 ? prev + 1 : prev
-          );
-        }
-        break;
-      case 'ArrowUp':
-        event.preventDefault();
-        if (isOpen) {
-          setFocusedIndex(prev => prev > 0 ? prev - 1 : prev);
-        }
-        break;
-    }
-  };
-
-  const handleOptionSelect = (optionValue: string) => {
-    setSelectedValue(optionValue);
-    setIsOpen(false);
-    setFocusedIndex(-1);
-    onChange?.(optionValue);
-    triggerRef.current?.focus();
-  };
-
-  const toggleDropdown = () => {
-    if (!disabled) {
-      setIsOpen(!isOpen);
-      if (!isOpen) {
-        setFocusedIndex(0);
-      }
-    }
-  };
-
-  // Dropdown component to be rendered in portal
-  const dropdown = isOpen ? (
-    <div 
-      ref={dropdownRef}
-      style={{
-        position: 'absolute',
-        top: dropdownPosition.top,
-        left: dropdownPosition.left,
-        width: dropdownPosition.width,
-        zIndex: 9999,
-      }}
-      className={cn(
-        "bg-white rounded-xl shadow-xl border-2 border-gray-200",
-        "max-h-60 overflow-auto",
-        "animate-in fade-in-0 zoom-in-95 duration-200"
-      )}
-    >
-      <div className="p-2">
-        {options.length === 0 ? (
-          <div className="px-3 py-2 text-sm text-gray-500 text-center">
-            No options available
-          </div>
-        ) : (
-          options.map((option, index) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => handleOptionSelect(option.value)}
-              disabled={option.disabled}
-              className={cn(
-                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
-                "text-left focus:outline-none",
-                // Hover and focus states
-                !option.disabled && "hover:bg-gray-50 focus:bg-gray-50",
-                // Selected state
-                selectedValue === option.value && "bg-blue-50 text-blue-700 font-medium",
-                // Focused state (keyboard navigation)
-                focusedIndex === index && !option.disabled && "bg-gray-100",
-                // Disabled state
-                option.disabled && "text-gray-400 cursor-not-allowed opacity-60"
-              )}
-              role="option"
-              aria-selected={selectedValue === option.value}
-            >
-              <span className="truncate">{option.label}</span>
-              {selectedValue === option.value && (
-                <Check className="w-4 h-4 text-blue-600 flex-shrink-0 ml-2" />
-              )}
-            </button>
-          ))
+    return (
+      <SelectPrimitive.Item
+        ref={ref}
+        className={clsx(
+          'relative flex items-center gap-2 cursor-pointer select-none outline-none',
+          'transition-colors duration-75',
+          'text-[var(--text-primary)]',
+          'data-[highlighted]:bg-[var(--bg-hover)]',
+          'data-[state=checked]:bg-[var(--accent-indigo)]/10',
+          'data-[disabled]:opacity-40 data-[disabled]:pointer-events-none',
+          sizeStyle.item,
+          className
         )}
-      </div>
-    </div>
-  ) : null;
+        {...props}
+      >
+        {/* Custom icon */}
+        {icon && (
+          <span className={clsx(sizeStyle.itemIcon, 'text-[var(--text-tertiary)] flex-shrink-0')}>
+            {icon}
+          </span>
+        )}
 
-  return (
-    <div className="space-y-2">
-      {label && (
-        <label 
-          htmlFor={selectId}
-          className={cn(
-            "block text-sm font-medium transition-colors",
-            error ? "text-red-700" : "text-gray-700",
-            disabled && "text-gray-400"
+        {/* Label and description */}
+        <div className="flex-1 min-w-0">
+          <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+          {description && (
+            <p className="text-[10px] text-[var(--text-tertiary)] truncate mt-0.5">
+              {description}
+            </p>
+          )}
+        </div>
+
+        {/* Check indicator */}
+        <SelectPrimitive.ItemIndicator className="flex-shrink-0">
+          <Check className={clsx(sizeStyle.itemIcon, 'text-[var(--accent-indigo)]')} />
+        </SelectPrimitive.ItemIndicator>
+      </SelectPrimitive.Item>
+    );
+  }
+);
+SelectItem.displayName = 'SelectItem';
+
+interface SelectGroupProps extends React.ComponentPropsWithoutRef<typeof SelectPrimitive.Group> {
+  label: string;
+  size?: SelectSize;
+}
+
+const SelectGroupComponent = forwardRef<React.ElementRef<typeof SelectPrimitive.Group>, SelectGroupProps>(
+  ({ className, label, children, ...props }, ref) => {
+    return (
+      <SelectPrimitive.Group ref={ref} className={className} {...props}>
+        <SelectPrimitive.Label
+          className={clsx(
+            'px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider',
+            'text-[var(--text-tertiary)]',
+            'select-none'
           )}
         >
           {label}
-        </label>
-      )}
-      
-      <div className="relative">
-        {/* Hidden native select for form compatibility */}
-        <select
-          ref={ref}
-          id={selectId}
-          value={selectedValue}
-          onChange={() => {}} // Handled by custom dropdown
-          className="sr-only"
-          tabIndex={-1}
-          {...props}
-        >
-          <option value="">{placeholder}</option>
-          {children}
-        </select>
+        </SelectPrimitive.Label>
+        {children}
+      </SelectPrimitive.Group>
+    );
+  }
+);
+SelectGroupComponent.displayName = 'SelectGroup';
 
-        {/* Custom trigger button */}
-        <button
-          ref={triggerRef}
-          type="button"
-          onClick={toggleDropdown}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          className={cn(
-            "w-full flex items-center justify-between px-4 py-3",
-            "border-2 rounded-xl bg-white text-left",
-            "transition-all duration-200 cursor-pointer",
-            "focus:outline-none focus:ring-4 focus:ring-blue-500/20",
-            "hover:shadow-md hover:border-gray-300",
-            // Error states
-            error 
-              ? "border-red-300 focus:border-red-500 shadow-red-100" 
-              : "border-gray-200 focus:border-blue-500",
-            // Disabled states
-            disabled && "bg-gray-50 cursor-not-allowed opacity-60 hover:shadow-none hover:border-gray-200",
-            // Open state
-            isOpen && !error && "border-blue-500 ring-4 ring-blue-500/20",
-            className
-          )}
-          aria-haspopup="listbox"
-          aria-expanded={isOpen}
-          aria-labelledby={label ? `${selectId}-label` : undefined}
-        >
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            {leftIcon && (
-              <div className={cn(
-                "flex-shrink-0 transition-colors",
-                error ? "text-red-500" : "text-gray-400",
-                selectedValue && !error && "text-blue-500"
-              )}>
-                {leftIcon}
-              </div>
+const SelectSeparator = forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Separator>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Separator
+    ref={ref}
+    className={clsx('h-px my-1 mx-2 bg-[var(--border-subtle)]', className)}
+    {...props}
+  />
+));
+SelectSeparator.displayName = 'SelectSeparator';
+
+// ============================================================================
+// Main Component
+// ============================================================================
+
+const Select = forwardRef<HTMLButtonElement, SelectProps>(
+  (
+    {
+      value,
+      defaultValue,
+      onChange,
+      variant = 'default',
+      size = 'md',
+      status: statusProp = 'default',
+      label,
+      error,
+      helperText,
+      leftIcon,
+      loading = false,
+      placeholder = 'Select...',
+      options,
+      groups,
+      disabled,
+      required,
+      fullWidth = true,
+      wrapperClassName,
+      className,
+      id,
+      name,
+      side = 'bottom',
+      align = 'start',
+    },
+    ref
+  ) => {
+    const generatedId = useId();
+    const selectId = id || generatedId;
+
+    // Determine status
+    const status = error ? 'error' : statusProp;
+
+    // Style lookups
+    const variantStyle = variantStyles[variant];
+    const sizeStyle = sizeStyles[size];
+    const statusStyle = statusStyles[status];
+
+    // Find selected option for icon display
+    const allOptions = groups?.flatMap((g) => g.options) || options || [];
+    const selectedOption = allOptions.find((opt) => opt.value === value || opt.value === defaultValue);
+
+    return (
+      <div
+        className={clsx(
+          'flex flex-col gap-1.5',
+          fullWidth && 'w-full',
+          wrapperClassName
+        )}
+      >
+        {/* Label */}
+        {label && (
+          <label
+            htmlFor={selectId}
+            className={clsx(
+              'ds-label font-medium',
+              sizeStyle.label,
+              disabled && 'opacity-50'
             )}
-            
-            <span className={cn(
-              "block truncate text-sm",
-              selectedValue 
-                ? "text-gray-900 font-medium" 
-                : "text-gray-500"
-            )}>
-              {selectedOption?.label || placeholder}
+          >
+            {label}
+            {required && (
+              <span className="text-[var(--accent-rose)] ml-0.5">*</span>
+            )}
+          </label>
+        )}
+
+        {/* Select */}
+        <SelectPrimitive.Root
+          value={value}
+          defaultValue={defaultValue}
+          onValueChange={onChange}
+          disabled={disabled || loading}
+          name={name}
+          required={required}
+        >
+          <SelectPrimitive.Trigger
+            ref={ref}
+            id={selectId}
+            className={clsx(
+              // Base styles
+              'flex items-center justify-between w-full',
+              'font-[var(--font-mono)]',
+              'outline-none cursor-pointer',
+              'transition-all duration-[120ms]',
+              // Variant styles
+              variantStyle,
+              // Size styles
+              sizeStyle.trigger,
+              // Status border override
+              status !== 'default' && statusStyle.border,
+              // Disabled/loading state
+              (disabled || loading) && 'opacity-50 cursor-not-allowed',
+              // Custom className
+              className
+            )}
+          >
+            {/* Left section: icon + value */}
+            <span className="flex items-center gap-2 min-w-0 flex-1">
+              {/* Left icon */}
+              {leftIcon && (
+                <span className={clsx(sizeStyle.icon, 'text-[var(--text-tertiary)] flex-shrink-0')}>
+                  {leftIcon}
+                </span>
+              )}
+
+              {/* Value or placeholder */}
+              <span className="truncate flex items-center gap-2">
+                {selectedOption?.icon && (
+                  <span className={clsx(sizeStyle.icon, 'flex-shrink-0')}>
+                    {selectedOption.icon}
+                  </span>
+                )}
+                <SelectPrimitive.Value placeholder={placeholder} />
+              </span>
             </span>
-          </div>
-          
-          <ChevronDown className={cn(
-            "w-4 h-4 transition-all duration-200 flex-shrink-0",
-            isOpen && "rotate-180",
-            error ? "text-red-500" : "text-gray-400"
-          )} />
-        </button>
-      </div>
-      
-      {/* Render dropdown in portal */}
-      {typeof document !== 'undefined' && dropdown && createPortal(dropdown, document.body)}
-      
-      {(error || helperText) && (
-        <div className="flex items-start gap-2">
-          {error && (
-            <div className="w-1 h-4 bg-red-400 rounded-full flex-shrink-0 mt-0.5"></div>
-          )}
-          <p className={cn(
-            "text-sm leading-5",
-            error ? "text-red-600 font-medium" : "text-gray-500"
-          )}>
+
+            {/* Right section: status icon + chevron */}
+            <span className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+              {/* Status icon */}
+              {status !== 'default' && statusStyle.icon && !loading && (
+                <span className={sizeStyle.icon}>
+                  {React.cloneElement(statusStyle.icon as React.ReactElement, {
+                    className: sizeStyle.icon,
+                  })}
+                </span>
+              )}
+
+              {/* Loading or chevron */}
+              {loading ? (
+                <Loader2
+                  size={sizeStyle.chevron}
+                  className="animate-spin text-[var(--text-tertiary)]"
+                />
+              ) : (
+                <SelectPrimitive.Icon asChild>
+                  <ChevronDown
+                    size={sizeStyle.chevron}
+                    className="text-[var(--text-tertiary)]"
+                  />
+                </SelectPrimitive.Icon>
+              )}
+            </span>
+          </SelectPrimitive.Trigger>
+
+          {/* Dropdown Portal */}
+          <SelectPrimitive.Portal>
+            <SelectPrimitive.Content
+              side={side}
+              align={align}
+              sideOffset={4}
+              position="popper"
+              className={clsx(
+                'z-[9999] overflow-hidden',
+                'bg-[var(--bg-elevated)]',
+                'border border-[var(--border-default)]',
+                'shadow-lg',
+                sizeStyle.content,
+                // Animation
+                'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
+                'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
+                'data-[side=bottom]:slide-in-from-top-2',
+                'data-[side=top]:slide-in-from-bottom-2',
+                // Width matches trigger
+                'min-w-[var(--radix-select-trigger-width)]',
+                'max-h-[min(var(--radix-select-content-available-height),320px)]'
+              )}
+            >
+              {/* Scroll Up Button */}
+              <SelectPrimitive.ScrollUpButton className="flex items-center justify-center h-6 bg-[var(--bg-elevated)] cursor-default border-b border-[var(--border-subtle)]">
+                <ChevronUp size={14} className="text-[var(--text-tertiary)]" />
+              </SelectPrimitive.ScrollUpButton>
+
+              {/* Viewport */}
+              <SelectPrimitive.Viewport className="p-1.5">
+                {/* Render grouped options */}
+                {groups && groups.length > 0 && (
+                  <>
+                    {groups.map((group, groupIndex) => (
+                      <React.Fragment key={group.label}>
+                        {groupIndex > 0 && <SelectSeparator />}
+                        <SelectGroupComponent label={group.label} size={size}>
+                          {group.options.map((option) => (
+                            <SelectItem
+                              key={option.value}
+                              value={option.value}
+                              disabled={option.disabled}
+                              size={size}
+                              description={option.description}
+                              icon={option.icon}
+                            >
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroupComponent>
+                      </React.Fragment>
+                    ))}
+                  </>
+                )}
+
+                {/* Render flat options */}
+                {options && options.length > 0 && !groups && (
+                  <>
+                    {options.map((option) => (
+                      <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        disabled={option.disabled}
+                        size={size}
+                        description={option.description}
+                        icon={option.icon}
+                      >
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+
+                {/* Empty state */}
+                {(!options || options.length === 0) && (!groups || groups.length === 0) && (
+                  <div className="py-6 text-center text-[var(--text-tertiary)] text-sm">
+                    No options available
+                  </div>
+                )}
+              </SelectPrimitive.Viewport>
+
+              {/* Scroll Down Button */}
+              <SelectPrimitive.ScrollDownButton className="flex items-center justify-center h-6 bg-[var(--bg-elevated)] cursor-default border-t border-[var(--border-subtle)]">
+                <ChevronDown size={14} className="text-[var(--text-tertiary)]" />
+              </SelectPrimitive.ScrollDownButton>
+            </SelectPrimitive.Content>
+          </SelectPrimitive.Portal>
+        </SelectPrimitive.Root>
+
+        {/* Error or helper text */}
+        {(error || helperText) && (
+          <p
+            className={clsx(
+              'text-[11px]',
+              error ? statusStyle.text : 'text-[var(--text-tertiary)]'
+            )}
+          >
             {error || helperText}
           </p>
-        </div>
-      )}
-    </div>
-  );
-});
+        )}
+      </div>
+    );
+  }
+);
 
 Select.displayName = 'Select';
 
+// ============================================================================
+// Exports
+// ============================================================================
+
 export default Select;
+export { Select, SelectItem, SelectGroupComponent as SelectGroup, SelectSeparator };
+export type { SelectGroup as SelectGroupType, SelectVariant, SelectSize, SelectStatus };

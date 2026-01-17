@@ -20,35 +20,36 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   return (
     <div className="space-y-1">
       {label && (
-        <label 
+        <label
           htmlFor={textareaId}
-          className="block text-sm font-medium text-gray-700 transition-colors"
+          className="ds-label"
         >
           {label}
         </label>
       )}
-      
+
       <textarea
         ref={ref}
         id={textareaId}
         className={cn(
-          "w-full px-3 py-2 border border-gray-300 rounded-lg",
-          "bg-white text-gray-900 placeholder-gray-500",
-          "focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500",
+          "w-full px-3 py-2 border rounded-[var(--radius-md)]",
+          "bg-[var(--bg-surface)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)]",
+          "border-[var(--border-subtle)]",
+          "focus:outline-none focus:ring-2 focus:ring-[var(--accent-cyan)] focus:border-[var(--accent-cyan)]",
           "transition-all duration-200 resize-vertical",
-          "disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed",
+          "disabled:bg-[var(--bg-elevated)] disabled:text-[var(--text-tertiary)] disabled:cursor-not-allowed",
           "font-mono text-sm leading-relaxed",
-          error && "border-red-300 focus:border-red-500 focus:ring-red-200",
+          error && "border-[var(--accent-rose)] focus:border-[var(--accent-rose)] focus:ring-[rgba(244,63,94,0.2)]",
           className
         )}
         rows={6}
         {...props}
       />
-      
+
       {(error || helperText) && (
         <p className={cn(
           "text-sm",
-          error ? "text-red-600" : "text-gray-500"
+          error ? "text-[var(--accent-rose)]" : "text-[var(--text-tertiary)]"
         )}>
           {error || helperText}
         </p>

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/stores/app-store';
 import { parseRouteKey, chromeApi } from '@/lib/chrome-api';
 import { ConfirmDialog } from '../ui/Dialog';
@@ -146,18 +145,16 @@ const RouteList: React.FC = () => {
   return (
     <>
       <div className="space-y-3">
-        <AnimatePresence mode="popLayout">
-          {filteredRoutes.map(([routeKey, config]) => (
-            <RouteItem
-              key={routeKey}
-              routeKey={routeKey}
-              config={config}
-              onEdit={handleEditRoute}
-              onDelete={handleDeleteRoute}
-              onToggle={handleToggleRoute}
-            />
-          ))}
-        </AnimatePresence>
+        {filteredRoutes.map(([routeKey, config]) => (
+          <RouteItem
+            key={routeKey}
+            routeKey={routeKey}
+            config={config}
+            onEdit={handleEditRoute}
+            onDelete={handleDeleteRoute}
+            onToggle={handleToggleRoute}
+          />
+        ))}
       </div>
 
       <ConfirmDialog
