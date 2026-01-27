@@ -20,9 +20,10 @@ import {
   getContentTypeDisplay,
   formatResponsePreview,
   getRouteDescription,
-  parseWebSocketKey
+  parseWebSocketKey,
+  parseInjectionKey
 } from '@/lib/utils';
-import { RouteConfig, WebSocketConfig } from '@/types';
+import { RouteConfig, WebSocketConfig, InjectionConfig, InterceptionMode } from '@/types';
 import Badge, { MethodBadge, StatusBadge } from '../ui/Badge';
 import Toggle from '../ui/Toggle';
 import Button from '../ui/Button';
@@ -34,7 +35,7 @@ import RouteStatsGrid from '@/components/common/RouteItemStatCard';
 
 interface RouteItemProps {
   routeKey: string;
-  config: RouteConfig | WebSocketConfig;
+  config: RouteConfig | WebSocketConfig | InjectionConfig;
   onEdit: (routeKey: string) => void;
   onDelete: (routeKey: string) => void;
   onToggle: (routeKey: string, enabled: boolean) => void;
@@ -51,6 +52,8 @@ const RouteItem: React.FC<RouteItemProps> = ({
   const [isResponseExpanded, setIsResponseExpanded] = useState(false);
 
   const isWebSocket = routeKey.startsWith('WS:');
+  const isInjection = routeKey.startsWith('INJ:');
+  const isHttp = !isWebSocket && !isInjection;
   const isEnabled = config.enabled ?? true;
 
   // Parse route information
@@ -58,6 +61,10 @@ const RouteItem: React.FC<RouteItemProps> = ({
   if (isWebSocket) {
     const parsed = parseWebSocketKey(routeKey);
     url = parsed.url;
+    name = parsed.name;
+  } else if (isInjection) {
+    const parsed = parseInjectionKey(routeKey);
+    url = parsed.urlPattern;
     name = parsed.name;
   } else {
     const parsed = parseRouteKey(routeKey);
@@ -76,10 +83,18 @@ const RouteItem: React.FC<RouteItemProps> = ({
 
   // HTTP specific properties
   const httpConfig = config as RouteConfig;
-  const responsePreview = !isWebSocket ? formatResponsePreview(httpConfig.response) : '';
-  const description = !isWebSocket ? getRouteDescription(method as any, url) : 'WebSocket message interception';
-  const contentTypeName = !isWebSocket ? getContentTypeDisplay(httpConfig.contentType) : '';
-  const isHeadersOnly = !isWebSocket && (httpConfig.headersOnly || false);
+  const responsePreview = isHttp ? formatResponsePreview(httpConfig.response) : '';
+  const description = isInjection ? 'Script/CSS injection'
+    : isWebSocket ? 'WebSocket message interception'
+    : getRouteDescription(method as any, url);
+  const contentTypeName = isHttp ? getContentTypeDisplay(httpConfig.contentType) : '';
+  const interceptionMode: InterceptionMode = isHttp
+    ? (httpConfig.interceptionMode || (httpConfig.headersOnly ? 'passthrough' : 'mock'))
+    : 'mock';
+  const isHeadersOnly = isHttp && interceptionMode === 'passthrough';
+
+  // Injection specific properties
+  const injConfig = config as InjectionConfig;
 
   // Parse response for tree view
   const parsedResponse = useMemo(() => {
@@ -117,10 +132,12 @@ const RouteItem: React.FC<RouteItemProps> = ({
     onDelete(routeKey);
   };
 
-  // Determine border color based on route type
   const getBorderColor = () => {
     if (isWebSocket) return 'border-l-[var(--accent-violet)]';
-    if (isHeadersOnly) return 'border-l-[var(--accent-cyan)]';
+    if (isInjection) return 'border-l-[var(--accent-indigo)]';
+    if (interceptionMode === 'block') return 'border-l-[var(--accent-rose)]';
+    if (interceptionMode === 'redirect') return 'border-l-[var(--accent-amber)]';
+    if (interceptionMode === 'passthrough') return 'border-l-[var(--accent-cyan)]';
     return 'border-l-[var(--accent-emerald)]';
   };
 
@@ -144,13 +161,18 @@ const RouteItem: React.FC<RouteItemProps> = ({
             <div className="flex items-center gap-2">
               {/* Route Type Badge */}
               <div className="flex-shrink-0">
-                {!isWebSocket ? (
-                  <MethodBadge method={method as any} />
-                ) : (
+                {isInjection ? (
+                  <span className="ds-badge" style={{ color: 'var(--accent-indigo)', background: 'rgba(99,102,241,0.15)' }}>
+                    <Code size={12} className="mr-1" />
+                    INJ
+                  </span>
+                ) : isWebSocket ? (
                   <span className="ds-badge violet">
                     <MessageSquare size={12} className="mr-1" />
                     WS
                   </span>
+                ) : (
+                  <MethodBadge method={method as any} />
                 )}
               </div>
 
@@ -175,30 +197,56 @@ const RouteItem: React.FC<RouteItemProps> = ({
                   </Badge>
                 )}
 
+                {/* Mode Badge */}
+                {isHttp && interceptionMode === 'block' && (
+                  <Badge variant="rose">Block</Badge>
+                )}
+                {isHttp && interceptionMode === 'redirect' && (
+                  <Badge variant="amber">Redirect</Badge>
+                )}
+                {isHttp && interceptionMode === 'passthrough' && (
+                  <Badge variant="info">Passthrough</Badge>
+                )}
+
+                {/* GraphQL Operation */}
+                {isHttp && httpConfig.graphqlOperationName && (
+                  <Badge variant="default">GQL: {httpConfig.graphqlOperationName}</Badge>
+                )}
+
+                {/* Query Params Count */}
+                {isHttp && httpConfig.queryParamRules && httpConfig.queryParamRules.length > 0 && (
+                  <Badge variant="default">{httpConfig.queryParamRules.length} params</Badge>
+                )}
+
                 {/* Headers Indicator */}
-                {!isWebSocket && hasAnyHeaders && (
+                {isHttp && hasAnyHeaders && (
                   <Badge variant="info" icon={<Settings size={10} />} iconPosition="left">
                     Headers
                   </Badge>
+                )}
+
+                {/* Injection details */}
+                {isInjection && (
+                  <>
+                    {injConfig.scripts?.length > 0 && injConfig.scripts.some(s => s.trim()) && (
+                      <Badge variant="default">{injConfig.scripts.filter(s => s.trim()).length} script(s)</Badge>
+                    )}
+                    {injConfig.stylesheets?.length > 0 && injConfig.stylesheets.some(s => s.trim()) && (
+                      <Badge variant="default">{injConfig.stylesheets.filter(s => s.trim()).length} style(s)</Badge>
+                    )}
+                  </>
                 )}
               </div>
 
               {/* Quick Stats */}
               <div className="hidden sm:flex items-center gap-2 text-[11px] text-[var(--text-tertiary)]">
-                {!isWebSocket && !isHeadersOnly && (
-                  <>
-                    <StatusBadge status={httpConfig.status} />
-                    {(config.delay ?? 0) > 0 && (
-                      <Badge variant="default" icon={<Clock size={10} />} iconPosition="left">
-                        {config.delay}ms
-                      </Badge>
-                    )}
-                  </>
+                {isHttp && interceptionMode === 'mock' && (
+                  <StatusBadge status={httpConfig.status} />
                 )}
 
-                {(isHeadersOnly || isWebSocket) && (config.delay ?? 0) > 0 && (
+                {!isInjection && ((config as any).delay ?? 0) > 0 && (
                   <Badge variant="default" icon={<Clock size={10} />} iconPosition="left">
-                    {config.delay}ms
+                    {(config as any).delay}ms
                   </Badge>
                 )}
               </div>
@@ -233,6 +281,14 @@ const RouteItem: React.FC<RouteItemProps> = ({
             <div className="p-3 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-[var(--radius-sm)]">
               <p className="text-[12px] text-[var(--text-secondary)]">
                 {description}
+                {isHttp && interceptionMode === 'block' && (
+                  <span className="ml-1 text-[var(--accent-rose)]">(Request blocked)</span>
+                )}
+                {isHttp && interceptionMode === 'redirect' && (
+                  <span className="ml-1 text-[var(--accent-amber)]">
+                    → {httpConfig.redirectUrl}
+                  </span>
+                )}
                 {isHeadersOnly && (
                   <span className="ml-1 text-[var(--accent-cyan)]">
                     (Headers only, original response preserved)
@@ -243,18 +299,25 @@ const RouteItem: React.FC<RouteItemProps> = ({
                     (Real-time message processing)
                   </span>
                 )}
+                {isInjection && (
+                  <span className="ml-1 text-[var(--accent-indigo)]">
+                    (Inject at {injConfig.injectAt === 'document_start' ? 'document start' : 'document end'})
+                  </span>
+                )}
               </p>
             </div>
 
-            <RouteStatsGrid
-              isHeadersOnly={isHeadersOnly}
-              isWebSocket={isWebSocket}
-              totalRules={totalRules}
-              httpConfig={httpConfig}
-              config={config}
-              contentTypeName={contentTypeName}
-              timestamp={timestamp}
-            />
+            {!isInjection && (
+              <RouteStatsGrid
+                isHeadersOnly={isHeadersOnly}
+                isWebSocket={isWebSocket}
+                totalRules={totalRules}
+                httpConfig={httpConfig}
+                config={config as any}
+                contentTypeName={contentTypeName}
+                timestamp={timestamp}
+              />
+            )}
 
             {/* WebSocket Rules section */}
             {isWebSocket && (
@@ -278,7 +341,7 @@ const RouteItem: React.FC<RouteItemProps> = ({
             )}
 
             {/* HTTP Headers section */}
-            {!isWebSocket && hasAnyHeaders && (
+            {isHttp && hasAnyHeaders && (
               <div className="space-y-3">
                 <div className="grid gap-3">
                   {hasResponseHeaders && (
@@ -311,7 +374,7 @@ const RouteItem: React.FC<RouteItemProps> = ({
             )}
 
             {/* HTTP Response preview */}
-            {!isWebSocket && (!isHeadersOnly || (httpConfig.response && String(httpConfig.response).trim())) && (
+            {isHttp && interceptionMode !== 'block' && (!isHeadersOnly || (httpConfig.response && String(httpConfig.response).trim())) && (
               <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-[var(--radius-sm)] overflow-hidden">
                 <div className="flex items-center justify-between px-3 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
                   <div className="flex items-center gap-2">

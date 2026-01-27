@@ -1,12 +1,13 @@
 import { create } from 'zustand';
-import { 
-  AppState, 
-  RouteConfig, 
-  WebSocketConfig, 
-  Notification, 
-  FilterState, 
-  TabId, 
-  NotificationType 
+import {
+  AppState,
+  RouteConfig,
+  WebSocketConfig,
+  InjectionConfig,
+  Notification,
+  FilterState,
+  TabId,
+  NotificationType
 } from '@/types';
 
 interface AppStore extends AppState {
@@ -16,12 +17,12 @@ interface AppStore extends AppState {
   filters: FilterState;
   editingRoute: string | null;
   
-  // Actions - Updated to handle both RouteConfig and WebSocketConfig
+  // Actions
   setEnabled: (enabled: boolean) => void;
-  setRoutes: (routes: Record<string, RouteConfig | WebSocketConfig>) => void;
-  addRoute: (key: string, config: RouteConfig | WebSocketConfig) => void;
+  setRoutes: (routes: Record<string, RouteConfig | WebSocketConfig | InjectionConfig>) => void;
+  addRoute: (key: string, config: RouteConfig | WebSocketConfig | InjectionConfig) => void;
   removeRoute: (key: string) => void;
-  updateRoute: (key: string, config: RouteConfig | WebSocketConfig) => void;
+  updateRoute: (key: string, config: RouteConfig | WebSocketConfig | InjectionConfig) => void;
   toggleRoute: (key: string, enabled: boolean) => void;
   clearRoutes: () => void;
   
@@ -37,9 +38,11 @@ interface AppStore extends AppState {
   
   // Helper methods for route type detection
   isWebSocketRoute: (key: string) => boolean;
+  isInjectionRoute: (key: string) => boolean;
   getHttpRoutes: () => Record<string, RouteConfig>;
   getWebSocketRoutes: () => Record<string, WebSocketConfig>;
-  getRoutesByType: (type: 'http' | 'websocket' | 'all') => Record<string, RouteConfig | WebSocketConfig>;
+  getInjectionRoutes: () => Record<string, InjectionConfig>;
+  getRoutesByType: (type: 'http' | 'websocket' | 'injection' | 'all') => Record<string, RouteConfig | WebSocketConfig | InjectionConfig>;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -62,7 +65,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const routesWithEnabled = Object.entries(routes).reduce((acc, [key, config]) => {
       acc[key] = { ...config, enabled: config.enabled ?? true };
       return acc;
-    }, {} as Record<string, RouteConfig | WebSocketConfig>);
+    }, {} as Record<string, RouteConfig | WebSocketConfig | InjectionConfig>);
     set({ routes: routesWithEnabled });
   },
   
@@ -177,44 +180,60 @@ export const useAppStore = create<AppStore>((set, get) => ({
   
   clearNotifications: () => set({ notifications: [] }),
 
-  // Helper methods
+  // Helper methods — delegate to core
   isWebSocketRoute: (key) => key.startsWith('WS:'),
-  
+  isInjectionRoute: (key) => key.startsWith('INJ:'),
+
   getHttpRoutes: () => {
     const state = get();
     const httpRoutes: Record<string, RouteConfig> = {};
-    
+
     Object.entries(state.routes).forEach(([key, config]) => {
-      if (!key.startsWith('WS:')) {
+      if (!key.startsWith('WS:') && !key.startsWith('INJ:')) {
         httpRoutes[key] = config as RouteConfig;
       }
     });
-    
+
     return httpRoutes;
   },
-  
+
   getWebSocketRoutes: () => {
     const state = get();
     const wsRoutes: Record<string, WebSocketConfig> = {};
-    
+
     Object.entries(state.routes).forEach(([key, config]) => {
       if (key.startsWith('WS:')) {
         wsRoutes[key] = config as WebSocketConfig;
       }
     });
-    
+
     return wsRoutes;
   },
-  
+
+  getInjectionRoutes: () => {
+    const state = get();
+    const injRoutes: Record<string, InjectionConfig> = {};
+
+    Object.entries(state.routes).forEach(([key, config]) => {
+      if (key.startsWith('INJ:')) {
+        injRoutes[key] = config as InjectionConfig;
+      }
+    });
+
+    return injRoutes;
+  },
+
   getRoutesByType: (type) => {
     const state = get();
-    
+
     if (type === 'http') {
       return state.getHttpRoutes();
     } else if (type === 'websocket') {
       return state.getWebSocketRoutes();
+    } else if (type === 'injection') {
+      return state.getInjectionRoutes();
     } else {
-      return state.routes; // Return all routes
+      return state.routes;
     }
   }
 }));

@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
+import { visualizer } from 'rollup-plugin-visualizer'
 import { resolve } from 'path'
 
 const isProduction = process.env.NODE_ENV === 'production'
@@ -21,6 +22,12 @@ export default defineConfig({
           dest: '.'
         }
       ]
+    }),
+    visualizer({
+      filename: 'dist/stats.html',
+      open: false,
+      gzipSize: true,
+      brotliSize: true,
     })
   ],
   base: './',
@@ -42,6 +49,13 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
+      treeshake: {
+        moduleSideEffects: (id) => {
+          // Mark lucide-react icons as side-effect free
+          if (id.includes('lucide-react')) return false;
+          return true;
+        },
+      },
       input: {
         popup: resolve(__dirname, 'popup.html'),
         sidepanel: resolve(__dirname, 'sidepanel.html'),

@@ -4,10 +4,82 @@
 // Create a unique ID for this instance
 const scriptId = 'request-interceptor-script-' + Math.random().toString(36).slice(2, 10);
 
+// Track injected DOM elements for cleanup
+const injectedElements: Map<string, HTMLElement[]> = new Map();
+
+import { pageUrlMatches } from './core/url-matching';
+
+/**
+ * Remove previously injected elements for a given route key
+ */
+function cleanupInjection(routeKey: string) {
+  const elements = injectedElements.get(routeKey);
+  if (elements) {
+    elements.forEach(el => el.remove());
+    injectedElements.delete(routeKey);
+  }
+}
+
+/**
+ * Process injection routes and inject scripts/styles into the page
+ */
+function processInjectionRoutes(routes: Record<string, any>, isEnabled: boolean) {
+  // First, clean up all existing injections
+  for (const key of injectedElements.keys()) {
+    cleanupInjection(key);
+  }
+
+  if (!isEnabled) return;
+
+  const pageUrl = window.location.href;
+
+  Object.entries(routes).forEach(([key, config]) => {
+    if (!key.startsWith('INJ:')) return;
+    if (!config.enabled) return;
+
+    const urlPattern = config.urlPattern || key.substring(4).split('|')[0];
+    if (!pageUrlMatches(pageUrl, urlPattern)) return;
+
+    const elements: HTMLElement[] = [];
+
+    // Inject scripts
+    if (config.scripts && Array.isArray(config.scripts)) {
+      config.scripts.forEach((code: string) => {
+        if (!code.trim()) return;
+        const script = document.createElement('script');
+        script.textContent = code;
+        script.setAttribute('data-injected-by', 'request-interceptor');
+        script.setAttribute('data-route-key', key);
+        (document.head || document.documentElement).appendChild(script);
+        elements.push(script);
+        console.log(`[Request Interceptor] Injected script for route: ${key}`);
+      });
+    }
+
+    // Inject stylesheets
+    if (config.stylesheets && Array.isArray(config.stylesheets)) {
+      config.stylesheets.forEach((css: string) => {
+        if (!css.trim()) return;
+        const style = document.createElement('style');
+        style.textContent = css;
+        style.setAttribute('data-injected-by', 'request-interceptor');
+        style.setAttribute('data-route-key', key);
+        (document.head || document.documentElement).appendChild(style);
+        elements.push(style);
+        console.log(`[Request Interceptor] Injected stylesheet for route: ${key}`);
+      });
+    }
+
+    if (elements.length > 0) {
+      injectedElements.set(key, elements);
+    }
+  });
+}
+
 // Check if the interceptor script is already injected
 if (!document.getElementById(scriptId)) {
   console.log('[Request Interceptor] Initializing content script with headers support');
-  
+
   // Track state locally
   let isEnabled = false;
   let interceptedRoutes: Record<string, any> = {};
@@ -31,6 +103,9 @@ if (!document.getElementById(scriptId)) {
       if (isEnabled) {
         injectInterceptor();
       }
+
+      // Process injection routes
+      processInjectionRoutes(interceptedRoutes, isEnabled);
     }
   });
   
@@ -75,7 +150,10 @@ if (!document.getElementById(scriptId)) {
           }, '*');
         }
       }
-      
+
+      // Process injection routes
+      processInjectionRoutes(interceptedRoutes, isEnabled);
+
       sendResponse({ success: true });
     }
     else if (message.action === 'routesChanged') {
@@ -112,7 +190,10 @@ if (!document.getElementById(scriptId)) {
         // If script not injected but should be enabled, inject it
         injectInterceptor();
       }
-      
+
+      // Process injection routes
+      processInjectionRoutes(interceptedRoutes, isEnabled);
+
       sendResponse({ success: true });
     }
     

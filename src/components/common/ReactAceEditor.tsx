@@ -30,7 +30,7 @@ import 'ace-builds/src-noconflict/ext-searchbox';
 interface ReactAceEditorProps {
   value: string;
   onChange: (value: string) => void;
-  language?: 'json' | 'text' | 'html' | 'xml' | 'javascript';
+  language?: 'json' | 'text' | 'html' | 'xml' | 'javascript' | 'css';
   height?: string | number;
   className?: string;
   placeholder?: string;
@@ -125,6 +125,12 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
       color: 'text-[var(--text-secondary)]',
       bgColor: 'bg-[var(--bg-elevated)]',
       name: 'Text'
+    },
+    css: {
+      icon: FileCode,
+      color: 'text-[var(--accent-indigo)]',
+      bgColor: 'bg-[rgba(99,102,241,0.15)]',
+      name: 'CSS'
     }
   };
 

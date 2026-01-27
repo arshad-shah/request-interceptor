@@ -3,7 +3,7 @@ import { useAppStore } from '@/stores/app-store';
 import { parseRouteKey, chromeApi } from '@/lib/chrome-api';
 import { ConfirmDialog } from '../ui/Dialog';
 import RouteItem from './RouteItem';
-import { parseWebSocketKey } from '@/lib/utils';
+import { parseWebSocketKey, parseInjectionKey } from '@/lib/utils';
 import EmptyState from '@/components/common/EmptyState';
 import FilterEmptyState from '@/components/common/FilterEmptyState';
 
@@ -25,19 +25,34 @@ const RouteList: React.FC = () => {
   });
 
   // Filter routes based on search and method filter
-  const filteredRoutes = Object.entries(routes).filter(([routeKey, config]) => {
+  const filteredRoutes = Object.entries(routes).filter(([routeKey, _config]) => {
+    const isWebSocket = routeKey.startsWith('WS:');
+    const isInjection = routeKey.startsWith('INJ:');
+
     // Check route type filter
     if (filters.routeType && filters.routeType !== 'all') {
-      const isWebSocket = routeKey.startsWith('WS:');
       if (filters.routeType === 'websocket' && !isWebSocket) return false;
-      if (filters.routeType === 'http' && isWebSocket) return false;
+      if (filters.routeType === 'http' && (isWebSocket || isInjection)) return false;
+      if (filters.routeType === 'injection' && !isInjection) return false;
     }
-    
-    // For WebSocket routes, skip method filter
-    if (routeKey.startsWith('WS:')) {
+
+    // Injection routes
+    if (isInjection) {
+      const { urlPattern, name } = parseInjectionKey(routeKey);
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        return (
+          urlPattern.toLowerCase().includes(searchLower) ||
+          name?.toLowerCase().includes(searchLower) ||
+          'injection'.includes(searchLower)
+        );
+      }
+      return true;
+    }
+
+    // WebSocket routes
+    if (isWebSocket) {
       const { url, name } = parseWebSocketKey(routeKey);
-      
-      // Search filter for WebSocket
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         return (
@@ -48,18 +63,16 @@ const RouteList: React.FC = () => {
       }
       return true;
     }
-    
-    // For HTTP routes
+
+    // HTTP routes
     const parsed = parseRouteKey(routeKey);
-    if (!parsed) return false; // Safety check
+    if (!parsed) return false;
     const { method, url, name } = parsed;
-    
-    // Method filter
+
     if (filters.method !== 'all' && method !== filters.method) {
       return false;
     }
-    
-    // Search filter
+
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       return (
@@ -68,7 +81,7 @@ const RouteList: React.FC = () => {
         name?.toLowerCase().includes(searchLower)
       );
     }
-    
+
     return true;
   });
 

@@ -1,0 +1,77 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+Chrome extension (Manifest V3) that intercepts and modifies HTTP and WebSocket responses for UI testing. Built with React 18, TypeScript, Zustand, TailwindCSS 4, and Vite.
+
+## Commands
+
+```bash
+pnpm dev              # Vite dev server
+pnpm build            # TypeScript compile + Vite build → dist/
+pnpm type-check       # Type check only (no emit)
+pnpm lint             # ESLint (zero warnings allowed)
+pnpm test             # Vitest watch mode
+pnpm test:run         # Vitest single run
+pnpm test:coverage    # Vitest with coverage
+```
+
+Load the `dist/` folder as an unpacked extension in `chrome://extensions`.
+
+## Architecture
+
+**Extension entry points** (each is a separate Vite entry):
+- `src/background.ts` — Service worker. Manages state, message routing. Delegates to `src/core/` for validation, migration, export, and conflict detection.
+- `src/content.ts` — Content script injected at `document_start`. Relays messages between page and background. Uses `src/core/url-matching.ts` for injection route matching.
+- `src/injected.ts` — Thin IIFE shell injected into page context. Delegates to `src/core/interceptors/` for fetch, XHR, and WebSocket interception.
+- `src/sidepanel/main.tsx` — Side panel React app (main UI).
+- `src/popup/main.tsx` — Popup React app.
+
+**Core modules** (`src/core/`) — Pure, testable functions with no browser API dependencies:
+- `route-keys.ts` — Single source of truth for route key parsing/creation (HTTP, WS, INJ formats).
+- `url-matching.ts` — URL pattern matching (exact, regex, wildcard, contains). Used by interceptors and content script.
+- `query-params.ts` — Query parameter manipulation (add/remove/modify).
+- `graphql.ts` — GraphQL operation name matching.
+- `route-validation.ts` — Config validation for HTTP, WebSocket, and injection routes.
+- `route-migration.ts` — Schema migration for old route configs (e.g., `headersOnly` → `interceptionMode`).
+- `route-export.ts` — Route serialization for export/import.
+- `route-conflicts.ts` — Conflict detection when enabling/adding routes with the same method+URL.
+
+**Interceptor modules** (`src/core/interceptors/`) — Interception logic extracted from the injected script:
+- `fetch-interceptor.ts` — `fetch()` wrapper supporting mock, passthrough, block, and redirect modes.
+- `xhr-interceptor.ts` — `XMLHttpRequest` wrapper with the same modes.
+- `ws-interceptor.ts` — `WebSocket` wrapper with message rule processing (replace, block, inject).
+- `interceptor-helpers.ts` — Shared helpers: `shouldIntercept`, `createMockResponse`, header modification, route key parsing for injected context.
+
+**Message flow:** Injected script ↔ Content script (postMessage/DOM) ↔ Background (chrome.runtime) ↔ Side panel UI.
+
+**State management:** Two Zustand stores:
+- `src/stores/app-store.ts` — Routes, enabled state, active tab, notifications, filters.
+- `src/stores/network-store.ts` — Captured network requests, filters, selected request (500 request limit).
+
+**Route keys:** HTTP routes use `METHOD:URL` or `METHOD:URL|NAME` format (e.g., `GET:/api/users`). WebSocket routes use `WS:URL` or `WS:URL|NAME`. Injection routes use `INJ:URL` or `INJ:URL|NAME`. All parsing is centralized in `src/core/route-keys.ts`.
+
+**Key types** in `src/types/index.ts` and `src/types/network.ts`: `RouteConfig`, `WebSocketConfig`, `InjectionConfig`, `WebSocketRule`, `NetworkRequest`, `MatchType` (exact/contains/regex).
+
+**Compatibility layer:** `src/lib/chrome-api.ts` and `src/lib/utils.ts` re-export from `src/core/` modules. Existing consumers continue to work without changes.
+
+## Testing
+
+Tests use Vitest with jsdom environment. All core modules have unit tests in `src/core/__tests__/`:
+- `route-keys.test.ts`, `url-matching.test.ts`, `query-params.test.ts`, `graphql.test.ts`
+- `route-validation.test.ts`, `route-migration.test.ts`, `route-export.test.ts`, `route-conflicts.test.ts`
+- Shared fixtures in `src/core/__tests__/fixtures.ts`
+
+## Path Aliases
+
+Configured in both `vite.config.ts` and `tsconfig.json`: `@` → `src/`, `@components`, `@lib`, `@stores`, `@types`, `@styles`, `@popup`, `@sidepanel`, `@assets`.
+
+## Conventions
+
+- ESLint warns on `any` but doesn't error. Unused vars must be prefixed with `_`.
+- Dark theme using CSS custom properties in `src/styles/design-system.css`.
+- Chrome APIs wrapped in `src/lib/chrome-api.ts`.
+- Pure business logic belongs in `src/core/`. Entry points (`background.ts`, `injected.ts`, `content.ts`) should be thin shells that wire up core modules.
+- New logic that doesn't depend on browser APIs should be added to `src/core/` with corresponding tests.
