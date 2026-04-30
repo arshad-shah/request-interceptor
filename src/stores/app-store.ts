@@ -50,6 +50,18 @@ interface AppStore extends AppState {
   getRoutesByType: (type: 'http' | 'websocket' | 'injection' | 'all') => Record<string, RouteConfig | WebSocketConfig | InjectionConfig>;
 }
 
+function shallowEqualConfig(a: any, b: any): boolean {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  const ak = Object.keys(a);
+  const bk = Object.keys(b);
+  if (ak.length !== bk.length) return false;
+  for (const k of ak) {
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
+}
+
 export const useAppStore = create<AppStore>((set, get) => ({
   // Initial state
   enabled: false,
@@ -68,20 +80,51 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Actions
   setEnabled: (enabled) => {
     set({ enabled });
-    // Master off → disable all features
     if (!enabled) {
       set({ eventMonitorEnabled: false });
+      if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({ action: 'setEventMonitorEnabled', enabled: false });
+      }
     }
   },
   setEventMonitorEnabled: (enabled) => set({ eventMonitorEnabled: enabled }),
   
-  setRoutes: (routes) => {
-    const routesWithEnabled = Object.entries(routes).reduce((acc, [key, config]) => {
-      acc[key] = { ...config, enabled: config.enabled ?? true };
-      return acc;
-    }, {} as Record<string, RouteConfig | WebSocketConfig | InjectionConfig>);
-    set({ routes: routesWithEnabled });
-  },
+  setRoutes: (routes) => set((state) => {
+    const prev = state.routes;
+    const next: Record<string, RouteConfig | WebSocketConfig | InjectionConfig> = {};
+    let changed = false;
+    const prevKeys = Object.keys(prev);
+    const nextKeys = Object.keys(routes);
+    if (prevKeys.length !== nextKeys.length) changed = true;
+
+    for (const key of nextKeys) {
+      const incoming = routes[key];
+      const normalizedEnabled = incoming.enabled ?? true;
+      const existing = prev[key];
+      if (
+        existing &&
+        existing === incoming &&
+        existing.enabled === normalizedEnabled
+      ) {
+        next[key] = existing;
+        continue;
+      }
+      if (
+        existing &&
+        (existing.enabled ?? true) === normalizedEnabled &&
+        shallowEqualConfig(existing, incoming)
+      ) {
+        next[key] = existing;
+        continue;
+      }
+      next[key] = incoming.enabled === normalizedEnabled
+        ? incoming
+        : { ...incoming, enabled: normalizedEnabled };
+      changed = true;
+    }
+
+    return changed ? { routes: next } : state;
+  }),
   
   addRoute: (key, config) => set((state) => ({
     routes: { ...state.routes, [key]: { ...config, enabled: config.enabled ?? true } }
@@ -253,3 +296,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   }
 }));
+
+// Hydrate eventMonitorEnabled from background state on first load
+if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+  chrome.runtime.sendMessage({ action: 'getState' }, (response) => {
+    if (response?.eventMonitorEnabled !== undefined) {
+      useAppStore.getState().setEventMonitorEnabled(response.eventMonitorEnabled);
+    }
+  });
+}

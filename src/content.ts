@@ -113,6 +113,10 @@ chrome.runtime.sendMessage({ action: 'getState' }, (response) => {
     sendCommand('initialize', { routes: interceptedRoutes });
   }
 
+  if (response.eventMonitorEnabled) {
+    sendCommand('enableEventMonitor');
+  }
+
   processInjectionRoutes(interceptedRoutes, isEnabled);
 });
 

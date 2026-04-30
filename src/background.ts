@@ -16,6 +16,7 @@ const tabEvents = new Map<number, any[]>();
 interface AppState {
   enabled: boolean;
   routes: Record<string, any>;
+  eventMonitorEnabled: boolean;
 }
 
 interface ChromeMessage {
@@ -26,7 +27,8 @@ interface ChromeMessage {
 class StateManager {
   private state: AppState = {
     enabled: false,
-    routes: {}
+    routes: {},
+    eventMonitorEnabled: false,
   };
 
   constructor() {
@@ -37,9 +39,10 @@ class StateManager {
 
   async loadState(): Promise<void> {
     try {
-      const storedState = await chrome.storage.local.get(['enabled', 'routes']);
+      const storedState = await chrome.storage.local.get(['enabled', 'routes', 'eventMonitorEnabled']);
       this.state.enabled = storedState.enabled || false;
       this.state.routes = storedState.routes || {};
+      this.state.eventMonitorEnabled = storedState.eventMonitorEnabled || false;
 
       const { routes, changed } = migrateRoutes(this.state.routes);
       if (changed) {
@@ -120,6 +123,12 @@ class StateManager {
         }).catch(() => {
           console.log(`[Background] Could not send initial state to tab ${tabId}`);
         });
+        if (this.state.eventMonitorEnabled) {
+          chrome.tabs.sendMessage(tabId, {
+            action: 'toggleEventMonitor',
+            enabled: true,
+          }).catch(() => {});
+        }
       }
     });
   }
@@ -172,6 +181,17 @@ class StateManager {
           await this.openSidePanel();
           sendResponse({ success: true });
           break;
+        case 'setEventMonitorEnabled': {
+          this.state.eventMonitorEnabled = !!message.enabled;
+          await this.saveState();
+          // Broadcast to all tabs so each content script can enable/disable the monitor
+          this.notifyAllTabs({
+            action: 'toggleEventMonitor',
+            enabled: this.state.eventMonitorEnabled,
+          });
+          sendResponse({ success: true });
+          break;
+        }
         default:
           console.warn('[Background] Unknown action:', message.action);
           sendResponse({ success: false, error: 'Unknown action' });

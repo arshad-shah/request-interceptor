@@ -26,14 +26,10 @@ const EventsTab: React.FC = () => {
   const listRef = useRef<HTMLDivElement>(null);
   const autoScroll = useRef(true);
 
-  // Toggle event monitoring on/off — relay to content script
+  // Toggle event monitoring on/off — persist to background (broadcasts to all tabs)
   const handleToggleMonitor = useCallback((on: boolean) => {
     setEventMonitorEnabled(on);
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tabId = tabs[0]?.id;
-      if (!tabId) return;
-      chrome.tabs.sendMessage(tabId, { action: 'toggleEventMonitor', enabled: on });
-    });
+    chrome.runtime.sendMessage({ action: 'setEventMonitorEnabled', enabled: on });
   }, [setEventMonitorEnabled]);
 
   // When master toggle turns off, disable event monitor
