@@ -5,7 +5,7 @@
 
 import { memo } from 'react';
 import { clsx } from 'clsx';
-import { Plus, AlertCircle, CheckCircle, Clock, Loader2 } from 'lucide-react';
+import { Plus, AlertCircle, Loader2 } from 'lucide-react';
 import type { NetworkRequest } from '../../types/network';
 import { formatSize, formatTime, getStatusClass } from '../../lib/network-api';
 

@@ -1,15 +1,31 @@
 import React, { useState, useCallback } from 'react';
-import AceEditor from 'react-ace';
+import * as ReactAce from 'react-ace';
+
+function resolveAceEditor(mod: any): any {
+  let candidate = mod;
+  for (let i = 0; i < 3; i++) {
+    if (typeof candidate === 'function') return candidate;
+    if (candidate && typeof candidate === 'object' && 'default' in candidate) {
+      candidate = candidate.default;
+      continue;
+    }
+    break;
+  }
+  if (typeof console !== 'undefined') {
+    console.error('[ReactAceEditor] Could not resolve AceEditor component from react-ace module:', mod);
+  }
+  return candidate;
+}
+
+const AceEditor = resolveAceEditor(ReactAce) as typeof import('react-ace').default;
 import {
   Code,
   Check,
   AlertCircle,
   Copy,
   RotateCcw,
-  ChevronDown,
   FileCode,
-  Zap,
-  Moon
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { validateJson, formatJson } from '@/lib/chrome-api';
@@ -30,7 +46,7 @@ import 'ace-builds/src-noconflict/ext-searchbox';
 interface ReactAceEditorProps {
   value: string;
   onChange: (value: string) => void;
-  language?: 'json' | 'text' | 'html' | 'xml' | 'javascript';
+  language?: 'json' | 'text' | 'html' | 'xml' | 'javascript' | 'css';
   height?: string | number;
   className?: string;
   placeholder?: string;
@@ -69,31 +85,6 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
   const [cursorPosition, setCursorPosition] = useState({ row: 1, column: 1 });
   const [showThemeMenu, setShowThemeMenu] = useState(false);
 
-  // Dark theme configuration
-  const themes = [
-    {
-      value: 'monokai',
-      label: 'Monokai',
-      icon: Moon
-    },
-    {
-      value: 'twilight',
-      label: 'Twilight',
-      icon: Moon
-    },
-    {
-      value: 'solarized_dark',
-      label: 'Solarized Dark',
-      icon: Moon
-    },
-    {
-      value: 'terminal',
-      label: 'Terminal',
-      icon: Moon
-    }
-  ];
-
-
   // Language configuration with dark theme colors
   const languageConfig = {
     json: {
@@ -125,6 +116,12 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
       color: 'text-[var(--text-secondary)]',
       bgColor: 'bg-[var(--bg-elevated)]',
       name: 'Text'
+    },
+    css: {
+      icon: FileCode,
+      color: 'text-[var(--accent-indigo)]',
+      bgColor: 'bg-[rgba(99,102,241,0.15)]',
+      name: 'CSS'
     }
   };
 

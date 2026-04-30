@@ -1,4 +1,4 @@
-import { RouteFormData, WebSocketRule } from '@/types';
+import { RouteFormData, WebSocketRule, InjectionConfig } from '@/types';
 import { formatJson } from '@/lib/chrome-api';
 
 export const defaultWebSocketRule: Omit<WebSocketRule, 'id'> = {
@@ -23,8 +23,24 @@ export const defaultFormData: RouteFormData = {
   requestHeaders: {},
   removeRequestHeaders: [],
   headersOnly: false,
+  interceptionMode: 'mock',
+  redirectUrl: '',
+  requestBody: '',
+  queryParamRules: [],
+  graphqlOperationName: '',
   incomingRules: [],
-  outgoingRules: []
+  outgoingRules: [],
+  scripts: [],
+  stylesheets: [],
+  injectAt: 'document_end'
+};
+
+export const defaultInjectionConfig: Omit<InjectionConfig, 'timestamp'> = {
+  enabled: true,
+  scripts: [],
+  stylesheets: [],
+  injectAt: 'document_end',
+  urlPattern: ''
 };
 
 // Common response headers

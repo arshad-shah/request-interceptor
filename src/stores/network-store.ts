@@ -20,7 +20,7 @@ const DEFAULT_FILTERS: NetworkFilters = {
 
 const DEFAULT_SETTINGS: NetworkSettings = {
   preserveLog: false,
-  recording: true,
+  recording: false,
   disableCache: false,
   showWaterfall: true,
 };

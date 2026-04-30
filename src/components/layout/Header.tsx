@@ -47,6 +47,8 @@ const Header: React.FC = () => {
         <Toggle
           checked={enabled}
           onChange={handleToggle}
+          label="Toggle request interception"
+          activeColor="emerald"
         />
       </div>
     </header>

@@ -24,7 +24,7 @@ const HeaderEditor: React.FC<HeaderEditorProps> = ({
   description,
   placeholder = { key: 'Header-Name', value: 'Header Value' },
   commonHeaders = [],
-  className
+  className: _className
 }) => {
   const [isExpanded, setIsExpanded] = useState(Object.keys(headers || {}).length > 0);
   const [newKey, setNewKey] = useState('');

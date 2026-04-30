@@ -100,7 +100,6 @@ interface NetworkSettings {
 // ============================================
 
 const MAX_REQUESTS = 500;
-const MAX_BODY_SIZE = 5 * 1024 * 1024; // 5MB
 
 const RESOURCE_TYPES: Record<string, string> = {
   Document: 'document',
@@ -349,7 +348,7 @@ export class NetworkManager {
   }
 
   private handleResponseReceived(tabId: number, params: any): void {
-    const { requestId, response, timestamp, type } = params;
+    const { requestId, response, timestamp } = params;
 
     const updates: Partial<NetworkRequest> = {
       statusCode: response.status,
@@ -766,20 +765,23 @@ export class NetworkManager {
           sendResponse({ settings: this.settings });
           break;
 
-        case 'NETWORK_EXPORT_HAR':
+        case 'NETWORK_EXPORT_HAR': {
           const har = this.generateHAR(message.tabId);
           sendResponse({ har });
           break;
+        }
 
-        case 'NETWORK_REPLAY_REQUEST':
+        case 'NETWORK_REPLAY_REQUEST': {
           const result = await this.replayRequest(message.request);
           sendResponse({ result });
           break;
+        }
 
-        case 'NETWORK_ATTACH_DEBUGGER':
+        case 'NETWORK_ATTACH_DEBUGGER': {
           const attached = await this.attachDebugger(message.tabId);
           sendResponse({ success: attached, attached });
           break;
+        }
 
         case 'NETWORK_DETACH_DEBUGGER':
           await this.detachDebugger(message.tabId);

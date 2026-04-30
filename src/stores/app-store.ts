@@ -1,12 +1,12 @@
 import { create } from 'zustand';
-import { 
-  AppState, 
-  RouteConfig, 
-  WebSocketConfig, 
-  Notification, 
-  FilterState, 
-  TabId, 
-  NotificationType 
+import {
+  AppState,
+  RouteConfig,
+  WebSocketConfig,
+  InjectionConfig,
+  Notification,
+  FilterState,
+  TabId,
 } from '@/types';
 
 interface AppStore extends AppState {
@@ -15,20 +15,25 @@ interface AppStore extends AppState {
   notifications: Notification[];
   filters: FilterState;
   editingRoute: string | null;
-  
-  // Actions - Updated to handle both RouteConfig and WebSocketConfig
+  isFormOpen: boolean;
+  eventMonitorEnabled: boolean;
+
+  // Actions
   setEnabled: (enabled: boolean) => void;
-  setRoutes: (routes: Record<string, RouteConfig | WebSocketConfig>) => void;
-  addRoute: (key: string, config: RouteConfig | WebSocketConfig) => void;
+  setEventMonitorEnabled: (enabled: boolean) => void;
+  setRoutes: (routes: Record<string, RouteConfig | WebSocketConfig | InjectionConfig>) => void;
+  addRoute: (key: string, config: RouteConfig | WebSocketConfig | InjectionConfig) => void;
   removeRoute: (key: string) => void;
-  updateRoute: (key: string, config: RouteConfig | WebSocketConfig) => void;
+  updateRoute: (key: string, config: RouteConfig | WebSocketConfig | InjectionConfig) => void;
   toggleRoute: (key: string, enabled: boolean) => void;
   clearRoutes: () => void;
-  
+
   // UI Actions
   setActiveTab: (tab: TabId) => void;
   setFilters: (filters: Partial<FilterState>) => void;
   setEditingRoute: (key: string | null) => void;
+  openForm: () => void;
+  closeForm: () => void;
   
   // Notifications
   addNotification: (notification: Omit<Notification, 'id'>) => void;
@@ -37,9 +42,23 @@ interface AppStore extends AppState {
   
   // Helper methods for route type detection
   isWebSocketRoute: (key: string) => boolean;
+  isInjectionRoute: (key: string) => boolean;
   getHttpRoutes: () => Record<string, RouteConfig>;
   getWebSocketRoutes: () => Record<string, WebSocketConfig>;
-  getRoutesByType: (type: 'http' | 'websocket' | 'all') => Record<string, RouteConfig | WebSocketConfig>;
+  getInjectionRoutes: () => Record<string, InjectionConfig>;
+  getRoutesByType: (type: 'http' | 'websocket' | 'injection' | 'all') => Record<string, RouteConfig | WebSocketConfig | InjectionConfig>;
+}
+
+function shallowEqualConfig(a: any, b: any): boolean {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  const ak = Object.keys(a);
+  const bk = Object.keys(b);
+  if (ak.length !== bk.length) return false;
+  for (const k of ak) {
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -54,17 +73,57 @@ export const useAppStore = create<AppStore>((set, get) => ({
     routeType: 'all' // Added route type filter
   },
   editingRoute: null,
+  isFormOpen: false,
+  eventMonitorEnabled: false,
 
   // Actions
-  setEnabled: (enabled) => set({ enabled }),
-  
-  setRoutes: (routes) => {
-    const routesWithEnabled = Object.entries(routes).reduce((acc, [key, config]) => {
-      acc[key] = { ...config, enabled: config.enabled ?? true };
-      return acc;
-    }, {} as Record<string, RouteConfig | WebSocketConfig>);
-    set({ routes: routesWithEnabled });
+  setEnabled: (enabled) => {
+    set({ enabled });
+    if (!enabled) {
+      set({ eventMonitorEnabled: false });
+      if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({ action: 'setEventMonitorEnabled', enabled: false });
+      }
+    }
   },
+  setEventMonitorEnabled: (enabled) => set({ eventMonitorEnabled: enabled }),
+  
+  setRoutes: (routes) => set((state) => {
+    const prev = state.routes;
+    const next: Record<string, RouteConfig | WebSocketConfig | InjectionConfig> = {};
+    let changed = false;
+    const prevKeys = Object.keys(prev);
+    const nextKeys = Object.keys(routes);
+    if (prevKeys.length !== nextKeys.length) changed = true;
+
+    for (const key of nextKeys) {
+      const incoming = routes[key];
+      const normalizedEnabled = incoming.enabled ?? true;
+      const existing = prev[key];
+      if (
+        existing &&
+        existing === incoming &&
+        existing.enabled === normalizedEnabled
+      ) {
+        next[key] = existing;
+        continue;
+      }
+      if (
+        existing &&
+        (existing.enabled ?? true) === normalizedEnabled &&
+        shallowEqualConfig(existing, incoming)
+      ) {
+        next[key] = existing;
+        continue;
+      }
+      next[key] = incoming.enabled === normalizedEnabled
+        ? incoming
+        : { ...incoming, enabled: normalizedEnabled };
+      changed = true;
+    }
+
+    return changed ? { routes: next } : state;
+  }),
   
   addRoute: (key, config) => set((state) => ({
     routes: { ...state.routes, [key]: { ...config, enabled: config.enabled ?? true } }
@@ -105,7 +164,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     filters: { ...state.filters, ...filters }
   })),
   
-  setEditingRoute: (key) => set({ editingRoute: key }),
+  setEditingRoute: (key) => set({ editingRoute: key, isFormOpen: key !== null }),
+  openForm: () => set({ isFormOpen: true, editingRoute: null }),
+  closeForm: () => set({ isFormOpen: false, editingRoute: null }),
   
   // Notifications
   addNotification: (notification) => {
@@ -177,44 +238,69 @@ export const useAppStore = create<AppStore>((set, get) => ({
   
   clearNotifications: () => set({ notifications: [] }),
 
-  // Helper methods
+  // Helper methods — delegate to core
   isWebSocketRoute: (key) => key.startsWith('WS:'),
-  
+  isInjectionRoute: (key) => key.startsWith('INJ:'),
+
   getHttpRoutes: () => {
     const state = get();
     const httpRoutes: Record<string, RouteConfig> = {};
-    
+
     Object.entries(state.routes).forEach(([key, config]) => {
-      if (!key.startsWith('WS:')) {
+      if (!key.startsWith('WS:') && !key.startsWith('INJ:')) {
         httpRoutes[key] = config as RouteConfig;
       }
     });
-    
+
     return httpRoutes;
   },
-  
+
   getWebSocketRoutes: () => {
     const state = get();
     const wsRoutes: Record<string, WebSocketConfig> = {};
-    
+
     Object.entries(state.routes).forEach(([key, config]) => {
       if (key.startsWith('WS:')) {
         wsRoutes[key] = config as WebSocketConfig;
       }
     });
-    
+
     return wsRoutes;
   },
-  
+
+  getInjectionRoutes: () => {
+    const state = get();
+    const injRoutes: Record<string, InjectionConfig> = {};
+
+    Object.entries(state.routes).forEach(([key, config]) => {
+      if (key.startsWith('INJ:')) {
+        injRoutes[key] = config as InjectionConfig;
+      }
+    });
+
+    return injRoutes;
+  },
+
   getRoutesByType: (type) => {
     const state = get();
-    
+
     if (type === 'http') {
       return state.getHttpRoutes();
     } else if (type === 'websocket') {
       return state.getWebSocketRoutes();
+    } else if (type === 'injection') {
+      return state.getInjectionRoutes();
     } else {
-      return state.routes; // Return all routes
+      return state.routes;
     }
   }
 }));
+
+// Hydrate eventMonitorEnabled from background state on first load
+if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+  chrome.runtime.sendMessage({ action: 'getState' }, (response) => {
+    if (response?.eventMonitorEnabled !== undefined) {
+      useAppStore.getState().setEventMonitorEnabled(response.eventMonitorEnabled);
+    }
+  });
+}

@@ -1720,6 +1720,117 @@ mark.ds-search-highlight {
   outline-offset: 2px;
 }
 
+/* Global focus-visible styles */
+*:focus-visible {
+  outline: 2px solid var(--accent-indigo);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline-offset: -2px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+/* ============================================
+   Component: Form Section (Collapsible)
+   ============================================ */
+.ds-form-section {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.ds-form-section:has(.ds-form-section-trigger:hover) {
+  border-color: var(--border-default);
+}
+
+.ds-form-section-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-surface);
+  border: none;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast);
+}
+
+.ds-form-section-trigger:hover {
+  background: var(--bg-hover);
+}
+
+.ds-form-section-trigger-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ds-form-section-trigger-left svg:first-child {
+  color: var(--text-tertiary);
+  width: 14px;
+  height: 14px;
+}
+
+.ds-form-section-trigger-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ds-form-section-chevron {
+  color: var(--text-tertiary);
+  transition: transform var(--transition-fast);
+  width: 14px;
+  height: 14px;
+}
+
+.ds-form-section[data-expanded="true"] .ds-form-section-chevron {
+  transform: rotate(180deg);
+}
+
+.ds-form-section-content {
+  border-top: 1px solid var(--border-subtle);
+  padding: 12px;
+  animation: ds-section-expand var(--transition-normal);
+}
+
+@keyframes ds-section-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ds-form-section-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--accent-indigo);
+  font-size: 10px;
+  font-weight: 600;
+}
+
 /* ============================================
    Scrollbar Variants
    ============================================ */
@@ -2205,4 +2316,56 @@ mark.ds-search-highlight {
 
 .jt-parsed-indicator svg {
   flex-shrink: 0;
+}
+
+/* ============================================
+   Component: Slide-Over Panel
+   ============================================ */
+.ds-slide-over-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 150;
+  animation: ds-fade-in var(--transition-fast);
+}
+
+.ds-slide-over {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--bg-base);
+  border-left: 1px solid var(--border-default);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  outline: none;
+  animation: ds-slide-in-from-right var(--transition-slow) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ds-slide-over-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.ds-slide-over-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+@keyframes ds-slide-in-from-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }

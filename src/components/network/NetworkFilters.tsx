@@ -22,7 +22,7 @@ const FILTER_TYPES: { type: NetworkFilterType; label: string }[] = [
 
 export function NetworkFilters() {
   const filters = useNetworkFilters();
-  const { setFilter, setSearch, clearFilters } = useNetworkStore();
+  const { setFilter, setSearch } = useNetworkStore();
 
   return (
     <div className="flex-none flex flex-col gap-2 p-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
@@ -35,12 +35,12 @@ export function NetworkFilters() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Filter by URL, method, or status..."
           className="ds-search-input"
-          style={{ paddingLeft: '32px' }}
+          style={{ paddingLeft: '32px', paddingRight: filters.search ? '32px' : '12px' }}
         />
         {filters.search && (
           <button
             onClick={() => setSearch('')}
-            className="absolute right-2 p-1 rounded hover:bg-[var(--bg-surface)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-[var(--bg-surface)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] flex items-center justify-center"
           >
             <X size={14} />
           </button>

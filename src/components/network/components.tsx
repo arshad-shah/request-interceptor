@@ -246,7 +246,7 @@ export function CodeBlock({
   content,
   language = 'text',
   maxHeight = 400,
-  searchTerm,
+  searchTerm: _searchTerm,
   showCopy = true,
   wrapLines = true,
   enableTreeView = true,
@@ -728,7 +728,7 @@ export function WaterfallChart({ phases, totalTime }: WaterfallChartProps) {
         Request Timeline
       </div>
       <div className="h-7 bg-[var(--bg-base)] rounded-[var(--radius-sm)] overflow-hidden flex">
-        {phases.map((phase, i) => {
+        {phases.map((phase, _i) => {
           const widthPercent = (phase.value / totalTime) * 100;
           if (widthPercent < 0.5) return null;
 

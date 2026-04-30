@@ -207,7 +207,6 @@ export function JsonTreeViewer({
 }: JsonTreeViewerProps) {
   // ─── State ─────────────────────────────────────────────────────────────────
   const [collapsedSet, setCollapsedSet] = useState<Set<number>>(new Set());
-  const [expandedEmbeddedIds, setExpandedEmbeddedIds] = useState<Set<number>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [matchedIds, setMatchedIds] = useState<Set<number>>(new Set());
   const [currentMatchIdx, setCurrentMatchIdx] = useState(-1);
@@ -227,7 +226,7 @@ export function JsonTreeViewer({
   }, [data, parseEmbeddedJson]);
 
   // ─── Build Tree ────────────────────────────────────────────────────────────
-  const { nodeMap, flatNodes, rootId, rawSize } = useMemo(() => {
+  const { nodeMap, rootId, rawSize } = useMemo(() => {
     const nodeMap = new Map<number, TreeNode>();
     let idCounter = 0;
 
@@ -424,19 +423,6 @@ export function JsonTreeViewer({
     });
   }, []);
 
-  const expandAll = useCallback(() => {
-    setCollapsedSet(new Set());
-  }, []);
-
-  const collapseAll = useCallback(() => {
-    const allContainers = new Set<number>();
-    nodeMap.forEach((node, id) => {
-      if (node.isContainer && node.length > 0) {
-        allContainers.add(id);
-      }
-    });
-    setCollapsedSet(allContainers);
-  }, [nodeMap]);
 
   const handleCopyPath = useCallback(async (path: string) => {
     const success = await copyToClipboard(path);
@@ -485,7 +471,7 @@ export function JsonTreeViewer({
   }, [matchedList, goToNextMatch]);
 
   // ─── Render Node ───────────────────────────────────────────────────────────
-  const renderNode = useCallback((node: TreeNode, index: number) => {
+  const renderNode = useCallback((node: TreeNode, _index: number) => {
     const { id, key, path, depth, type, isContainer, length, value, parentId } = node;
     const isCollapsed = collapsedSet.has(id);
     const isMatched = matchedIds.has(id);
@@ -719,7 +705,6 @@ export function JsonTreeViewer({
   }, [data, processedData]);
 
   // ─── Render ────────────────────────────────────────────────────────────────
-  const rowHeight = compact ? 20 : ROW_HEIGHT;
 
   return (
     <div className={clsx('jt-container', compact && 'jt-compact', className)}>

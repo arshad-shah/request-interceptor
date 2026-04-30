@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en" class="dark-theme">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Request Interceptor - Side Panel</title>
+  <link rel="stylesheet" href="../../styles/globals.css">
+  <style>
+    /* Set dark background before React loads to prevent flash */
+    html, body, #sidepanel-root {
+      background-color: #09090b;
+      color: #fafafa;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+  </style>
+</head>
+<body class="dark-theme">
+  <div id="sidepanel-root" class="dark-theme"></div>
+  <script type="module" src="./index.js"></script>
+</body>
+</html>

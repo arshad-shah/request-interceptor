@@ -8,7 +8,39 @@ interface ToggleProps {
   size?: 'sm' | 'md' | 'lg';
   label?: string;
   className?: string;
+  activeColor?: 'indigo' | 'emerald';
 }
+
+const sizeClasses: Record<'sm' | 'md' | 'lg', { toggle: string; track: string; thumb: string; translate: string }> = {
+  sm: {
+    toggle: 'w-[32px] h-[18px]',
+    track: 'rounded-[9px]',
+    thumb: 'w-[12px] h-[12px] top-[3px] left-[3px]',
+    translate: 'translate-x-[14px]',
+  },
+  md: {
+    toggle: 'w-[40px] h-[22px]',
+    track: 'rounded-[11px]',
+    thumb: 'w-[16px] h-[16px] top-[3px] left-[3px]',
+    translate: 'translate-x-[18px]',
+  },
+  lg: {
+    toggle: 'w-[52px] h-[28px]',
+    track: 'rounded-[14px]',
+    thumb: 'w-[22px] h-[22px] top-[3px] left-[3px]',
+    translate: 'translate-x-[24px]',
+  },
+};
+
+const trackColorMap: Record<string, string> = {
+  indigo: 'bg-[rgba(99,102,241,0.2)]',
+  emerald: 'bg-[rgba(16,185,129,0.2)]',
+};
+
+const thumbColorMap: Record<string, string> = {
+  indigo: 'bg-[var(--accent-indigo)]',
+  emerald: 'bg-[var(--accent-emerald)]',
+};
 
 const Toggle: React.FC<ToggleProps> = ({
   checked,
@@ -16,22 +48,42 @@ const Toggle: React.FC<ToggleProps> = ({
   disabled = false,
   size = 'md',
   label,
-  className
+  className,
+  activeColor = 'indigo',
 }) => {
+  const s = sizeClasses[size];
+
   return (
-    <label className={cn(
-      'ds-toggle',
-      disabled && 'opacity-50 cursor-not-allowed',
-      className
-    )}>
+    <label
+      className={cn(
+        'relative inline-flex cursor-pointer',
+        s.toggle,
+        disabled && 'opacity-50 cursor-not-allowed',
+        className
+      )}
+      aria-label={label}
+    >
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => !disabled && onChange(e.target.checked)}
         disabled={disabled}
+        className="absolute opacity-0 w-0 h-0"
       />
-      <div className="ds-toggle-track" />
-      <div className="ds-toggle-thumb" />
+      <div
+        className={cn(
+          'w-full h-full bg-(--bg-surface) transition-colors duration-(--transition-fast)',
+          s.track,
+          checked && trackColorMap[activeColor]
+        )}
+      />
+      <div
+        className={cn(
+          'absolute rounded-full bg-(--text-tertiary) transition-all duration-(--transition-fast)',
+          s.thumb,
+          checked && cn(s.translate, thumbColorMap[activeColor])
+        )}
+      />
     </label>
   );
 };

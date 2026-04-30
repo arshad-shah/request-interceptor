@@ -1,10 +1,10 @@
 import React from 'react';
-import { Zap, MessageSquare } from 'lucide-react';
+import { Zap, MessageSquare, Code } from 'lucide-react';
 import Radio from '../ui/Radio';
 
 interface RouteTypeSelectionProps {
     formData: {
-        routeType: 'http' | 'websocket' | string;
+        routeType: 'http' | 'websocket' | 'injection' | string;
     };
     handleInputChange: (field: string, value: string) => void;
 }
@@ -41,6 +41,18 @@ const RouteTypeSelection: React.FC<RouteTypeSelectionProps> = ({
                         />
                         <MessageSquare size={14} className="text-[var(--accent-violet)]" />
                         <span className="text-[12px] text-[var(--text-primary)]">WebSocket</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <Radio
+                            checked={formData.routeType === 'injection'}
+                            onChange={() => handleInputChange('routeType', 'injection')}
+                            value="injection"
+                            name="routeType"
+                            size="sm"
+                        />
+                        <Code size={14} className="text-[var(--accent-indigo)]" />
+                        <span className="text-[12px] text-[var(--text-primary)]">Injection</span>
                     </label>
                 </div>
             </div>

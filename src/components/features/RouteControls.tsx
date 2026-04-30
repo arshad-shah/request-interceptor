@@ -9,7 +9,8 @@ import {
   MessageSquare,
   BarChart3,
   ChevronDown,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi } from '@/lib/chrome-api';
@@ -39,7 +40,8 @@ const RouteControls: React.FC = () => {
     filters,
     setFilters,
     addNotification,
-    clearRoutes
+    clearRoutes,
+    openForm
   } = useAppStore();
 
   const [showClearDialog, setShowClearDialog] = React.useState(false);
@@ -157,27 +159,38 @@ const RouteControls: React.FC = () => {
             </div>
 
             {/* Action Buttons */}
-            {routeCount > 0 && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleExport}
-                  leftIcon={<Download size={14} />}
-                >
-                  Export
-                </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={openForm}
+                leftIcon={<Plus size={14} />}
+              >
+                Add Route
+              </Button>
 
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={() => setShowClearDialog(true)}
-                  leftIcon={<Trash2 size={14} />}
-                >
-                  Clear All
-                </Button>
-              </div>
-            )}
+              {routeCount > 0 && (
+                <>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleExport}
+                    leftIcon={<Download size={14} />}
+                  >
+                    Export
+                  </Button>
+
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => setShowClearDialog(true)}
+                    leftIcon={<Trash2 size={14} />}
+                  >
+                    Clear All
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -195,6 +208,8 @@ const RouteControls: React.FC = () => {
             {/* Filter Toggle Button */}
             <button
               onClick={() => setFiltersExpanded(!filtersExpanded)}
+              aria-label="Toggle filters"
+              aria-expanded={filtersExpanded}
               className={`absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded-[var(--radius-sm)] text-[11px] font-medium flex items-center gap-1 transition-colors ${
                 hasActiveFilters
                   ? 'bg-[rgba(99,102,241,0.15)] text-[var(--accent-indigo)]'
@@ -239,6 +254,7 @@ const RouteControls: React.FC = () => {
                 </div>
                 <button
                   onClick={clearAllFilters}
+                  aria-label="Clear all filters"
                   className="ds-btn text-[11px] px-2 py-1 flex items-center gap-1"
                 >
                   <X size={10} />
