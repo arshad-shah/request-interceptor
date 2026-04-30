@@ -26,7 +26,7 @@ const AddRouteForm: React.FC = () => {
   const {
     routes,
     editingRoute,
-    setActiveTab,
+    closeForm,
     setEditingRoute,
     addNotification,
     addRoute,
@@ -327,7 +327,7 @@ const AddRouteForm: React.FC = () => {
     setFormData(defaultFormData);
     setErrors({});
     setEditingRoute(null);
-    setActiveTab('routes');
+    closeForm();
   };
 
   const handleFieldChange = (field: keyof RouteFormData, value: any) => {
@@ -341,15 +341,15 @@ const AddRouteForm: React.FC = () => {
   const modeBadge = isWebSocket ? (
     <span className="ds-badge violet">WebSocket</span>
   ) : isInjection ? (
-    <span className="ds-badge" style={{ color: 'var(--accent-indigo)', background: 'rgba(99,102,241,0.15)' }}>
+    <span className="ds-badge indigo">
       Injection
     </span>
   ) : formData.interceptionMode === 'block' ? (
-    <span className="ds-badge" style={{ color: 'var(--accent-rose)', background: 'rgba(244,63,94,0.15)' }}>
+    <span className="ds-badge rose">
       Block
     </span>
   ) : formData.interceptionMode === 'redirect' ? (
-    <span className="ds-badge" style={{ color: 'var(--accent-amber)', background: 'rgba(245,158,11,0.15)' }}>
+    <span className="ds-badge amber">
       Redirect
     </span>
   ) : formData.interceptionMode === 'passthrough' ? (
@@ -359,20 +359,16 @@ const AddRouteForm: React.FC = () => {
   );
 
   return (
-    <div className="ds-panel max-w-4xl mx-auto">
-      {/* Panel Header */}
-      <div className="ds-panel-header">
-        <div className="flex items-center gap-2">
-          <Settings2 size={18} className="text-[var(--accent-indigo)]" />
-          <span className="text-[14px] font-semibold text-[var(--text-primary)]">
-            {isEditing ? 'Edit Route' : 'Add New Route'}
-          </span>
-          {modeBadge}
-        </div>
+    <div className="space-y-4">
+      {/* Mode badge row */}
+      <div className="flex items-center gap-2">
+        <Settings2 size={14} className="text-[var(--accent-indigo)]" />
+        <span className="text-[12px] font-medium text-[var(--text-secondary)]">Mode:</span>
+        {modeBadge}
       </div>
 
-      {/* Panel Body */}
-      <div className="ds-panel-body space-y-4">
+      {/* Form sections */}
+      <div className="space-y-4">
         {/* Basic Info — always visible */}
         <BasicInfoSection
           formData={formData}
@@ -467,12 +463,14 @@ const AddRouteForm: React.FC = () => {
       </div>
 
       {/* Footer */}
-      <FormFooter
-        isEditing={isEditing}
-        isSubmitting={isSubmitting}
-        onCancel={handleCancel}
-        onSubmit={handleSubmit}
-      />
+      <div className="pt-2">
+        <FormFooter
+          isEditing={isEditing}
+          isSubmitting={isSubmitting}
+          onCancel={handleCancel}
+          onSubmit={handleSubmit}
+        />
+      </div>
     </div>
   );
 };

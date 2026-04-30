@@ -20,9 +20,6 @@ interface EventsStore {
   toggleBookmark: (id: string) => void;
   setCompareMode: (on: boolean) => void;
   setCompareEvent: (slot: 0 | 1, id: string | null) => void;
-
-  // Stats
-  getStats: () => { total: number; custom: number; messages: number; emitter: number };
 }
 
 const MAX_EVENTS = 1000;
@@ -112,22 +109,22 @@ export const useEventsStore = create<EventsStore>((set, get) => ({
       return { compareEventIds: ids };
     });
   },
-
-  getStats: () => {
-    const { events } = get();
-    const counts: Record<EventCategory | 'total', number> = {
-      total: events.length,
-      CustomEvent: 0,
-      postMessage: 0,
-      EventEmitter: 0,
-      System: 0,
-    };
-    events.forEach(e => { counts[e.category]++; });
-    return {
-      total: counts.total,
-      custom: counts.CustomEvent,
-      messages: counts.postMessage,
-      emitter: counts.EventEmitter,
-    };
-  },
 }));
+
+/** Derive stats from events array — use as a selector: useEventsStore(selectStats) */
+export function selectStats(state: { events: CapturedEvent[] }) {
+  const counts: Record<EventCategory | 'total', number> = {
+    total: state.events.length,
+    CustomEvent: 0,
+    postMessage: 0,
+    EventEmitter: 0,
+    System: 0,
+  };
+  state.events.forEach(e => { counts[e.category]++; });
+  return {
+    total: counts.total,
+    custom: counts.CustomEvent,
+    messages: counts.postMessage,
+    emitter: counts.EventEmitter,
+  };
+}

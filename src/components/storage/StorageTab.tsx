@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useMemo } from 'react';
 import { RefreshCw, Download, Upload, Plus, Trash2, Search, Database } from 'lucide-react';
 import { useStorageStore } from '@/stores/storage-store';
 import { StorageType, StorageItem, CookieItem } from '@/types/storage';
@@ -14,8 +14,19 @@ const STORAGE_TABS: Array<{ id: StorageType; label: string; color: string }> = [
   { id: 'indexedDB', label: 'IndexedDB', color: 'var(--accent-cyan)' },
 ];
 
+// Grab stable action references outside the component
+const actions = () => useStorageStore.getState();
+
 const StorageTab: React.FC = () => {
-  const store = useStorageStore();
+  // Select individual state slices for proper reactivity
+  const activeStorageTab = useStorageStore(s => s.activeStorageTab);
+  const localStorageItems = useStorageStore(s => s.localStorageItems);
+  const sessionStorageItems = useStorageStore(s => s.sessionStorageItems);
+  const cookies = useStorageStore(s => s.cookies);
+  const indexedDBs = useStorageStore(s => s.indexedDBs);
+  const search = useStorageStore(s => s.search);
+  const loading = useStorageStore(s => s.loading);
+
   const [tabUrl, setTabUrl] = useState('');
   const [editModal, setEditModal] = useState<{ key: string; value: string } | null>(null);
   const [addModal, setAddModal] = useState(false);
@@ -33,9 +44,10 @@ const StorageTab: React.FC = () => {
   }, []);
 
   const loadStorage = useCallback(async () => {
-    store.setLoading(true);
+    const { setLoading, setLocalStorageItems, setSessionStorageItems, setCookies, setIndexedDBs, updateStats } = actions();
+    setLoading(true);
     const tabId = await getTabId();
-    if (!tabId) { store.setLoading(false); return; }
+    if (!tabId) { setLoading(false); return; }
 
     // Get localStorage + sessionStorage
     chrome.runtime.sendMessage({ type: 'GET_ALL_STORAGE', tabId }, (response) => {
@@ -52,10 +64,9 @@ const StorageTab: React.FC = () => {
           size: (key.length + (value as string).length) * 2,
           type: detectType(value as string),
         }));
-        store.setLocalStorageItems(localItems);
-        store.setSessionStorageItems(sessionItems);
-        store.setStats({
-          ...store.stats,
+        setLocalStorageItems(localItems);
+        setSessionStorageItems(sessionItems);
+        updateStats({
           localStorageCount: localItems.length,
           localStorageSize: response.localStorageSize || 0,
           sessionStorageCount: sessionItems.length,
@@ -70,8 +81,8 @@ const StorageTab: React.FC = () => {
       if (!url) return;
       chrome.runtime.sendMessage({ type: 'GET_COOKIES', url }, (response) => {
         if (response?.cookies) {
-          store.setCookies(response.cookies);
-          store.setStats({ ...store.stats, cookiesCount: response.cookies.length });
+          setCookies(response.cookies);
+          updateStats({ cookiesCount: response.cookies.length });
         }
       });
     });
@@ -83,20 +94,20 @@ const StorageTab: React.FC = () => {
       action: { type: 'GET_INDEXEDDB_INFO' },
     }, (response) => {
       if (response?.databases) {
-        store.setIndexedDBs(response.databases);
-        store.setStats({ ...store.stats, indexedDBCount: response.databases.length });
+        setIndexedDBs(response.databases);
+        updateStats({ indexedDBCount: response.databases.length });
       }
-      store.setLoading(false);
+      setLoading(false);
     });
-  }, [getTabId, store]);
+  }, [getTabId]);
 
   useEffect(() => {
     loadStorage();
   }, [loadStorage]);
 
   const handleEdit = (key: string, value: string) => {
-    if (store.activeStorageTab === 'cookies') {
-      const cookie = store.cookies.find(c => c.name === key);
+    if (activeStorageTab === 'cookies') {
+      const cookie = cookies.find(c => c.name === key);
       if (cookie) setCookieEditModal(cookie);
     } else {
       setEditModal({ key, value });
@@ -107,16 +118,16 @@ const StorageTab: React.FC = () => {
     const tabId = await getTabId();
     if (!tabId) return;
 
-    if (store.activeStorageTab === 'cookies') {
+    if (activeStorageTab === 'cookies') {
       chrome.runtime.sendMessage({ type: 'DELETE_COOKIE', url: tabUrl, name: key }, () => loadStorage());
-    } else if (store.activeStorageTab === 'indexedDB') {
+    } else if (activeStorageTab === 'indexedDB') {
       chrome.runtime.sendMessage({
         type: 'EXECUTE_STORAGE_ACTION',
         tabId,
         action: { type: 'DELETE_INDEXEDDB', dbName: key },
       }, () => loadStorage());
     } else {
-      const actionType = store.activeStorageTab === 'localStorage' ? 'DELETE_LOCAL' : 'DELETE_SESSION';
+      const actionType = activeStorageTab === 'localStorage' ? 'DELETE_LOCAL' : 'DELETE_SESSION';
       chrome.runtime.sendMessage({
         type: 'EXECUTE_STORAGE_ACTION',
         tabId,
@@ -129,7 +140,7 @@ const StorageTab: React.FC = () => {
     const tabId = await getTabId();
     if (!tabId) return;
 
-    const actionType = store.activeStorageTab === 'localStorage' ? 'SET_LOCAL' : 'SET_SESSION';
+    const actionType = activeStorageTab === 'localStorage' ? 'SET_LOCAL' : 'SET_SESSION';
     chrome.runtime.sendMessage({
       type: 'EXECUTE_STORAGE_ACTION',
       tabId,
@@ -153,11 +164,11 @@ const StorageTab: React.FC = () => {
     const tabId = await getTabId();
     if (!tabId) return;
 
-    if (store.activeStorageTab === 'localStorage') {
+    if (activeStorageTab === 'localStorage') {
       chrome.runtime.sendMessage({
         type: 'EXECUTE_STORAGE_ACTION', tabId, action: { type: 'CLEAR_LOCAL' },
       }, () => loadStorage());
-    } else if (store.activeStorageTab === 'sessionStorage') {
+    } else if (activeStorageTab === 'sessionStorage') {
       chrome.runtime.sendMessage({
         type: 'EXECUTE_STORAGE_ACTION', tabId, action: { type: 'CLEAR_SESSION' },
       }, () => loadStorage());
@@ -166,18 +177,18 @@ const StorageTab: React.FC = () => {
 
   const handleExport = () => {
     const data: Record<string, unknown> = {};
-    if (store.activeStorageTab === 'localStorage') {
-      store.localStorageItems.forEach(i => { (data as Record<string, string>)[i.key] = i.value; });
-    } else if (store.activeStorageTab === 'sessionStorage') {
-      store.sessionStorageItems.forEach(i => { (data as Record<string, string>)[i.key] = i.value; });
-    } else if (store.activeStorageTab === 'cookies') {
-      data.cookies = store.cookies;
+    if (activeStorageTab === 'localStorage') {
+      localStorageItems.forEach(i => { (data as Record<string, string>)[i.key] = i.value; });
+    } else if (activeStorageTab === 'sessionStorage') {
+      sessionStorageItems.forEach(i => { (data as Record<string, string>)[i.key] = i.value; });
+    } else if (activeStorageTab === 'cookies') {
+      data.cookies = cookies;
     }
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${store.activeStorageTab}-${Date.now()}.json`;
+    a.download = `${activeStorageTab}-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -191,8 +202,8 @@ const StorageTab: React.FC = () => {
       const tabId = await getTabId();
       if (!tabId) return;
 
-      if (store.activeStorageTab === 'localStorage' || store.activeStorageTab === 'sessionStorage') {
-        const actionPrefix = store.activeStorageTab === 'localStorage' ? 'SET_LOCAL' : 'SET_SESSION';
+      if (activeStorageTab === 'localStorage' || activeStorageTab === 'sessionStorage') {
+        const actionPrefix = activeStorageTab === 'localStorage' ? 'SET_LOCAL' : 'SET_SESSION';
         const entries = Object.entries(data);
         for (const [key, value] of entries) {
           await new Promise<void>(resolve => {
@@ -212,26 +223,32 @@ const StorageTab: React.FC = () => {
   };
 
   const handleAdd = () => {
-    if (store.activeStorageTab === 'cookies') {
+    if (activeStorageTab === 'cookies') {
       setCookieAddModal(true);
-    } else if (store.activeStorageTab !== 'indexedDB') {
+    } else if (activeStorageTab !== 'indexedDB') {
       setAddModal(true);
     }
   };
 
-  const getFilteredItems = () => {
-    switch (store.activeStorageTab) {
-      case 'localStorage': return store.getFilteredLocalStorage();
-      case 'sessionStorage': return store.getFilteredSessionStorage();
-      case 'cookies': return store.getFilteredCookies();
-      case 'indexedDB': return store.indexedDBs.map(db => ({
-        key: db.name,
-        value: `v${db.version || '?'}`,
-        size: 0,
-        type: 'string' as const,
-      }));
+  // Derive filtered items reactively via useMemo
+  const filteredItems = useMemo(() => {
+    const s = search.toLowerCase();
+    switch (activeStorageTab) {
+      case 'localStorage':
+        return s ? localStorageItems.filter(i => i.key.toLowerCase().includes(s) || i.value.toLowerCase().includes(s)) : localStorageItems;
+      case 'sessionStorage':
+        return s ? sessionStorageItems.filter(i => i.key.toLowerCase().includes(s) || i.value.toLowerCase().includes(s)) : sessionStorageItems;
+      case 'cookies':
+        return s ? cookies.filter(c => c.name.toLowerCase().includes(s) || c.value.toLowerCase().includes(s)) : cookies;
+      case 'indexedDB':
+        return indexedDBs.map(db => ({
+          key: db.name,
+          value: `v${db.version || '?'}`,
+          size: 0,
+          type: 'string' as const,
+        }));
     }
-  };
+  }, [activeStorageTab, search, localStorageItems, sessionStorageItems, cookies, indexedDBs]);
 
   return (
     <div className="flex flex-col h-full">
@@ -243,7 +260,7 @@ const StorageTab: React.FC = () => {
         </div>
         <div className="flex items-center gap-1">
           <button className="ds-icon-btn sm" onClick={loadStorage} title="Refresh">
-            <RefreshCw size={14} className={store.loading ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
           <button className="ds-icon-btn sm" onClick={handleExport} title="Export">
             <Download size={14} />
@@ -268,8 +285,8 @@ const StorageTab: React.FC = () => {
         {STORAGE_TABS.map(tab => (
           <button
             key={tab.id}
-            className={`ds-tab ${store.activeStorageTab === tab.id ? 'active' : ''}`}
-            onClick={() => store.setActiveStorageTab(tab.id)}
+            className={`ds-tab ${activeStorageTab === tab.id ? 'active' : ''}`}
+            onClick={() => actions().setActiveStorageTab(tab.id)}
           >
             {tab.label}
           </button>
@@ -284,16 +301,16 @@ const StorageTab: React.FC = () => {
             type="text"
             className="ds-search-input"
             placeholder="Search items..."
-            value={store.search}
-            onChange={(e) => store.setSearch(e.target.value)}
+            value={search}
+            onChange={(e) => actions().setSearch(e.target.value)}
           />
         </div>
-        {store.activeStorageTab !== 'indexedDB' && (
+        {activeStorageTab !== 'indexedDB' && (
           <button className="ds-icon-btn sm" onClick={handleAdd} title="Add item">
             <Plus size={14} />
           </button>
         )}
-        {(store.activeStorageTab === 'localStorage' || store.activeStorageTab === 'sessionStorage') && (
+        {(activeStorageTab === 'localStorage' || activeStorageTab === 'sessionStorage') && (
           <button className="ds-icon-btn sm danger" onClick={handleClear} title="Clear all">
             <Trash2 size={14} />
           </button>
@@ -303,8 +320,8 @@ const StorageTab: React.FC = () => {
       {/* List */}
       <div className="flex-1 overflow-auto">
         <StorageList
-          items={getFilteredItems() as StorageItem[] | CookieItem[]}
-          storageType={store.activeStorageTab}
+          items={filteredItems as StorageItem[] | CookieItem[]}
+          storageType={activeStorageTab}
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
@@ -313,7 +330,7 @@ const StorageTab: React.FC = () => {
       {/* Modals */}
       {editModal && (
         <StorageEditor
-          storageType={store.activeStorageTab}
+          storageType={activeStorageTab}
           initialKey={editModal.key}
           initialValue={editModal.value}
           isNew={false}
@@ -323,7 +340,7 @@ const StorageTab: React.FC = () => {
       )}
       {addModal && (
         <StorageEditor
-          storageType={store.activeStorageTab}
+          storageType={activeStorageTab}
           isNew
           onSave={handleSave}
           onCancel={() => setAddModal(false)}

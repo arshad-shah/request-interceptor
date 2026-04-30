@@ -9,15 +9,15 @@ import FilterEmptyState from '@/components/common/FilterEmptyState';
 
 // Main RouteList component
 const RouteList: React.FC = () => {
-  const { 
-    routes, 
-    filters, 
-    setActiveTab, 
-    setEditingRoute, 
+  const {
+    routes,
+    filters,
+    openForm,
+    setEditingRoute,
     addNotification,
     removeRoute,
     toggleRoute,
-    setFilters 
+    setFilters
   } = useAppStore();
   
   const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; routeKey?: string }>({
@@ -87,7 +87,6 @@ const RouteList: React.FC = () => {
 
   const handleEditRoute = (routeKey: string) => {
     setEditingRoute(routeKey);
-    setActiveTab('add');
   };
 
   const handleDeleteRoute = (routeKey: string) => {
@@ -148,7 +147,7 @@ const RouteList: React.FC = () => {
   };
 
   if (Object.keys(routes).length === 0) {
-    return <RoutesEmptyState onAddRoute={() => setActiveTab('add')} />;
+    return <RoutesEmptyState onAddRoute={openForm} />;
   }
 
   if (filteredRoutes.length === 0 && (filters.search || filters.method !== 'all' || filters.routeType !== 'all')) {

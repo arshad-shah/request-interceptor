@@ -145,6 +145,8 @@ import { parseRouteKeyInline, parseWebSocketKeyInline } from './core/interceptor
         case 'enable': RequestInterceptor.enable(); break;
         case 'disable': RequestInterceptor.disable(); break;
         case 'destroy': RequestInterceptor.destroy(); break;
+        case 'enableEventMonitor': eventMonitorActive = true; log('EventBus monitor enabled'); break;
+        case 'disableEventMonitor': eventMonitorActive = false; log('EventBus monitor disabled'); break;
       }
     }
   });
@@ -158,6 +160,7 @@ import { parseRouteKeyInline, parseWebSocketKeyInline } from './core/interceptor
   const originalDispatchEvent = EventTarget.prototype.dispatchEvent;
   const originalWindowPostMessage = window.postMessage;
   let eventMonitorId = 0;
+  let eventMonitorActive = false;
 
   function generateEventId() {
     return `evt_${Date.now()}_${++eventMonitorId}`;
@@ -169,6 +172,7 @@ import { parseRouteKeyInline, parseWebSocketKeyInline } from './core/interceptor
   }
 
   function sendEventToExtension(data: any) {
+    if (!eventMonitorActive) return;
     originalWindowPostMessage.call(window, { type: EVENTBUS_CHANNEL, payload: data }, { targetOrigin: '*' });
   }
 
@@ -285,16 +289,8 @@ import { parseRouteKeyInline, parseWebSocketKeyInline } from './core/interceptor
   setTimeout(scanForBuses, 3000);
   setTimeout(scanForBuses, 5000);
 
-  // Notify that EventBus monitor is active
-  sendEventToExtension({
-    id: generateEventId(),
-    timestamp: Date.now(),
-    category: 'System',
-    eventType: 'monitor-initialized',
-    data: { version: '1.0.0', url: window.location.href },
-    target: 'Web Tools',
-    stack: '',
-  });
+  // EventBus monitor patches are installed but inactive by default.
+  // Activation is controlled via 'enableEventMonitor' command from content script.
 })();
 
 export {};

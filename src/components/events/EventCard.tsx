@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, Bookmark, Clock, Code, Layers } from 'lucide-react';
 import { CapturedEvent } from '@/types/events';
 import { useEventsStore } from '@/stores/events-store';
 import EventPayload from './EventPayload';
+import ReactAceEditor from '@/components/common/ReactAceEditor';
 
 const CATEGORY_COLORS: Record<string, string> = {
   CustomEvent: 'var(--accent-indigo)',
@@ -112,14 +113,30 @@ const EventCard: React.FC<EventCardProps> = ({ event, isSelected }) => {
 
           {activeTab === 'smart' && <EventPayload data={event.data} />}
           {activeTab === 'raw' && (
-            <pre className="ds-code-block text-[11px] max-h-[300px] overflow-auto whitespace-pre-wrap break-all">
-              {JSON.stringify(event.data, null, 2)}
-            </pre>
+            <ReactAceEditor
+              value={JSON.stringify(event.data, null, 2)}
+              onChange={() => {}}
+              language="json"
+              readOnly
+              height={250}
+              showGutter={false}
+              fontSize={12}
+              enableBasicAutocompletion={false}
+              enableLiveAutocompletion={false}
+            />
           )}
           {activeTab === 'stack' && (
-            <pre className="ds-code-block text-[11px] max-h-[200px] overflow-auto whitespace-pre-wrap">
-              {event.stack || 'No stack trace available'}
-            </pre>
+            <ReactAceEditor
+              value={event.stack || 'No stack trace available'}
+              onChange={() => {}}
+              language="text"
+              readOnly
+              height={180}
+              showGutter={false}
+              fontSize={12}
+              enableBasicAutocompletion={false}
+              enableLiveAutocompletion={false}
+            />
           )}
         </div>
       )}

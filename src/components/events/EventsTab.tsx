@@ -1,17 +1,47 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Pause, Play, Download, Trash2, Radio } from 'lucide-react';
-import { useEventsStore } from '@/stores/events-store';
+import { useEventsStore, selectStats } from '@/stores/events-store';
+import { useAppStore } from '@/stores/app-store';
+import Toggle from '@/components/ui/Toggle';
+import EmptyState from '@/components/common/EmptyState';
 import EventFilters from './EventFilters';
 import EventCard from './EventCard';
 import EventCompare from './EventCompare';
 
+// Stable reference to store actions (never changes)
+const storeActions = () => useEventsStore.getState();
+
 const EventsTab: React.FC = () => {
-  const {
-    filteredEvents, isPaused, selectedEventId, compareMode,
-    togglePaused, clearEvents, getStats, setEvents, addEvent,
-  } = useEventsStore();
+  // Subscribe to individual state slices for proper reactivity
+  const filteredEvents = useEventsStore(s => s.filteredEvents);
+  const isPaused = useEventsStore(s => s.isPaused);
+  const selectedEventId = useEventsStore(s => s.selectedEventId);
+  const compareMode = useEventsStore(s => s.compareMode);
+  const stats = useEventsStore(selectStats);
+
+  const enabled = useAppStore(s => s.enabled);
+  const eventMonitorEnabled = useAppStore(s => s.eventMonitorEnabled);
+  const setEventMonitorEnabled = useAppStore(s => s.setEventMonitorEnabled);
+
   const listRef = useRef<HTMLDivElement>(null);
   const autoScroll = useRef(true);
+
+  // Toggle event monitoring on/off — relay to content script
+  const handleToggleMonitor = useCallback((on: boolean) => {
+    setEventMonitorEnabled(on);
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tabId = tabs[0]?.id;
+      if (!tabId) return;
+      chrome.tabs.sendMessage(tabId, { action: 'toggleEventMonitor', enabled: on });
+    });
+  }, [setEventMonitorEnabled]);
+
+  // When master toggle turns off, disable event monitor
+  useEffect(() => {
+    if (!enabled && eventMonitorEnabled) {
+      handleToggleMonitor(false);
+    }
+  }, [enabled, eventMonitorEnabled, handleToggleMonitor]);
 
   // Load events from background on mount
   useEffect(() => {
@@ -20,7 +50,7 @@ const EventsTab: React.FC = () => {
       if (!tabId) return;
       chrome.runtime.sendMessage({ type: 'GET_EVENTS', tabId }, (response) => {
         if (response?.events) {
-          setEvents(response.events);
+          storeActions().setEvents(response.events);
         }
       });
     });
@@ -28,12 +58,12 @@ const EventsTab: React.FC = () => {
     // Listen for new events from background
     const listener = (message: { type: string; event?: any }) => {
       if (message.type === 'NEW_EVENT' && message.event) {
-        addEvent(message.event);
+        storeActions().addEvent(message.event);
       }
     };
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
-  }, [setEvents, addEvent]);
+  }, []);
 
   // Auto-scroll
   useEffect(() => {
@@ -48,7 +78,7 @@ const EventsTab: React.FC = () => {
     autoScroll.current = scrollHeight - scrollTop - clientHeight < 50;
   };
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tabId = tabs[0]?.id;
       if (!tabId) return;
@@ -64,19 +94,17 @@ const EventsTab: React.FC = () => {
         }
       });
     });
-  };
+  }, []);
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tabId = tabs[0]?.id;
       if (!tabId) return;
       chrome.runtime.sendMessage({ type: 'CLEAR_EVENTS', tabId }, () => {
-        clearEvents();
+        storeActions().clearEvents();
       });
     });
-  };
-
-  const stats = getStats();
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
@@ -85,13 +113,22 @@ const EventsTab: React.FC = () => {
         <div className="flex items-center gap-2">
           <Radio size={14} className="text-[var(--accent-indigo)]" />
           <span className="text-[13px] font-semibold text-[var(--text-primary)]">Events</span>
-          <div className={`ds-status ${isPaused ? 'paused' : ''}`}>
+          <div className={`ds-status ${!eventMonitorEnabled ? 'paused' : isPaused ? 'paused' : ''}`}>
             <div className="ds-status-dot" />
-            {isPaused ? 'Paused' : 'Monitoring'}
+            {!eventMonitorEnabled ? 'Disabled' : isPaused ? 'Paused' : 'Monitoring'}
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button className="ds-icon-btn sm" onClick={togglePaused} title={isPaused ? 'Resume' : 'Pause'}>
+        <div className="flex items-center gap-2">
+          <Toggle
+            checked={eventMonitorEnabled}
+            onChange={handleToggleMonitor}
+            disabled={!enabled}
+            size="sm"
+            label="Toggle event monitoring"
+            activeColor="indigo"
+          />
+          <div className="w-px h-4 bg-[var(--border-subtle)]" />
+          <button className="ds-icon-btn sm" onClick={() => storeActions().togglePaused()} title={isPaused ? 'Resume' : 'Pause'} disabled={!eventMonitorEnabled}>
             {isPaused ? <Play size={14} /> : <Pause size={14} />}
           </button>
           <button className="ds-icon-btn sm" onClick={handleExport} title="Export events">
@@ -103,53 +140,61 @@ const EventsTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-2 p-2 border-b border-[var(--border-subtle)]">
-        {[
-          { label: 'Total', value: stats.total, color: 'var(--text-primary)' },
-          { label: 'Custom', value: stats.custom, color: 'var(--accent-indigo)' },
-          { label: 'Messages', value: stats.messages, color: 'var(--accent-cyan)' },
-          { label: 'Emitter', value: stats.emitter, color: 'var(--accent-emerald)' },
-        ].map(s => (
-          <div key={s.label} className="ds-stat-card compact">
-            <span className="ds-stat-value" style={{ color: s.color }}>{s.value}</span>
-            <span className="ds-stat-label">{s.label}</span>
+      {!eventMonitorEnabled ? (
+        <EmptyState
+          icon={<Radio size={24} />}
+          title="Event Monitor Disabled"
+          description={enabled
+            ? 'Enable the event monitor to capture CustomEvents, postMessage, and EventEmitter patterns.'
+            : 'Enable the main extension first, then toggle event monitoring.'}
+        />
+      ) : (
+        <>
+          {/* Stats */}
+          <div className="grid grid-cols-4 gap-2 p-2 border-b border-[var(--border-subtle)]">
+            {[
+              { label: 'Total', value: stats.total, color: 'var(--text-primary)' },
+              { label: 'Custom', value: stats.custom, color: 'var(--accent-indigo)' },
+              { label: 'Messages', value: stats.messages, color: 'var(--accent-cyan)' },
+              { label: 'Emitter', value: stats.emitter, color: 'var(--accent-emerald)' },
+            ].map(s => (
+              <div key={s.label} className="ds-stat-card compact">
+                <span className="ds-stat-value" style={{ color: s.color }}>{s.value}</span>
+                <span className="ds-stat-label">{s.label}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Filters */}
-      <EventFilters />
+          {/* Filters */}
+          <EventFilters />
 
-      {/* Event List */}
-      <div
-        ref={listRef}
-        className="flex-1 overflow-auto p-2"
-        onScroll={handleScroll}
-      >
-        {filteredEvents.length === 0 ? (
-          <div className="ds-empty-state">
-            <div className="ds-empty-icon">
-              <Radio size={24} />
-            </div>
-            <div className="ds-empty-title">No Events Captured</div>
-            <div className="ds-empty-text">
-              Events will appear here as they are dispatched on the page.
-            </div>
+          {/* Event List */}
+          <div
+            ref={listRef}
+            className="flex-1 overflow-auto p-2"
+            onScroll={handleScroll}
+          >
+            {filteredEvents.length === 0 ? (
+              <EmptyState
+                icon={<Radio size={24} />}
+                title="No Events Captured"
+                description="Events will appear here as they are dispatched on the page."
+              />
+            ) : (
+              filteredEvents.map(event => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  isSelected={selectedEventId === event.id}
+                />
+              ))
+            )}
           </div>
-        ) : (
-          filteredEvents.map(event => (
-            <EventCard
-              key={event.id}
-              event={event}
-              isSelected={selectedEventId === event.id}
-            />
-          ))
-        )}
-      </div>
 
-      {/* Compare modal */}
-      {compareMode && <EventCompare />}
+          {/* Compare modal */}
+          {compareMode && <EventCompare />}
+        </>
+      )}
     </div>
   );
 };

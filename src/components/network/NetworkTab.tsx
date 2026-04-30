@@ -73,7 +73,7 @@ export function NetworkTab() {
   const responseBody = useResponseBody();
   const isRecording = useIsRecording();
   const debuggerAttached = useDebuggerAttached();
-  const { setActiveTab, addRoute } = useAppStore();
+  const { addRoute } = useAppStore();
 
   // Panel state
   const [panelPosition, setPanelPosition] = useState<PanelPosition>('right');
@@ -94,11 +94,7 @@ export function NetworkTab() {
       if (!tabId) return;
       currentTabIdRef.current = tabId;
 
-      // Attach debugger on mount (recording starts as true by default)
-      const attached = await attachDebugger(tabId);
-      setDebuggerAttached(attached);
-
-      // Load existing requests
+      // Load existing requests (don't auto-attach debugger — recording starts off)
       const { requests, settings } = await getRequests(tabId);
       setRequests(requests);
       updateSettings(settings);
@@ -107,7 +103,7 @@ export function NetworkTab() {
     };
 
     initialize();
-  }, [setDebuggerAttached, setRequests, updateSettings]);
+  }, [setRequests, updateSettings]);
 
   // ─── Handle Recording State Changes (after initialization) ─────────────────
   useEffect(() => {
@@ -271,7 +267,6 @@ export function NetworkTab() {
       // Check if route already exists
       if (routes[routeKey]) {
         useAppStore.getState().setEditingRoute(routeKey);
-        setActiveTab('add');
         return;
       }
 
@@ -315,9 +310,8 @@ export function NetworkTab() {
       }
 
       useAppStore.getState().setEditingRoute(routeKey);
-      setActiveTab('add');
     },
-    [addRoute, setActiveTab]
+    [addRoute]
   );
 
   const handleSelectRequest = useCallback(

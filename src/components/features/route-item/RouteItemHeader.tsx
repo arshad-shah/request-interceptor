@@ -45,7 +45,7 @@ const RouteItemHeader: React.FC<RouteItemHeaderProps> = ({
         <div className="flex items-center gap-2">
           <div className="flex-shrink-0">
             {info.isInjection ? (
-              <span className="ds-badge" style={{ color: 'var(--accent-indigo)', background: 'rgba(99,102,241,0.15)' }}>
+              <span className="ds-badge indigo">
                 <Code size={12} className="mr-1" />
                 INJ
               </span>

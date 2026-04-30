@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { StorageType } from '@/types/storage';
+import ReactAceEditor from '@/components/common/ReactAceEditor';
 
 interface StorageEditorProps {
   storageType: StorageType;
@@ -9,6 +10,17 @@ interface StorageEditorProps {
   isNew: boolean;
   onSave: (key: string, value: string) => void;
   onCancel: () => void;
+}
+
+function detectLanguage(value: string): 'json' | 'html' | 'javascript' | 'css' | 'text' {
+  const trimmed = value.trim();
+  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    try { JSON.parse(trimmed); return 'json'; } catch { /* not json */ }
+  }
+  if (trimmed.startsWith('<') && trimmed.includes('>')) return 'html';
+  if (trimmed.includes('function') || trimmed.includes('=>') || trimmed.includes('var ') || trimmed.includes('const ') || trimmed.includes('let ')) return 'javascript';
+  return 'text';
 }
 
 const StorageEditor: React.FC<StorageEditorProps> = ({
@@ -23,7 +35,7 @@ const StorageEditor: React.FC<StorageEditorProps> = ({
   const [value, setValue] = useState(initialValue);
 
   useEffect(() => {
-    // Try to format JSON
+    // Try to format JSON on initial load
     try {
       const parsed = JSON.parse(initialValue);
       setValue(JSON.stringify(parsed, null, 2));
@@ -32,32 +44,16 @@ const StorageEditor: React.FC<StorageEditorProps> = ({
     }
   }, [initialValue]);
 
+  const language = useMemo(() => detectLanguage(value), [value]);
+
   const handleSave = () => {
     if (!key.trim()) return;
     onSave(key.trim(), value);
   };
 
-  const handleFormat = () => {
-    try {
-      const parsed = JSON.parse(value);
-      setValue(JSON.stringify(parsed, null, 2));
-    } catch {
-      // not valid JSON, leave as is
-    }
-  };
-
-  const handleMinify = () => {
-    try {
-      const parsed = JSON.parse(value);
-      setValue(JSON.stringify(parsed));
-    } catch {
-      // not valid JSON
-    }
-  };
-
   return (
     <div className="ds-modal-backdrop" onClick={onCancel}>
-      <div className="ds-modal" onClick={e => e.stopPropagation()}>
+      <div className="ds-modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
         <div className="ds-modal-header">
           <span className="ds-modal-title">
             {isNew ? 'Add' : 'Edit'} {storageType === 'cookies' ? 'Cookie' : 'Item'}
@@ -78,23 +74,14 @@ const StorageEditor: React.FC<StorageEditorProps> = ({
             />
           </div>
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="ds-label">Value</label>
-              <div className="flex gap-1">
-                <button className="text-[10px] text-[var(--accent-indigo)] hover:underline" onClick={handleFormat}>
-                  Format
-                </button>
-                <button className="text-[10px] text-[var(--accent-indigo)] hover:underline" onClick={handleMinify}>
-                  Minify
-                </button>
-              </div>
-            </div>
-            <textarea
-              className="ds-input font-mono text-[11px] h-[200px] resize-y"
+            <label className="ds-label mb-1 block">Value</label>
+            <ReactAceEditor
               value={value}
-              onChange={(e) => setValue(e.target.value)}
+              onChange={setValue}
+              language={language}
+              height={220}
+              fontSize={12}
               placeholder="Enter value..."
-              autoFocus={!isNew}
             />
           </div>
         </div>

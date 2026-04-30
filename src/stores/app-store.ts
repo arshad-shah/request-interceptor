@@ -16,20 +16,25 @@ interface AppStore extends AppState {
   notifications: Notification[];
   filters: FilterState;
   editingRoute: string | null;
-  
+  isFormOpen: boolean;
+  eventMonitorEnabled: boolean;
+
   // Actions
   setEnabled: (enabled: boolean) => void;
+  setEventMonitorEnabled: (enabled: boolean) => void;
   setRoutes: (routes: Record<string, RouteConfig | WebSocketConfig | InjectionConfig>) => void;
   addRoute: (key: string, config: RouteConfig | WebSocketConfig | InjectionConfig) => void;
   removeRoute: (key: string) => void;
   updateRoute: (key: string, config: RouteConfig | WebSocketConfig | InjectionConfig) => void;
   toggleRoute: (key: string, enabled: boolean) => void;
   clearRoutes: () => void;
-  
+
   // UI Actions
   setActiveTab: (tab: TabId) => void;
   setFilters: (filters: Partial<FilterState>) => void;
   setEditingRoute: (key: string | null) => void;
+  openForm: () => void;
+  closeForm: () => void;
   
   // Notifications
   addNotification: (notification: Omit<Notification, 'id'>) => void;
@@ -57,9 +62,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
     routeType: 'all' // Added route type filter
   },
   editingRoute: null,
+  isFormOpen: false,
+  eventMonitorEnabled: false,
 
   // Actions
-  setEnabled: (enabled) => set({ enabled }),
+  setEnabled: (enabled) => {
+    set({ enabled });
+    // Master off → disable all features
+    if (!enabled) {
+      set({ eventMonitorEnabled: false });
+    }
+  },
+  setEventMonitorEnabled: (enabled) => set({ eventMonitorEnabled: enabled }),
   
   setRoutes: (routes) => {
     const routesWithEnabled = Object.entries(routes).reduce((acc, [key, config]) => {
@@ -108,7 +122,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     filters: { ...state.filters, ...filters }
   })),
   
-  setEditingRoute: (key) => set({ editingRoute: key }),
+  setEditingRoute: (key) => set({ editingRoute: key, isFormOpen: key !== null }),
+  openForm: () => set({ isFormOpen: true, editingRoute: null }),
+  closeForm: () => set({ isFormOpen: false, editingRoute: null }),
   
   // Notifications
   addNotification: (notification) => {

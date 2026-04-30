@@ -150,7 +150,7 @@ export interface ChromeMessage {
   [key: string]: any;
 }
 
-export type TabId = 'routes' | 'add' | 'templates' | 'network' | 'events' | 'storage';
+export type TabId = 'routes' | 'templates' | 'network' | 'events' | 'storage';
 
 export interface RouteFormData {
   routeType: RouteType;

@@ -9,7 +9,7 @@ function formatSize(bytes: number): string {
 }
 
 const StorageStats: React.FC = () => {
-  const { stats } = useStorageStore();
+  const stats = useStorageStore(s => s.stats);
 
   const items = [
     { label: 'Local', count: stats.localStorageCount, size: stats.localStorageSize, color: 'var(--accent-blue)' },

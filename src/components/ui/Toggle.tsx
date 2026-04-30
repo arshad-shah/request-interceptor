@@ -8,6 +8,7 @@ interface ToggleProps {
   size?: 'sm' | 'md' | 'lg';
   label?: string;
   className?: string;
+  activeColor?: 'indigo' | 'emerald';
 }
 
 const sizeClasses: Record<'sm' | 'md' | 'lg', { toggle: string; track: string; thumb: string; translate: string }> = {
@@ -31,13 +32,24 @@ const sizeClasses: Record<'sm' | 'md' | 'lg', { toggle: string; track: string; t
   },
 };
 
+const trackColorMap: Record<string, string> = {
+  indigo: 'bg-[rgba(99,102,241,0.2)]',
+  emerald: 'bg-[rgba(16,185,129,0.2)]',
+};
+
+const thumbColorMap: Record<string, string> = {
+  indigo: 'bg-[var(--accent-indigo)]',
+  emerald: 'bg-[var(--accent-emerald)]',
+};
+
 const Toggle: React.FC<ToggleProps> = ({
   checked,
   onChange,
   disabled = false,
   size = 'md',
   label,
-  className
+  className,
+  activeColor = 'indigo',
 }) => {
   const s = sizeClasses[size];
 
@@ -60,16 +72,16 @@ const Toggle: React.FC<ToggleProps> = ({
       />
       <div
         className={cn(
-          'w-full h-full bg-[var(--bg-surface)] transition-colors duration-[var(--transition-fast)]',
+          'w-full h-full bg-(--bg-surface) transition-colors duration-(--transition-fast)',
           s.track,
-          checked && 'bg-[rgba(99,102,241,0.2)]'
+          checked && trackColorMap[activeColor]
         )}
       />
       <div
         className={cn(
-          'absolute rounded-full bg-[var(--text-tertiary)] transition-all duration-[var(--transition-fast)]',
+          'absolute rounded-full bg-(--text-tertiary) transition-all duration-(--transition-fast)',
           s.thumb,
-          checked && cn(s.translate, 'bg-[var(--accent-indigo)]')
+          checked && cn(s.translate, thumbColorMap[activeColor])
         )}
       />
     </label>

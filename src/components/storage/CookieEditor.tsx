@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import ReactAceEditor from '@/components/common/ReactAceEditor';
 
 interface CookieEditorProps {
   initialCookie?: {
@@ -79,7 +80,15 @@ const CookieEditor: React.FC<CookieEditorProps> = ({
           </div>
           <div>
             <label className="ds-label mb-1 block">Value</label>
-            <textarea className="ds-input font-mono text-[11px] h-[80px] resize-y" value={value} onChange={e => setValue(e.target.value)} />
+            <ReactAceEditor
+              value={value}
+              onChange={setValue}
+              language="text"
+              height={100}
+              fontSize={12}
+              showGutter={false}
+              placeholder="Cookie value..."
+            />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
