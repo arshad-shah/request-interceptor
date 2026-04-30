@@ -4,7 +4,7 @@ import { parseRouteKey, chromeApi } from '@/lib/chrome-api';
 import { ConfirmDialog } from '../ui/Dialog';
 import RouteItem from './RouteItem';
 import { parseWebSocketKey, parseInjectionKey } from '@/lib/utils';
-import EmptyState from '@/components/common/EmptyState';
+import { RoutesEmptyState } from '@/components/common/EmptyState';
 import FilterEmptyState from '@/components/common/FilterEmptyState';
 
 // Main RouteList component
@@ -148,7 +148,7 @@ const RouteList: React.FC = () => {
   };
 
   if (Object.keys(routes).length === 0) {
-    return <EmptyState onAddRoute={() => setActiveTab('add')} />;
+    return <RoutesEmptyState onAddRoute={() => setActiveTab('add')} />;
   }
 
   if (filteredRoutes.length === 0 && (filters.search || filters.method !== 'all' || filters.routeType !== 'all')) {

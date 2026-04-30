@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Chrome extension (Manifest V3) that intercepts and modifies HTTP and WebSocket responses for UI testing. Built with React 18, TypeScript, Zustand, TailwindCSS 4, and Vite.
+Chrome extension (Manifest V3) — **Web Tools** — a developer toolkit for intercepting API responses, monitoring events, and inspecting browser storage. Built with React 18, TypeScript, Zustand, TailwindCSS 4, and Vite.
 
 ## Commands
 
@@ -23,9 +23,9 @@ Load the `dist/` folder as an unpacked extension in `chrome://extensions`.
 ## Architecture
 
 **Extension entry points** (each is a separate Vite entry):
-- `src/background.ts` — Service worker. Manages state, message routing. Delegates to `src/core/` for validation, migration, export, and conflict detection.
-- `src/content.ts` — Content script injected at `document_start`. Relays messages between page and background. Uses `src/core/url-matching.ts` for injection route matching.
-- `src/injected.ts` — Thin IIFE shell injected into page context. Delegates to `src/core/interceptors/` for fetch, XHR, and WebSocket interception.
+- `src/background.ts` — Service worker. Manages state, message routing, event storage (per-tab, in-memory), storage/cookie operations. Delegates to `src/core/` for validation, migration, export, and conflict detection.
+- `src/content.ts` — Content script injected at `document_start`. Relays messages between page and background. Uses `src/core/url-matching.ts` for injection route matching. Forwards EventBus monitor events.
+- `src/injected.ts` — Thin IIFE shell injected into page context. Delegates to `src/core/interceptors/` for fetch, XHR, and WebSocket interception. Also patches `dispatchEvent`, `postMessage`, and EventEmitter patterns for event monitoring.
 - `src/sidepanel/main.tsx` — Side panel React app (main UI).
 - `src/popup/main.tsx` — Popup React app.
 
@@ -47,13 +47,17 @@ Load the `dist/` folder as an unpacked extension in `chrome://extensions`.
 
 **Message flow:** Injected script ↔ Content script (postMessage/DOM) ↔ Background (chrome.runtime) ↔ Side panel UI.
 
-**State management:** Two Zustand stores:
+**State management:** Four Zustand stores:
 - `src/stores/app-store.ts` — Routes, enabled state, active tab, notifications, filters.
 - `src/stores/network-store.ts` — Captured network requests, filters, selected request (500 request limit).
+- `src/stores/events-store.ts` — Captured events, filters, bookmarks, compare mode (1000 event limit).
+- `src/stores/storage-store.ts` — localStorage, sessionStorage, cookies, IndexedDB state and filters.
 
 **Route keys:** HTTP routes use `METHOD:URL` or `METHOD:URL|NAME` format (e.g., `GET:/api/users`). WebSocket routes use `WS:URL` or `WS:URL|NAME`. Injection routes use `INJ:URL` or `INJ:URL|NAME`. All parsing is centralized in `src/core/route-keys.ts`.
 
-**Key types** in `src/types/index.ts` and `src/types/network.ts`: `RouteConfig`, `WebSocketConfig`, `InjectionConfig`, `WebSocketRule`, `NetworkRequest`, `MatchType` (exact/contains/regex).
+**Key types** in `src/types/index.ts`, `src/types/network.ts`, `src/types/events.ts`, and `src/types/storage.ts`: `RouteConfig`, `WebSocketConfig`, `InjectionConfig`, `WebSocketRule`, `NetworkRequest`, `MatchType`, `CapturedEvent`, `StorageItem`, `CookieItem`.
+
+**UI Tabs:** Routes, Add Route, Templates, Network, Events, Storage — configured in `src/config/tabs.ts`.
 
 **Compatibility layer:** `src/lib/chrome-api.ts` and `src/lib/utils.ts` re-export from `src/core/` modules. Existing consumers continue to work without changes.
 

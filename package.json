@@ -1,7 +1,7 @@
 {
-  "name": "request-interceptor-extension",
+  "name": "web-tools-extension",
   "version": "1.0.0",
-  "description": "Intercept and modify API responses for UI testing",
+  "description": "Developer toolkit for intercepting API responses, monitoring events, and inspecting browser storage",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -26,7 +26,7 @@
     "zustand": "^4.5.7"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.12",
+    "@tailwindcss/vite": "^4.1.18",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -43,10 +43,20 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "jsdom": "^26.1.0",
     "rollup-plugin-visualizer": "^6.0.5",
-    "tailwindcss": "^4.1.12",
+    "tailwindcss": "^4.1.18",
     "typescript": "^5.9.2",
-    "vite": "^5.4.19",
-    "vite-plugin-static-copy": "^0.17.1",
+    "vite": "^5.4.21",
+    "vite-plugin-static-copy": "^3.2.0",
     "vitest": "^3.2.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "prismjs": ">=1.30.0",
+      "esbuild": ">=0.25.0",
+      "js-yaml": ">=4.1.1"
+    },
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

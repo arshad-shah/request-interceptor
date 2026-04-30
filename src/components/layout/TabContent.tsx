@@ -5,15 +5,19 @@ import AddRouteForm from '@/components/forms/AddRouteForm';
 import TemplatesTab from '@/components/features/TemplatesTab';
 import RouteControls from '@/components/features/RouteControls';
 import { NetworkTab } from '@/components/network';
+import EventsTab from '@/components/events/EventsTab';
+import StorageTab from '@/components/storage/StorageTab';
 
 const TabContent: React.FC = () => {
   const { activeTab } = useAppStore();
 
-  // Network tab uses its own full-height layout with no overflow
-  if (activeTab === 'network') {
+  // Full-height tabs with no outer overflow
+  if (activeTab === 'network' || activeTab === 'events' || activeTab === 'storage') {
     return (
       <div className="flex-1 min-h-0 overflow-hidden bg-[var(--bg-base)]">
-        <NetworkTab />
+        {activeTab === 'network' && <NetworkTab />}
+        {activeTab === 'events' && <EventsTab />}
+        {activeTab === 'storage' && <StorageTab />}
       </div>
     );
   }

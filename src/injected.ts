@@ -149,7 +149,152 @@ import { parseRouteKeyInline, parseWebSocketKeyInline } from './core/interceptor
     }
   });
 
-  console.log('[Request Interceptor] Complete script injected with HTTP, Headers-Only, and WebSocket support');
+  console.log('[Web Tools] Complete script injected with HTTP, Headers-Only, and WebSocket support');
+
+  // ================================================
+  // EventBus Monitor — intercepts CustomEvent, postMessage, EventEmitter patterns
+  // ================================================
+  const EVENTBUS_CHANNEL = 'eventbus-monitor-channel';
+  const originalDispatchEvent = EventTarget.prototype.dispatchEvent;
+  const originalWindowPostMessage = window.postMessage;
+  let eventMonitorId = 0;
+
+  function generateEventId() {
+    return `evt_${Date.now()}_${++eventMonitorId}`;
+  }
+
+  function getEventStackTrace() {
+    const stack = new Error().stack;
+    return stack ? stack.split('\n').slice(3, 8).join('\n') : '';
+  }
+
+  function sendEventToExtension(data: any) {
+    originalWindowPostMessage.call(window, { type: EVENTBUS_CHANNEL, payload: data }, { targetOrigin: '*' });
+  }
+
+  function serializeEventData(data: any, depth = 0): any {
+    if (depth > 5) return '[Max Depth]';
+    if (data === null) return null;
+    if (data === undefined) return undefined;
+    const type = typeof data;
+    if (type === 'function') return `[Function: ${data.name || 'anonymous'}]`;
+    if (type !== 'object') return data;
+    if (data instanceof Event) {
+      return { _type: 'Event', type: data.type, bubbles: data.bubbles, cancelable: data.cancelable,
+               target: (data.target as any)?.tagName || null,
+               detail: (data as CustomEvent).detail ? serializeEventData((data as CustomEvent).detail, depth + 1) : null };
+    }
+    if (data instanceof Element) {
+      return `[Element: ${data.tagName}${data.id ? '#' + data.id : ''}]`;
+    }
+    if (Array.isArray(data)) return data.slice(0, 50).map(item => serializeEventData(item, depth + 1));
+    if (data instanceof Map) {
+      const obj: any = {};
+      data.forEach((v, k) => { obj[k] = serializeEventData(v, depth + 1); });
+      return { _type: 'Map', entries: obj };
+    }
+    if (data instanceof Set) {
+      return { _type: 'Set', values: [...data].map(v => serializeEventData(v, depth + 1)) };
+    }
+    try {
+      const result: any = {};
+      Object.keys(data).slice(0, 50).forEach(key => { result[key] = serializeEventData(data[key], depth + 1); });
+      return result;
+    } catch { return '[Unserializable Object]'; }
+  }
+
+  // Patch dispatchEvent for CustomEvent interception
+  EventTarget.prototype.dispatchEvent = function(event: Event) {
+    if (event instanceof CustomEvent ||
+        (event.type && !event.type.startsWith('mouse') && !event.type.startsWith('key') &&
+         !event.type.startsWith('pointer') && !event.type.startsWith('focus') &&
+         !event.type.startsWith('blur') && !event.type.startsWith('scroll') &&
+         !event.type.startsWith('touch'))) {
+      sendEventToExtension({
+        id: generateEventId(),
+        timestamp: Date.now(),
+        category: 'CustomEvent',
+        eventType: event.type,
+        data: serializeEventData(event),
+        target: this === window ? 'window' : this === document ? 'document' : ((this as any).tagName || 'unknown'),
+        stack: getEventStackTrace(),
+      });
+    }
+    return originalDispatchEvent.call(this, event);
+  };
+
+  // Patch postMessage for cross-frame communication interception
+  (window as any).postMessage = function(message: any, optionsOrOrigin?: any, transfer?: any) {
+    if (message && message.type !== EVENTBUS_CHANNEL && message.type !== 'REQUEST_INTERCEPTOR_COMMAND' && message.type !== 'REQUEST_INTERCEPTOR_LOG') {
+      const target = typeof optionsOrOrigin === 'string' ? optionsOrOrigin : (optionsOrOrigin?.targetOrigin || '*');
+      sendEventToExtension({
+        id: generateEventId(),
+        timestamp: Date.now(),
+        category: 'postMessage',
+        eventType: 'message',
+        data: serializeEventData(message),
+        target,
+        stack: getEventStackTrace(),
+      });
+    }
+    // Forward to original — use Function.prototype.apply to bypass strict TS overloads
+    const args = transfer !== undefined ? [message, optionsOrOrigin, transfer] : optionsOrOrigin !== undefined ? [message, optionsOrOrigin] : [message];
+    return (originalWindowPostMessage as Function).apply(this, args);
+  };
+
+  // Hook EventEmitter patterns on global objects
+  function hookEventEmitter(obj: any, name: string) {
+    if (!obj || typeof obj !== 'object') return;
+    const emitMethods = ['emit', '$emit', 'trigger', 'fire', 'publish', 'dispatch', 'broadcast', 'send'];
+    for (const method of emitMethods) {
+      if (typeof obj[method] === 'function' && !obj[method].__eventbus_hooked) {
+        const original = obj[method];
+        obj[method] = function(eventName: string, ...args: any[]) {
+          sendEventToExtension({
+            id: generateEventId(),
+            timestamp: Date.now(),
+            category: 'EventEmitter',
+            eventType: String(eventName),
+            data: serializeEventData(args.length === 1 ? args[0] : args),
+            target: name,
+            stack: getEventStackTrace(),
+          });
+          return original.apply(this, [eventName, ...args]);
+        };
+        obj[method].__eventbus_hooked = true;
+      }
+    }
+  }
+
+  // Scan for global EventBus instances
+  const busNames = ['EventBus', 'eventBus', 'bus', '$bus', 'emitter', 'EventEmitter', 'pubsub', 'PubSub', 'mediator', 'Mediator', 'dispatcher', 'Dispatcher'];
+  function scanForBuses() {
+    for (const name of busNames) {
+      if ((window as any)[name]) hookEventEmitter((window as any)[name], name);
+    }
+    if ((window as any).Vue && (window as any).Vue.prototype) hookEventEmitter((window as any).Vue.prototype, 'Vue');
+    if ((window as any).app && (window as any).app.$bus) hookEventEmitter((window as any).app.$bus, 'app.$bus');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scanForBuses);
+  } else {
+    scanForBuses();
+  }
+  setTimeout(scanForBuses, 1000);
+  setTimeout(scanForBuses, 3000);
+  setTimeout(scanForBuses, 5000);
+
+  // Notify that EventBus monitor is active
+  sendEventToExtension({
+    id: generateEventId(),
+    timestamp: Date.now(),
+    category: 'System',
+    eventType: 'monitor-initialized',
+    data: { version: '1.0.0', url: window.location.href },
+    target: 'Web Tools',
+    stack: '',
+  });
 })();
 
 export {};

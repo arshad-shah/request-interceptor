@@ -2,39 +2,50 @@ import React from 'react';
 import Button from '../ui/Button';
 import { Plus, Route, Zap, Settings, MessageSquare } from 'lucide-react';
 
-const EmptyState: React.FC<{ onAddRoute: () => void }> = ({ onAddRoute }) => {
-  const features = [
-    {
-      icon: <Zap size={16} />,
-      title: 'HTTP Interception',
-      description: 'Capture & modify requests'
-    },
-    {
-      icon: <Settings size={16} />,
-      title: 'Header Modification',
-      description: 'Custom headers & responses'
-    },
-    {
-      icon: <MessageSquare size={16} />,
-      title: 'WebSocket Support',
-      description: 'Real-time message handling'
-    }
-  ];
+interface Feature {
+  icon: React.ReactNode;
+  title: string;
+  description?: string;
+}
 
-  return (
-    <div className="ds-empty-state">
+interface EmptyStateProps {
+  icon?: React.ReactNode;
+  title: string;
+  description?: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+    icon?: React.ReactNode;
+    variant?: 'primary' | 'default' | 'danger';
+  };
+  features?: Feature[];
+}
+
+const EmptyState: React.FC<EmptyStateProps> = ({
+  icon,
+  title,
+  description,
+  action,
+  features,
+}) => (
+  <div className="ds-empty-state">
+    {icon && (
       <div className="ds-empty-state-icon">
-        <Route size={24} />
+        {icon}
       </div>
+    )}
 
-      <h2 className="text-[15px] font-semibold text-[var(--text-primary)] mb-1">
-        No routes configured
-      </h2>
+    <h2 className="text-[15px] font-semibold text-[var(--text-primary)] mb-1">
+      {title}
+    </h2>
 
+    {description && (
       <p className="text-[12px] text-[var(--text-secondary)] mb-4 max-w-xs">
-        Create your first route to start intercepting HTTP requests, headers, and WebSocket messages.
+        {description}
       </p>
+    )}
 
+    {features && features.length > 0 && (
       <div className="grid grid-cols-3 gap-2 mb-4 w-full max-w-sm">
         {features.map((feature) => (
           <div
@@ -50,16 +61,37 @@ const EmptyState: React.FC<{ onAddRoute: () => void }> = ({ onAddRoute }) => {
           </div>
         ))}
       </div>
+    )}
 
+    {action && (
       <Button
-        variant="primary"
-        onClick={onAddRoute}
-        leftIcon={<Plus size={16} />}
+        variant={action.variant || 'primary'}
+        onClick={action.onClick}
+        leftIcon={action.icon}
       >
-        Create Route
+        {action.label}
       </Button>
-    </div>
-  );
-};
+    )}
+  </div>
+);
+
+// Pre-configured empty state for "no routes"
+export const RoutesEmptyState: React.FC<{ onAddRoute: () => void }> = ({ onAddRoute }) => (
+  <EmptyState
+    icon={<Route size={24} />}
+    title="No routes configured"
+    description="Create your first route to start intercepting HTTP requests, headers, and WebSocket messages."
+    features={[
+      { icon: <Zap size={16} />, title: 'HTTP Interception' },
+      { icon: <Settings size={16} />, title: 'Header Modification' },
+      { icon: <MessageSquare size={16} />, title: 'WebSocket Support' },
+    ]}
+    action={{
+      label: 'Create Route',
+      onClick: onAddRoute,
+      icon: <Plus size={16} />,
+    }}
+  />
+);
 
 export default EmptyState;

@@ -200,17 +200,27 @@ if (!document.getElementById(scriptId)) {
     return true; // Required for async response
   });
   
-  // Listen for messages from the page script (enhanced for header logging)
+  // Listen for messages from the page script (enhanced for header logging + events)
   window.addEventListener('message', (event) => {
-    // Only process messages from our interceptor
-    if (event.data && event.data.type === 'REQUEST_INTERCEPTOR_LOG') {
-      // Enhanced logging to include header-specific messages
+    if (!event.data) return;
+
+    // Request Interceptor logs
+    if (event.data.type === 'REQUEST_INTERCEPTOR_LOG') {
       const message = event.data.message;
       if (message.includes('header') || message.includes('Header')) {
-        console.log(`[Request Interceptor - Headers] ${message}`);
+        console.log(`[Web Tools - Headers] ${message}`);
       } else {
-        console.log(`[Request Interceptor] ${message}`);
+        console.log(`[Web Tools] ${message}`);
       }
+    }
+
+    // EventBus Monitor events
+    if (event.data.type === 'eventbus-monitor-channel' && event.source === window) {
+      chrome.runtime.sendMessage({
+        type: 'EVENT_CAPTURED',
+        payload: event.data.payload,
+        tabUrl: window.location.href,
+      });
     }
   });
   

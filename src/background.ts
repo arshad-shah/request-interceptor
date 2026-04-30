@@ -9,6 +9,10 @@ import { findConflictingRoutes } from './core/route-conflicts';
 
 console.log('[Background] Network manager initialized:', !!networkManager);
 
+// ---- Events storage (per tab, in-memory) ----
+const MAX_EVENTS = 1000;
+const tabEvents = new Map<number, any[]>();
+
 interface AppState {
   enabled: boolean;
   routes: Record<string, any>;
@@ -122,11 +126,17 @@ class StateManager {
 
   async handleMessage(
     message: ChromeMessage,
-    _sender: chrome.runtime.MessageSender,
+    sender: chrome.runtime.MessageSender,
     sendResponse: (response: any) => void
   ): Promise<void> {
     try {
-      console.log('[Background] Received message:', message.action, message);
+      console.log('[Background] Received message:', message.action || message.type, message);
+
+      // Handle type-based messages (events + storage)
+      if (message.type) {
+        this.handleTypedMessage(message, sender, sendResponse);
+        return;
+      }
 
       switch (message.action) {
         case 'getState':
@@ -172,6 +182,125 @@ class StateManager {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  }
+
+  handleTypedMessage(
+    message: ChromeMessage,
+    sender: chrome.runtime.MessageSender,
+    sendResponse: (response: any) => void
+  ): void {
+    const tabId = sender.tab?.id || message.tabId;
+
+    switch (message.type) {
+      // ---- Events ----
+      case 'EVENT_CAPTURED': {
+        if (!sender.tab?.id) break;
+        const tid = sender.tab.id;
+        if (!tabEvents.has(tid)) tabEvents.set(tid, []);
+        const events = tabEvents.get(tid)!;
+        events.push({ ...message.payload, tabUrl: message.tabUrl });
+        if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
+        // Notify side panel
+        chrome.runtime.sendMessage({ type: 'NEW_EVENT', tabId: tid, event: message.payload }).catch(() => {});
+        break;
+      }
+      case 'GET_EVENTS':
+        sendResponse({ events: tabEvents.get(message.tabId) || [] });
+        break;
+      case 'CLEAR_EVENTS':
+        tabEvents.set(message.tabId, []);
+        sendResponse({ success: true });
+        break;
+      case 'EXPORT_EVENTS':
+        sendResponse({ events: tabEvents.get(message.tabId) || [] });
+        break;
+
+      // ---- Storage ----
+      case 'GET_COOKIES':
+        chrome.cookies.getAll({ url: message.url }, (cookies) => {
+          sendResponse({
+            cookies: cookies.map(c => ({
+              name: c.name, value: c.value, domain: c.domain, path: c.path,
+              secure: c.secure, httpOnly: c.httpOnly, sameSite: c.sameSite,
+              expirationDate: c.expirationDate, session: c.session,
+            })),
+          });
+        });
+        break;
+      case 'SET_COOKIE':
+        chrome.cookies.set(message.cookie, (result) => {
+          sendResponse({ success: !!result, cookie: result });
+        });
+        break;
+      case 'DELETE_COOKIE':
+        chrome.cookies.remove({ url: message.url, name: message.name }, () => {
+          sendResponse({ success: true });
+        });
+        break;
+      case 'GET_ALL_STORAGE':
+        if (!tabId) { sendResponse({ localStorage: {}, sessionStorage: {} }); break; }
+        chrome.scripting.executeScript({
+          target: { tabId },
+          func: () => {
+            const data: any = { localStorage: {}, sessionStorage: {}, localStorageSize: 0, sessionStorageSize: 0 };
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i)!;
+              const value = localStorage.getItem(key)!;
+              data.localStorage[key] = value;
+              data.localStorageSize += key.length + value.length;
+            }
+            for (let i = 0; i < sessionStorage.length; i++) {
+              const key = sessionStorage.key(i)!;
+              const value = sessionStorage.getItem(key)!;
+              data.sessionStorage[key] = value;
+              data.sessionStorageSize += key.length + value.length;
+            }
+            return data;
+          },
+          world: 'MAIN' as any,
+        }).then(results => {
+          sendResponse(results[0]?.result || { localStorage: {}, sessionStorage: {} });
+        }).catch(error => {
+          sendResponse({ localStorage: {}, sessionStorage: {}, error: error.message });
+        });
+        break;
+      case 'EXECUTE_STORAGE_ACTION':
+        if (!tabId) { sendResponse({ success: false, error: 'No tab' }); break; }
+        chrome.scripting.executeScript({
+          target: { tabId },
+          func: (action: any) => {
+            try {
+              switch (action.type) {
+                case 'SET_LOCAL': localStorage.setItem(action.key, action.value); return { success: true };
+                case 'DELETE_LOCAL': localStorage.removeItem(action.key); return { success: true };
+                case 'CLEAR_LOCAL': localStorage.clear(); return { success: true };
+                case 'SET_SESSION': sessionStorage.setItem(action.key, action.value); return { success: true };
+                case 'DELETE_SESSION': sessionStorage.removeItem(action.key); return { success: true };
+                case 'CLEAR_SESSION': sessionStorage.clear(); return { success: true };
+                case 'GET_INDEXEDDB_INFO':
+                  if (!window.indexedDB || !indexedDB.databases) return { databases: [] };
+                  return indexedDB.databases().then(dbs => ({ databases: dbs })).catch(() => ({ databases: [] }));
+                case 'DELETE_INDEXEDDB':
+                  return new Promise(resolve => {
+                    const req = indexedDB.deleteDatabase(action.dbName);
+                    req.onsuccess = () => resolve({ success: true });
+                    req.onerror = () => resolve({ success: false, error: req.error?.message });
+                  });
+                default: return { success: false, error: 'Unknown action' };
+              }
+            } catch (e: any) { return { success: false, error: e.message }; }
+          },
+          args: [message.action],
+          world: 'MAIN' as any,
+        }).then(results => {
+          sendResponse(results[0]?.result || { success: false });
+        }).catch(error => {
+          sendResponse({ success: false, error: error.message });
+        });
+        break;
+      default:
+        sendResponse({ success: false, error: 'Unknown type' });
     }
   }
 
@@ -329,8 +458,14 @@ class StateManager {
   }
 }
 
+// Clean up events when tabs close or navigate
+chrome.tabs.onRemoved.addListener((tid) => { tabEvents.delete(tid); });
+chrome.tabs.onUpdated.addListener((tid, changeInfo) => {
+  if (changeInfo.status === 'loading') tabEvents.set(tid, []);
+});
+
 // Initialize
-console.log('[Background] Initializing Request Interceptor');
+console.log('[Background] Initializing Web Tools');
 const stateManager = new StateManager();
 
 chrome.runtime.onInstalled.addListener((details) => {
