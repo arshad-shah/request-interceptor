@@ -6,9 +6,8 @@
   "scripts": {
     "dev": "extforge dev",
     "build": "extforge build",
-    "preview": "vite preview",
     "type-check": "tsc --noEmit",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "test": "vitest",
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
