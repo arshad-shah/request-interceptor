@@ -1,4 +1,4 @@
-// Content script for Web Tools Chrome Extension
+// Content script for Request Interceptor Chrome Extension
 // Runs at document_start — injects the page-context script immediately,
 // then relays messages between page ↔ background ↔ sidepanel.
 

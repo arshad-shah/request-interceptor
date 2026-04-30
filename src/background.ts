@@ -465,7 +465,7 @@ chrome.tabs.onUpdated.addListener((tid, changeInfo) => {
 });
 
 // Initialize
-console.log('[Background] Initializing Web Tools');
+console.log('[Background] Initializing Request Interceptor');
 const stateManager = new StateManager();
 
 chrome.runtime.onInstalled.addListener((details) => {

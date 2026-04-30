@@ -31,7 +31,7 @@ const Header: React.FC = () => {
         </div>
         <div>
           <h1 className="text-[15px] font-bold tracking-tight text-[var(--text-primary)]">
-            Web Tools
+            Request Interceptor
           </h1>
           <p className="text-[11px] text-[var(--text-tertiary)]">
             {enabled ? 'Active' : 'Standby'}
