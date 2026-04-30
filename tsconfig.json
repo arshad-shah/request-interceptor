@@ -17,16 +17,7 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@components/*": ["./src/components/*"],
-      "@lib/*": ["./src/lib/*"],
-      "@hooks/*": ["./src/hooks/*"],
-      "@stores/*": ["./src/stores/*"],
-      "@types/*": ["./src/types/*"],
-      "@styles/*": ["./src/styles/*"],
-      "@popup/*": ["./src/popup/*"],
-      "@sidepanel/*": ["./src/sidepanel/*"],
-      "@assets/*": ["./src/assets/*"]
+      "@/*": ["./src/*"]
     },
     "types": ["chrome"]
   },
