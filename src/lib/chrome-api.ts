@@ -61,7 +61,7 @@ export const addMessageListener = (callback: (message: ChromeMessage) => void): 
   const messageListener = (
     message: ChromeMessage, 
     sender: chrome.runtime.MessageSender, 
-    sendResponse: (response?: any) => void
+    _sendResponse: (response?: any) => void
   ) => {
     // Handle messages from the background script or extension itself
     // Background script messages will have sender.id === chrome.runtime.id
