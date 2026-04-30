@@ -38,6 +38,7 @@ Load the `dist/` folder as an unpacked extension in `chrome://extensions`.
 - `route-migration.ts` — Schema migration for old route configs (e.g., `headersOnly` → `interceptionMode`).
 - `route-export.ts` — Route serialization for export/import.
 - `route-conflicts.ts` — Conflict detection when enabling/adding routes with the same method+URL.
+- `event-serialization.ts` — Pure serializer for event data with depth/width caps. Used by `injected.ts` to safely stringify CustomEvent details, postMessage payloads, and EventEmitter args.
 
 **Interceptor modules** (`src/core/interceptors/`) — Interception logic extracted from the injected script:
 - `fetch-interceptor.ts` — `fetch()` wrapper supporting mock, passthrough, block, and redirect modes.
@@ -48,7 +49,7 @@ Load the `dist/` folder as an unpacked extension in `chrome://extensions`.
 **Message flow:** Injected script ↔ Content script (postMessage/DOM) ↔ Background (chrome.runtime) ↔ Side panel UI.
 
 **State management:** Four Zustand stores:
-- `src/stores/app-store.ts` — Routes, enabled state, active tab, notifications, filters.
+- `src/stores/app-store.ts` — Routes, enabled state, active tab, notifications, filters. `eventMonitorEnabled` is persisted in background state and hydrated from `getState` on side panel load.
 - `src/stores/network-store.ts` — Captured network requests, filters, selected request (500 request limit).
 - `src/stores/events-store.ts` — Captured events, filters, bookmarks, compare mode (1000 event limit).
 - `src/stores/storage-store.ts` — localStorage, sessionStorage, cookies, IndexedDB state and filters.
@@ -65,7 +66,7 @@ Load the `dist/` folder as an unpacked extension in `chrome://extensions`.
 
 Tests use Vitest with jsdom environment. All core modules have unit tests in `src/core/__tests__/`:
 - `route-keys.test.ts`, `url-matching.test.ts`, `query-params.test.ts`, `graphql.test.ts`
-- `route-validation.test.ts`, `route-migration.test.ts`, `route-export.test.ts`, `route-conflicts.test.ts`
+- `route-validation.test.ts`, `route-migration.test.ts`, `route-export.test.ts`, `route-conflicts.test.ts`, `event-serialization.test.ts`
 - Shared fixtures in `src/core/__tests__/fixtures.ts`
 
 ## Path Aliases
