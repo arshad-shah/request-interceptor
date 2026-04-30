@@ -7,7 +7,6 @@ import {
   Notification,
   FilterState,
   TabId,
-  NotificationType
 } from '@/types';
 
 interface AppStore extends AppState {

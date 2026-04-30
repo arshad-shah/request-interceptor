@@ -2,7 +2,7 @@ import React from 'react';
 import { Tag, Link } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import RouteTypeSelection from '../RouteTypeSelection';
-import { RouteFormData, RouteType } from '@/types';
+import { RouteFormData } from '@/types';
 
 interface BasicInfoSectionProps {
   formData: RouteFormData;

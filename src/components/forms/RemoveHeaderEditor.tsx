@@ -18,7 +18,7 @@ const RemoveHeadersEditor: React.FC<RemoveHeadersEditorProps> = ({
   title,
   description,
   commonHeaders = [],
-  className
+  className: _className
 }) => {
   const [isExpanded, setIsExpanded] = useState(removeHeaders.length > 0);
   const [newHeader, setNewHeader] = useState('');

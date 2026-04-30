@@ -22,7 +22,7 @@ const FILTER_TYPES: { type: NetworkFilterType; label: string }[] = [
 
 export function NetworkFilters() {
   const filters = useNetworkFilters();
-  const { setFilter, setSearch, clearFilters } = useNetworkStore();
+  const { setFilter, setSearch } = useNetworkStore();
 
   return (
     <div className="flex-none flex flex-col gap-2 p-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">

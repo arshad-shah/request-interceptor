@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, Bookmark, Clock, Code, Layers } from 'lucide-react';
 import { CapturedEvent } from '@/types/events';
 import { useEventsStore } from '@/stores/events-store';

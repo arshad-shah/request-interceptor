@@ -72,11 +72,12 @@ function sortRequests(
       case 'method':
         comparison = (a.method || '').localeCompare(b.method || '');
         break;
-      case 'name':
+      case 'name': {
         const nameA = a.filename || a.pathname || a.url;
         const nameB = b.filename || b.pathname || b.url;
         comparison = nameA.localeCompare(nameB);
         break;
+      }
       case 'type':
         comparison = (a.type || '').localeCompare(b.type || '');
         break;

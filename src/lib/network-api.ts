@@ -9,11 +9,8 @@ import type {
   NetworkMessageResponse,
   ResponseBody,
   ReplayResult,
-  NetworkHeader,
   QueryParam,
-  HAR,
   TimingPhase,
-  STATUS_TEXTS,
 } from '../types/network';
 
 // ============================================

@@ -46,7 +46,6 @@ import {
   formatSize,
   formatTime,
   looksLikeJson,
-  formatXml,
   calculateTimingPhases,
   generateCurl,
   copyToClipboard,
@@ -291,7 +290,7 @@ export function NetworkRequestDetails({
 
     try {
       let content = body.body;
-      let mimeType = body.mimeType || 'application/octet-stream';
+      const mimeType = body.mimeType || 'application/octet-stream';
 
       if (body.base64Encoded) {
         const byteChars = atob(content);

@@ -1,15 +1,31 @@
 import React, { useState, useCallback } from 'react';
-import AceEditor from 'react-ace';
+import * as ReactAce from 'react-ace';
+
+function resolveAceEditor(mod: any): any {
+  let candidate = mod;
+  for (let i = 0; i < 3; i++) {
+    if (typeof candidate === 'function') return candidate;
+    if (candidate && typeof candidate === 'object' && 'default' in candidate) {
+      candidate = candidate.default;
+      continue;
+    }
+    break;
+  }
+  if (typeof console !== 'undefined') {
+    console.error('[ReactAceEditor] Could not resolve AceEditor component from react-ace module:', mod);
+  }
+  return candidate;
+}
+
+const AceEditor = resolveAceEditor(ReactAce) as typeof import('react-ace').default;
 import {
   Code,
   Check,
   AlertCircle,
   Copy,
   RotateCcw,
-  ChevronDown,
   FileCode,
-  Zap,
-  Moon
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { validateJson, formatJson } from '@/lib/chrome-api';
@@ -68,31 +84,6 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
   const [isValid, setIsValid] = useState(true);
   const [cursorPosition, setCursorPosition] = useState({ row: 1, column: 1 });
   const [showThemeMenu, setShowThemeMenu] = useState(false);
-
-  // Dark theme configuration
-  const themes = [
-    {
-      value: 'monokai',
-      label: 'Monokai',
-      icon: Moon
-    },
-    {
-      value: 'twilight',
-      label: 'Twilight',
-      icon: Moon
-    },
-    {
-      value: 'solarized_dark',
-      label: 'Solarized Dark',
-      icon: Moon
-    },
-    {
-      value: 'terminal',
-      label: 'Terminal',
-      icon: Moon
-    }
-  ];
-
 
   // Language configuration with dark theme colors
   const languageConfig = {
