@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Chrome extension (Manifest V3) — **Request Interceptor** — a developer toolkit for intercepting API responses, monitoring events, and inspecting browser storage. Built with React 18, TypeScript, Zustand, TailwindCSS 4, and Vite.
+Chrome extension (Manifest V3) — **Request Interceptor** — a developer toolkit for intercepting API responses, monitoring events, and inspecting browser storage. Built with React 18, TypeScript, Zustand, TailwindCSS 4, and ExtForge.
 
 ## Commands
 
 ```bash
-pnpm dev              # Vite dev server
-pnpm build            # TypeScript compile + Vite build → dist/
+pnpm dev              # ExtForge dev server with HMR
+pnpm build            # ExtForge build → dist/<browser>/ for chrome, firefox, safari, edge
 pnpm type-check       # Type check only (no emit)
 pnpm lint             # ESLint (zero warnings allowed)
 pnpm test             # Vitest watch mode
@@ -18,16 +18,16 @@ pnpm test:run         # Vitest single run
 pnpm test:coverage    # Vitest with coverage
 ```
 
-Load the `dist/` folder as an unpacked extension in `chrome://extensions`.
+Load the `dist/chrome/` folder as an unpacked extension in `chrome://extensions` (or `dist/firefox/` etc. for other browsers).
 
 ## Architecture
 
-**Extension entry points** (each is a separate Vite entry):
+**Extension entry points** (each is a separate ExtForge entry):
 - `src/background.ts` — Service worker. Manages state, message routing, event storage (per-tab, in-memory), storage/cookie operations. Delegates to `src/core/` for validation, migration, export, and conflict detection.
 - `src/content.ts` — Content script injected at `document_start`. Relays messages between page and background. Uses `src/core/url-matching.ts` for injection route matching. Forwards EventBus monitor events.
 - `src/injected.ts` — Thin IIFE shell injected into page context. Delegates to `src/core/interceptors/` for fetch, XHR, and WebSocket interception. Also patches `dispatchEvent`, `postMessage`, and EventEmitter patterns for event monitoring.
-- `src/sidepanel/main.tsx` — Side panel React app (main UI).
-- `src/popup/main.tsx` — Popup React app.
+- `src/ui/sidepanel/index.tsx` — Side panel React app (main UI). HTML at `src/ui/sidepanel/index.html`.
+- `src/ui/popup/index.tsx` — Popup React app. HTML at `src/ui/popup/index.html`.
 
 **Core modules** (`src/core/`) — Pure, testable functions with no browser API dependencies:
 - `route-keys.ts` — Single source of truth for route key parsing/creation (HTTP, WS, INJ formats).
@@ -71,7 +71,7 @@ Tests use Vitest with jsdom environment. All core modules have unit tests in `sr
 
 ## Path Aliases
 
-Configured in both `vite.config.ts` and `tsconfig.json`: `@` → `src/`, `@components`, `@lib`, `@stores`, `@types`, `@styles`, `@popup`, `@sidepanel`, `@assets`.
+Configured in `tsconfig.json` and `vitest.config.ts`: `@` → `src/`. Other prefixed aliases were collapsed during the ExtForge migration.
 
 ## Conventions
 
