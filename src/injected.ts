@@ -15,7 +15,7 @@ import { serializeEventData } from './core/event-serialization';
   const originalXHRSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
   const originalWebSocket = window.WebSocket;
 
-  const EVT_DEBUG = true;
+  const EVT_DEBUG = false;
 
   // Internal state
   let isActive = false;

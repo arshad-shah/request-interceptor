@@ -215,17 +215,12 @@ class StateManager {
     switch (message.type) {
       // ---- Events ----
       case 'EVENT_CAPTURED': {
-        if (!sender.tab?.id) {
-          console.warn('[EVT-4] background:store SKIPPED — no sender tab id');
-          break;
-        }
+        if (!sender.tab?.id) break;
         const tid = sender.tab.id;
         if (!tabEvents.has(tid)) tabEvents.set(tid, []);
         const events = tabEvents.get(tid)!;
         events.push({ ...message.payload, tabUrl: message.tabUrl });
         if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
-        console.warn('[EVT-4] background:store', { tabId: tid, totalForTab: events.length, eventType: message.payload?.eventType });
-        // Notify side panel
         chrome.runtime.sendMessage({ type: 'NEW_EVENT', tabId: tid, event: message.payload }).catch(() => {});
         break;
       }
