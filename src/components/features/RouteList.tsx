@@ -118,21 +118,12 @@ const RouteList: React.FC = () => {
   };
 
   const handleToggleRoute = async (routeKey: string, enabled: boolean) => {
+    toggleRoute(routeKey, enabled);
     try {
-      // First update the background script
       await chromeApi.toggleRoute(routeKey, enabled);
-      
-      // Then update the local state using the store's toggleRoute method
-      toggleRoute(routeKey, enabled);
-      
-      addNotification({
-        title: 'Success',
-        message: enabled ? 'Route enabled successfully' : 'Route disabled successfully',
-        type: 'success',
-        timestamp: Date.now()
-      });
     } catch (error) {
       console.error('Failed to toggle route:', error);
+      toggleRoute(routeKey, !enabled);
       addNotification({
         title: 'Error',
         message: 'Failed to toggle route',

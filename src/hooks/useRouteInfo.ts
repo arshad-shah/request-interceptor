@@ -29,7 +29,6 @@ export interface RouteInfo {
   responsePreview: string;
   contentTypeName: string;
   description: string;
-  parsedResponse: any;
   hasResponseHeaders: boolean;
   hasRequestHeaders: boolean;
   hasRemoveHeaders: boolean;
@@ -101,17 +100,6 @@ export function useRouteInfo(
       ? (wsConfig.incomingRules?.length || 0) + (wsConfig.outgoingRules?.length || 0)
       : 0;
 
-    let parsedResponse = null;
-    if (isHttp && httpConfig.response) {
-      try {
-        parsedResponse = typeof httpConfig.response === 'object'
-          ? httpConfig.response
-          : JSON.parse(String(httpConfig.response));
-      } catch {
-        // not JSON
-      }
-    }
-
     return {
       isWebSocket,
       isInjection,
@@ -126,7 +114,6 @@ export function useRouteInfo(
       responsePreview,
       contentTypeName,
       description,
-      parsedResponse,
       hasResponseHeaders,
       hasRequestHeaders,
       hasRemoveHeaders,

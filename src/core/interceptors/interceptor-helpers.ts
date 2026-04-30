@@ -192,9 +192,12 @@ export function createMockResponse(body: any, config: any, log: LogFn): Response
     });
   }
 
-  return new Response(responseBody, {
-    status: config.status || 200,
-    statusText: getStatusText(config.status || 200),
+  const status = config.status || 200;
+  const isNullBodyStatus = status === 101 || status === 204 || status === 205 || status === 304;
+
+  return new Response(isNullBodyStatus ? null : responseBody, {
+    status,
+    statusText: getStatusText(status),
     headers: new Headers(headers),
   });
 }

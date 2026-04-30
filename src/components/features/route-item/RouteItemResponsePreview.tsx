@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Code, Expand, Shrink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { JsonTreeViewer } from '@/components/common/JsonTreeViewer';
@@ -14,7 +14,20 @@ const RouteItemResponsePreview: React.FC<RouteItemResponsePreviewProps> = ({
   info,
   isResponseExpanded,
   onToggleExpand,
-}) => (
+}) => {
+  const parsedResponse = useMemo(() => {
+    if (!isResponseExpanded) return null;
+    const raw = info.httpConfig.response;
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    try {
+      return JSON.parse(String(raw));
+    } catch {
+      return null;
+    }
+  }, [isResponseExpanded, info.httpConfig.response]);
+
+  return (
   <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-[var(--radius-sm)] overflow-hidden">
     <div className="flex items-center justify-between px-3 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
       <div className="flex items-center gap-2">
@@ -48,14 +61,13 @@ const RouteItemResponsePreview: React.FC<RouteItemResponsePreviewProps> = ({
         isResponseExpanded ? 'max-h-[500px]' : 'max-h-48'
       )}
     >
-      {info.parsedResponse ? (
+      {isResponseExpanded && parsedResponse ? (
         <JsonTreeViewer
-          data={info.parsedResponse}
-          maxHeight={isResponseExpanded ? 500 : 180}
-          showToolbar={isResponseExpanded}
-          initialExpandDepth={isResponseExpanded ? 3 : 1}
-          compact={!isResponseExpanded}
-          searchable={isResponseExpanded}
+          data={parsedResponse}
+          maxHeight={500}
+          showToolbar
+          initialExpandDepth={3}
+          searchable
         />
       ) : (
         <pre className="p-3 text-[11px] font-mono text-[var(--text-secondary)] whitespace-pre-wrap break-all">
@@ -64,6 +76,7 @@ const RouteItemResponsePreview: React.FC<RouteItemResponsePreviewProps> = ({
       )}
     </div>
   </div>
-);
+  );
+};
 
 export default RouteItemResponsePreview;
