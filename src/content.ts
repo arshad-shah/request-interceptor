@@ -142,7 +142,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   else if (message.action === 'routesChanged') {
     interceptedRoutes = message.routes || {};
-    if (message.hasOwnProperty('enabled')) isEnabled = message.enabled;
+    if (Object.hasOwn(message, 'enabled')) isEnabled = message.enabled;
 
     sendCommand('updateRoutes', { routes: interceptedRoutes });
     sendCommand(isEnabled ? 'enable' : 'disable');

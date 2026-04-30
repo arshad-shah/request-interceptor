@@ -2,8 +2,6 @@ import React, { useEffect } from 'react';
 import { Zap, ExternalLink } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, addMessageListener } from '@/lib/chrome-api';
-import { cn } from '@/lib/utils';
-
 // Import custom UI components
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -29,7 +27,7 @@ const Popup: React.FC = () => {
         }
       } else if (message.action === 'routesChanged') {
         setRoutes(message.routes || {});
-        if (message.hasOwnProperty('enabled')) {
+        if (Object.hasOwn(message, 'enabled')) {
           setEnabled(message.enabled);
         }
       }
@@ -66,7 +64,7 @@ const Popup: React.FC = () => {
       const currentWindow = await chrome.windows.getCurrent();
 
       if (currentWindow?.id && chrome.sidePanel) {
-        //@ts-ignore
+        // @ts-expect-error -- sidePanel.open is not yet in the @types/chrome typings
         await chrome.sidePanel.open({ windowId: currentWindow.id });
       } else {
         // Alternative: open the extension page in a new tab

@@ -373,7 +373,7 @@ class StateManager {
     if (name) config.name = name;
     if (config.enabled === undefined) config.enabled = true;
 
-    const isUpdate = this.state.routes.hasOwnProperty(route);
+    const isUpdate = Object.hasOwn(this.state.routes, route);
 
     // Resolve conflicts
     if (!isWebSocketRoute(route) && !isInjectionRoute(route) && config.enabled) {
@@ -457,7 +457,7 @@ class StateManager {
       if (chrome.sidePanel) {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab.id) {
-          //@ts-ignore
+          // @ts-expect-error -- sidePanel.open is not yet in the @types/chrome typings
           chrome.sidePanel.open({ windowId: tab.windowId });
         } else {
           throw new Error('No active tab found');

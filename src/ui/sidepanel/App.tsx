@@ -44,7 +44,7 @@ const App: React.FC = () => {
       } else if (message.action === 'routesChanged') {
         // Always update routes when they change
         setRoutes(message.routes as Record<string, RouteConfig | WebSocketConfig> || {});
-        if (message.hasOwnProperty('enabled')) {
+        if (Object.hasOwn(message, 'enabled')) {
           setEnabled(message.enabled);
         }
       }

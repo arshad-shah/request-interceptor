@@ -14,16 +14,16 @@ export function migrateHttpConfig(config: any): { config: RouteConfig; changed: 
   let changed = false;
   const c = { ...config };
 
-  if (!c.hasOwnProperty('responseHeaders')) { c.responseHeaders = {}; changed = true; }
-  if (!c.hasOwnProperty('requestHeaders')) { c.requestHeaders = {}; changed = true; }
-  if (!c.hasOwnProperty('removeRequestHeaders')) { c.removeRequestHeaders = []; changed = true; }
-  if (!c.hasOwnProperty('headersOnly')) { c.headersOnly = false; changed = true; }
-  if (!c.hasOwnProperty('interceptionMode')) {
+  if (!Object.hasOwn(c, 'responseHeaders')) { c.responseHeaders = {}; changed = true; }
+  if (!Object.hasOwn(c, 'requestHeaders')) { c.requestHeaders = {}; changed = true; }
+  if (!Object.hasOwn(c, 'removeRequestHeaders')) { c.removeRequestHeaders = []; changed = true; }
+  if (!Object.hasOwn(c, 'headersOnly')) { c.headersOnly = false; changed = true; }
+  if (!Object.hasOwn(c, 'interceptionMode')) {
     c.interceptionMode = c.headersOnly ? 'passthrough' : 'mock';
     changed = true;
   }
-  if (!c.hasOwnProperty('queryParamRules')) { c.queryParamRules = []; changed = true; }
-  if (!c.hasOwnProperty('enabled')) { c.enabled = true; changed = true; }
+  if (!Object.hasOwn(c, 'queryParamRules')) { c.queryParamRules = []; changed = true; }
+  if (!Object.hasOwn(c, 'enabled')) { c.enabled = true; changed = true; }
 
   return { config: c as RouteConfig, changed };
 }
@@ -35,10 +35,10 @@ export function migrateWebSocketConfig(config: any): { config: WebSocketConfig; 
   let changed = false;
   const c = { ...config };
 
-  if (!c.hasOwnProperty('incomingRules')) { c.incomingRules = []; changed = true; }
-  if (!c.hasOwnProperty('outgoingRules')) { c.outgoingRules = []; changed = true; }
-  if (!c.hasOwnProperty('delay')) { c.delay = 0; changed = true; }
-  if (!c.hasOwnProperty('enabled')) { c.enabled = true; changed = true; }
+  if (!Object.hasOwn(c, 'incomingRules')) { c.incomingRules = []; changed = true; }
+  if (!Object.hasOwn(c, 'outgoingRules')) { c.outgoingRules = []; changed = true; }
+  if (!Object.hasOwn(c, 'delay')) { c.delay = 0; changed = true; }
+  if (!Object.hasOwn(c, 'enabled')) { c.enabled = true; changed = true; }
 
   // Ensure rules have proper structure
   for (const ruleType of ['incomingRules', 'outgoingRules'] as const) {
@@ -71,7 +71,7 @@ export function migrateRoutes(routes: Record<string, any>): { routes: Record<str
     } else if (isInjectionRoute(key)) {
       // Injection routes — just ensure enabled
       const c = { ...config };
-      if (!c.hasOwnProperty('enabled')) {
+      if (!Object.hasOwn(c, 'enabled')) {
         c.enabled = true;
         anyChanged = true;
       }

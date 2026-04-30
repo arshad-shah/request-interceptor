@@ -81,7 +81,7 @@ export function urlMatches(requestUrl: string, patternUrl: string, baseOrigin = 
   // Wildcard matching
   if (patternUrl.includes('*')) {
     const regexPattern = patternUrl
-      .replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&')
+      .replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&')
       .replace(/\*/g, '.*');
 
     const regex = new RegExp(`^${regexPattern}$`);
@@ -112,7 +112,7 @@ export function pageUrlMatches(pageUrl: string, pattern: string): boolean {
   // Wildcard matching
   if (pattern.includes('*')) {
     const regexPattern = pattern
-      .replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&')
+      .replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&')
       .replace(/\*/g, '.*');
     return new RegExp(`^${regexPattern}$`).test(pageUrl);
   }
