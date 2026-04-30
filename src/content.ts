@@ -4,7 +4,7 @@
 
 import { pageUrlMatches } from './core/url-matching';
 
-const SCRIPT_ID = 'web-tools-injected';
+const SCRIPT_ID = 'request-interceptor-injected';
 
 // Track injected DOM elements for cleanup
 const injectedElements: Map<string, HTMLElement[]> = new Map();
@@ -44,7 +44,7 @@ function processInjectionRoutes(routes: Record<string, any>, enabled: boolean) {
         if (!code.trim()) return;
         const s = document.createElement('script');
         s.textContent = code;
-        s.setAttribute('data-injected-by', 'web-tools');
+        s.setAttribute('data-injected-by', 'request-interceptor');
         s.setAttribute('data-route-key', key);
         (document.head || document.documentElement).appendChild(s);
         elements.push(s);
@@ -55,7 +55,7 @@ function processInjectionRoutes(routes: Record<string, any>, enabled: boolean) {
         if (!css.trim()) return;
         const s = document.createElement('style');
         s.textContent = css;
-        s.setAttribute('data-injected-by', 'web-tools');
+        s.setAttribute('data-injected-by', 'request-interceptor');
         s.setAttribute('data-route-key', key);
         (document.head || document.documentElement).appendChild(s);
         elements.push(s);
@@ -157,7 +157,7 @@ window.addEventListener('message', (event) => {
 
   // Request Interceptor logs
   if (event.data.type === 'REQUEST_INTERCEPTOR_LOG') {
-    console.log(`[Web Tools] ${event.data.message}`);
+    console.log(`[Request Interceptor] ${event.data.message}`);
   }
 
   // EventBus Monitor events → forward to background

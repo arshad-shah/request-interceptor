@@ -151,7 +151,7 @@ import { parseRouteKeyInline, parseWebSocketKeyInline } from './core/interceptor
     }
   });
 
-  console.log('[Web Tools] Complete script injected with HTTP, Headers-Only, and WebSocket support');
+  console.log('[Request Interceptor] Complete script injected with HTTP, Headers-Only, and WebSocket support');
 
   // ================================================
   // EventBus Monitor — intercepts CustomEvent, postMessage, EventEmitter patterns
