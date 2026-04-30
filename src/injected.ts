@@ -222,7 +222,7 @@ import { serializeEventData } from './core/event-serialization';
     }
     // Forward to original — use Function.prototype.apply to bypass strict TS overloads
     const args = transfer !== undefined ? [message, optionsOrOrigin, transfer] : optionsOrOrigin !== undefined ? [message, optionsOrOrigin] : [message];
-    return (originalWindowPostMessage as Function).apply(this, args);
+    return (originalWindowPostMessage as (...a: unknown[]) => void).apply(this, args);
   };
 
   // Hook EventEmitter patterns on global objects

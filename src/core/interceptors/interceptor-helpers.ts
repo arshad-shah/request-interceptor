@@ -6,7 +6,6 @@
 import { urlMatches } from '../url-matching';
 import { matchesGraphqlOperation } from '../graphql';
 import { applyQueryParamRules as applyQPRules } from '../query-params';
-import type { QueryParamRule } from '@/types';
 
 // Re-export for use in injected.ts
 export { applyQPRules as applyQueryParamRules };

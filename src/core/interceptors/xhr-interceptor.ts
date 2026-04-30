@@ -6,7 +6,6 @@
 import {
   shouldIntercept,
   getStatusText,
-  modifyRequestHeaders,
   type LogFn
 } from './interceptor-helpers';
 import { applyQueryParamRules } from '../query-params';
@@ -27,12 +26,12 @@ export function setupXHRInterceptor(
   originalXHRSetRequestHeader: typeof XMLHttpRequest.prototype.setRequestHeader
 ): void {
   // Override open to capture URL and method
-  XMLHttpRequest.prototype.open = function(method: string, url: string | URL) {
+  XMLHttpRequest.prototype.open = function(method: string, url: string | URL, ...rest: any[]) {
     (this as any)._interceptUrl = String(url);
     (this as any)._interceptMethod = method;
     (this as any)._interceptHeaders = new Map();
     (this as any)._originalHeaders = new Map();
-    return originalXHROpen.apply(this, arguments as any);
+    return originalXHROpen.apply(this, [method, url, ...rest] as any);
   };
 
   // Override setRequestHeader to track headers
@@ -45,13 +44,13 @@ export function setupXHRInterceptor(
     }
     (this as any)._originalHeaders.set(name.toLowerCase(), value);
     (this as any)._interceptHeaders.set(name.toLowerCase(), value);
-    return originalXHRSetRequestHeader.apply(this, arguments as any);
+    return originalXHRSetRequestHeader.call(this, name, value);
   };
 
   // Override send to intercept
-  XMLHttpRequest.prototype.send = function(data?: Document | BodyInit | null) {
+  XMLHttpRequest.prototype.send = function(data?: XMLHttpRequestBodyInit | Document | null) {
     if (!state.isActive()) {
-      return originalXHRSend.apply(this, arguments as any);
+      return originalXHRSend.call(this, data);
     }
 
     const method = (this as any)._interceptMethod;
@@ -65,20 +64,19 @@ export function setupXHRInterceptor(
       log(`✓ Intercepting XMLHttpRequest: ${method} ${url} with route: ${routeKey} (mode: ${mode})`);
 
       if (mode === 'block') {
-        const xhr = this;
         setTimeout(() => {
           log(`Blocked XHR request: ${method} ${url}`);
-          Object.defineProperty(xhr, 'readyState', { value: 4, configurable: true });
-          Object.defineProperty(xhr, 'status', { value: 0, configurable: true });
-          Object.defineProperty(xhr, 'statusText', { value: '', configurable: true });
-          Object.defineProperty(xhr, 'responseText', { value: '', configurable: true });
-          Object.defineProperty(xhr, 'response', { value: '', configurable: true });
+          Object.defineProperty(this, 'readyState', { value: 4, configurable: true });
+          Object.defineProperty(this, 'status', { value: 0, configurable: true });
+          Object.defineProperty(this, 'statusText', { value: '', configurable: true });
+          Object.defineProperty(this, 'responseText', { value: '', configurable: true });
+          Object.defineProperty(this, 'response', { value: '', configurable: true });
 
-          if (xhr.onerror) xhr.onerror(new ProgressEvent('error'));
-          if (xhr.onloadend) xhr.onloadend(new ProgressEvent('loadend'));
-          if (xhr.dispatchEvent) {
-            xhr.dispatchEvent(new Event('error'));
-            xhr.dispatchEvent(new Event('loadend'));
+          if (this.onerror) this.onerror(new ProgressEvent('error'));
+          if (this.onloadend) this.onloadend(new ProgressEvent('loadend'));
+          if (this.dispatchEvent) {
+            this.dispatchEvent(new Event('error'));
+            this.dispatchEvent(new Event('loadend'));
           }
         }, interceptConfig.delay || 0);
         return;
@@ -107,11 +105,10 @@ export function setupXHRInterceptor(
           originalXHRSetRequestHeader.call(this, key, value);
         });
 
-        return originalXHRSend.apply(this, arguments as any);
+        return originalXHRSend.call(this, data);
       }
 
       if (mode === 'mock') {
-        const xhr = this;
         setTimeout(() => {
           const responseBody = interceptConfig.response;
           let responseText: string;
@@ -121,11 +118,11 @@ export function setupXHRInterceptor(
             responseText = String(responseBody);
           }
 
-          Object.defineProperty(xhr, 'readyState', { value: 4, configurable: true });
-          Object.defineProperty(xhr, 'status', { value: interceptConfig.status || 200, configurable: true });
-          Object.defineProperty(xhr, 'statusText', { value: getStatusText(interceptConfig.status || 200), configurable: true });
-          Object.defineProperty(xhr, 'responseText', { value: responseText, configurable: true });
-          Object.defineProperty(xhr, 'response', { value: responseText, configurable: true });
+          Object.defineProperty(this, 'readyState', { value: 4, configurable: true });
+          Object.defineProperty(this, 'status', { value: interceptConfig.status || 200, configurable: true });
+          Object.defineProperty(this, 'statusText', { value: getStatusText(interceptConfig.status || 200), configurable: true });
+          Object.defineProperty(this, 'responseText', { value: responseText, configurable: true });
+          Object.defineProperty(this, 'response', { value: responseText, configurable: true });
 
           const responseHeaders: Record<string, string> = {
             'Content-Type': interceptConfig.contentType || 'application/json',
@@ -134,30 +131,28 @@ export function setupXHRInterceptor(
           if (interceptConfig.responseHeaders) {
             Object.assign(responseHeaders, interceptConfig.responseHeaders);
           }
-          (xhr as any).responseHeaders = responseHeaders;
+          (this as any).responseHeaders = responseHeaders;
 
-          xhr.getResponseHeader = function(name: string) {
-            return (xhr as any).responseHeaders[name.toLowerCase()] || null;
+          this.getResponseHeader = (name: string) => {
+            return (this as any).responseHeaders[name.toLowerCase()] || null;
           };
-          xhr.getAllResponseHeaders = function() {
-            return Object.entries((xhr as any).responseHeaders)
+          this.getAllResponseHeaders = () => {
+            return Object.entries((this as any).responseHeaders)
               .map(([key, value]) => `${key}: ${value}`)
               .join('\r\n');
           };
 
-          if (xhr.onreadystatechange) xhr.onreadystatechange(new Event('readystatechange'));
-          if (xhr.onload) xhr.onload(new ProgressEvent('load'));
-          if (xhr.dispatchEvent) {
-            xhr.dispatchEvent(new Event('load'));
-            xhr.dispatchEvent(new Event('loadend'));
+          if (this.onreadystatechange) this.onreadystatechange(new Event('readystatechange'));
+          if (this.onload) this.onload(new ProgressEvent('load'));
+          if (this.dispatchEvent) {
+            this.dispatchEvent(new Event('load'));
+            this.dispatchEvent(new Event('loadend'));
           }
         }, interceptConfig.delay || 0);
         return;
       }
 
       // Passthrough
-      const xhr = this;
-
       if (interceptConfig.queryParamRules && interceptConfig.queryParamRules.length > 0) {
         const newUrl = applyQueryParamRules(url, interceptConfig.queryParamRules, window.location.origin);
         if (newUrl !== url) {
@@ -189,23 +184,23 @@ export function setupXHRInterceptor(
       }
 
       if (interceptConfig.responseHeaders && Object.keys(interceptConfig.responseHeaders).length > 0) {
-        const originalOnReadyStateChange = xhr.onreadystatechange;
-        const originalOnLoad = xhr.onload;
+        const originalOnReadyStateChange = this.onreadystatechange;
+        const originalOnLoad = this.onload;
 
-        xhr.onreadystatechange = function(event) {
-          if (xhr.readyState === 4) {
+        this.onreadystatechange = (event) => {
+          if (this.readyState === 4) {
             log(`✓ Modifying response headers for XHR: ${method} ${url}`);
-            const originalGetResponseHeader = xhr.getResponseHeader;
-            const originalGetAllResponseHeaders = xhr.getAllResponseHeaders;
-            const enhancedHeaders = { ...(xhr as any).responseHeaders };
+            const originalGetResponseHeader = this.getResponseHeader;
+            const originalGetAllResponseHeaders = this.getAllResponseHeaders;
+            const enhancedHeaders = { ...(this as any).responseHeaders };
             Object.assign(enhancedHeaders, interceptConfig.responseHeaders);
-            (xhr as any).responseHeaders = enhancedHeaders;
+            (this as any).responseHeaders = enhancedHeaders;
 
-            xhr.getResponseHeader = function(name: string) {
-              return enhancedHeaders[name.toLowerCase()] || originalGetResponseHeader.call(xhr, name);
+            this.getResponseHeader = (name: string) => {
+              return enhancedHeaders[name.toLowerCase()] || originalGetResponseHeader.call(this, name);
             };
-            xhr.getAllResponseHeaders = function() {
-              const original = originalGetAllResponseHeaders.call(xhr);
+            this.getAllResponseHeaders = () => {
+              const original = originalGetAllResponseHeaders.call(this);
               const additional = Object.entries(interceptConfig.responseHeaders)
                 .map(([key, value]) => `${key}: ${value}`)
                 .join('\r\n');
@@ -213,13 +208,13 @@ export function setupXHRInterceptor(
             };
           }
           if (originalOnReadyStateChange) {
-            originalOnReadyStateChange.call(xhr, event);
+            originalOnReadyStateChange.call(this, event);
           }
         };
 
         if (originalOnLoad) {
-          xhr.onload = function(event) {
-            originalOnLoad.call(xhr, event);
+          this.onload = (event) => {
+            originalOnLoad.call(this, event);
           };
         }
       }
@@ -229,10 +224,10 @@ export function setupXHRInterceptor(
         return originalXHRSend.call(this, interceptConfig.requestBody);
       }
 
-      return originalXHRSend.apply(this, arguments as any);
+      return originalXHRSend.call(this, data);
     }
 
     log(`→ Not intercepting XMLHttpRequest: ${method} ${url}`);
-    return originalXHRSend.apply(this, arguments as any);
+    return originalXHRSend.call(this, data);
   };
 }

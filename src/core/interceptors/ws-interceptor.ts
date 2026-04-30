@@ -191,7 +191,7 @@ export function setupWebSocketInterceptor(
       });
 
       // Incoming message interceptor
-      const interceptIncomingMessage = (originalHandler: Function) => {
+      const interceptIncomingMessage = (originalHandler: (event: MessageEvent) => void) => {
         return function(event: MessageEvent) {
           log(`WebSocket incoming message: ${event.data}`);
           const result = processMessage(event.data, config, 'incoming', log);

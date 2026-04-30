@@ -27,7 +27,7 @@ export function setupFetchInterceptor(
 ): void {
   (window as any).fetch = function(resource: RequestInfo | URL, options: RequestInit = {}) {
     if (!state.isActive()) {
-      return originalFetch.apply(this, arguments as any);
+      return originalFetch.call(this, resource, options);
     }
 
     const url = resource instanceof Request ? resource.url : String(resource);
@@ -54,7 +54,7 @@ export function setupFetchInterceptor(
       if (mode === 'redirect') {
         const redirectUrl = interceptConfig.redirectUrl || url;
         log(`Redirecting fetch request: ${url} → ${redirectUrl}`);
-        let modifiedOptions = { ...options };
+        const modifiedOptions = { ...options };
 
         const finalUrl = applyQueryParamRules(redirectUrl, interceptConfig.queryParamRules || [], window.location.origin);
 
@@ -80,7 +80,7 @@ export function setupFetchInterceptor(
       }
 
       // mode === 'passthrough'
-      let modifiedOptions = { ...options };
+      const modifiedOptions = { ...options };
 
       let modifiedUrl: string | RequestInfo | URL = resource;
       if (interceptConfig.queryParamRules && interceptConfig.queryParamRules.length > 0) {
