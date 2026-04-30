@@ -68,14 +68,9 @@ class StateManager {
   }
 
   updateIcon(): void {
-    const iconPath = this.state.enabled
-      ? { '16': 'icons/icon-16.png', '48': 'icons/icon-48.png', '128': 'icons/icon-128.png' }
-      : { '16': 'icons/icon-16-disabled.png', '48': 'icons/icon-48-disabled.png', '128': 'icons/icon-128-disabled.png' };
-
-    chrome.action.setIcon({ path: iconPath }).catch(() => {
-      chrome.action.setIcon({
-        path: this.state.enabled ? 'icons/icon-128.png' : 'icons/icon-128-disabled.png'
-      });
+    const iconPath = { '16': 'icons/icon-16.png', '48': 'icons/icon-48.png', '128': 'icons/icon-128.png' };
+    chrome.action.setIcon({ path: iconPath }).catch((err: unknown) => {
+      console.warn('[Background] setIcon failed:', err);
     });
   }
 
