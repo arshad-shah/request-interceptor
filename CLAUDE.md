@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Chrome extension (Manifest V3) — **Web Tools** — a developer toolkit for intercepting API responses, monitoring events, and inspecting browser storage. Built with React 18, TypeScript, Zustand, TailwindCSS 4, and Vite.
+Chrome extension (Manifest V3) — **Request Interceptor** — a developer toolkit for intercepting API responses, monitoring events, and inspecting browser storage. Built with React 18, TypeScript, Zustand, TailwindCSS 4, and Vite.
 
 ## Commands
 
