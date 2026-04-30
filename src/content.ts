@@ -162,6 +162,10 @@ window.addEventListener('message', (event) => {
 
   // EventBus Monitor events → forward to background
   if (event.data.type === 'eventbus-monitor-channel') {
+    console.log('[EVT-3] content:relay', {
+      sourceMatchesWindow: event.source === window,
+      eventType: event.data.payload?.eventType,
+    });
     chrome.runtime.sendMessage({
       type: 'EVENT_CAPTURED',
       payload: event.data.payload,

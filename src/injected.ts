@@ -15,6 +15,8 @@ import { serializeEventData } from './core/event-serialization';
   const originalXHRSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
   const originalWebSocket = window.WebSocket;
 
+  const EVT_DEBUG = true;
+
   // Internal state
   let isActive = false;
   let interceptedRoutes: Record<string, any> = {};
@@ -174,11 +176,17 @@ import { serializeEventData } from './core/event-serialization';
 
   function sendEventToExtension(data: any) {
     if (!eventMonitorActive) return;
+    if (EVT_DEBUG) {
+      let bytes = 0;
+      try { bytes = JSON.stringify(data).length; } catch (_e) { /* ignore */ }
+      console.log('[EVT-2] injected:send', { category: data.category, eventType: data.eventType, payloadBytes: bytes });
+    }
     originalWindowPostMessage.call(window, { type: EVENTBUS_CHANNEL, payload: data }, { targetOrigin: '*' });
   }
 
   // Patch dispatchEvent for CustomEvent interception
   EventTarget.prototype.dispatchEvent = function(event: Event) {
+    if (EVT_DEBUG) console.log('[EVT-1] injected:dispatch', { trigger: 'dispatchEvent', type: event.type, active: eventMonitorActive });
     if (event instanceof CustomEvent ||
         (event.type && !event.type.startsWith('mouse') && !event.type.startsWith('key') &&
          !event.type.startsWith('pointer') && !event.type.startsWith('focus') &&
@@ -199,6 +207,7 @@ import { serializeEventData } from './core/event-serialization';
 
   // Patch postMessage for cross-frame communication interception
   (window as any).postMessage = function(message: any, optionsOrOrigin?: any, transfer?: any) {
+    if (EVT_DEBUG) console.log('[EVT-1] injected:dispatch', { trigger: 'postMessage', type: message?.type, active: eventMonitorActive });
     if (message && message.type !== EVENTBUS_CHANNEL && message.type !== 'REQUEST_INTERCEPTOR_COMMAND' && message.type !== 'REQUEST_INTERCEPTOR_LOG') {
       const target = typeof optionsOrOrigin === 'string' ? optionsOrOrigin : (optionsOrOrigin?.targetOrigin || '*');
       sendEventToExtension({
@@ -224,6 +233,7 @@ import { serializeEventData } from './core/event-serialization';
       if (typeof obj[method] === 'function' && !obj[method].__eventbus_hooked) {
         const original = obj[method];
         obj[method] = function(eventName: string, ...args: any[]) {
+          if (EVT_DEBUG) console.log('[EVT-1] injected:dispatch', { trigger: 'EventEmitter', type: eventName, active: eventMonitorActive });
           sendEventToExtension({
             id: generateEventId(),
             timestamp: Date.now(),
