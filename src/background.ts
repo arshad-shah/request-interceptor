@@ -196,7 +196,7 @@ class StateManager {
       // ---- Events ----
       case 'EVENT_CAPTURED': {
         if (!sender.tab?.id) {
-          console.log('[EVT-4] background:store SKIPPED — no sender tab id');
+          console.warn('[EVT-4] background:store SKIPPED — no sender tab id');
           break;
         }
         const tid = sender.tab.id;
@@ -204,7 +204,7 @@ class StateManager {
         const events = tabEvents.get(tid)!;
         events.push({ ...message.payload, tabUrl: message.tabUrl });
         if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
-        console.log('[EVT-4] background:store', { tabId: tid, totalForTab: events.length, eventType: message.payload?.eventType });
+        console.warn('[EVT-4] background:store', { tabId: tid, totalForTab: events.length, eventType: message.payload?.eventType });
         // Notify side panel
         chrome.runtime.sendMessage({ type: 'NEW_EVENT', tabId: tid, event: message.payload }).catch(() => {});
         break;
