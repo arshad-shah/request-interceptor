@@ -1,91 +1,117 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Tag, 
-  Link, 
-  Check, 
-  Clock, 
-  X, 
-  Settings2, 
-  Filter,
-  ArrowDownLeft,
-  ArrowUpRight
-} from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Settings2, Code, FileText, Globe } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
-import { chromeApi, parseRouteKey, createRouteKey, validateJson, formatJson } from '@/lib/chrome-api';
-import { parseWebSocketKey } from '@/lib/utils';
-import { 
-  HttpMethod, 
-  RouteFormData
-} from '@/types';
-import { 
-  defaultFormData,
-  commonResponseHeaders,
-  commonRequestHeaders,
-  commonRemoveHeaders
-} from '@/constants/route-form';
-import Card from '../ui/Card';
-import Input from '../ui/Input';
-import Select from '../ui/Select';
-import Button from '../ui/Button';
-import Toggle from '../ui/Toggle';
-import Radio from '../ui/Radio';
-import ReactAceEditor from '@/components/common/ReactAceEditor';
-import HeaderEditor from './HeaderEditor';
-import RemoveHeadersEditor from './RemoveHeaderEditor';
-import RouteTypeSelection from './RouteTypeSelection';
-import WebSocketRuleEditor from './WebSocketRuleEditor';
+import {
+  chromeApi,
+  parseRouteKey,
+  createRouteKey,
+  createInjectionKey,
+  validateJson,
+  formatJson,
+} from '@/lib/chrome-api';
+import { parseWebSocketKey, parseInjectionKey } from '@/lib/utils';
+import { HttpMethod, RouteFormData, InterceptionMode } from '@/types';
+import { defaultFormData } from '@/constants/route-form';
+import FormSection from './sections/FormSection';
+import BasicInfoSection from './sections/BasicInfoSection';
+import InterceptionModeSection from './sections/InterceptionModeSection';
+import RequestConfigSection from './sections/RequestConfigSection';
+import HeadersSection from './sections/HeadersSection';
+import BodySection from './sections/BodySection';
+import WebSocketSection from './sections/WebSocketSection';
+import InjectionSection from './sections/InjectionSection';
+import FormFooter from './sections/FormFooter';
 
 const AddRouteForm: React.FC = () => {
-  const { 
-    routes, 
-    editingRoute, 
-    setActiveTab, 
-    setEditingRoute, 
+  const {
+    routes,
+    editingRoute,
+    closeForm,
+    setEditingRoute,
     addNotification,
     addRoute,
-    updateRoute 
+    updateRoute,
   } = useAppStore();
-  
+
   const [formData, setFormData] = useState<RouteFormData>(defaultFormData);
   const [errors, setErrors] = useState<Partial<Record<keyof RouteFormData, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isEditing = editingRoute != null;
+  const isWebSocket = formData.routeType === 'websocket';
+  const isInjection = formData.routeType === 'injection';
+  const isHttp = !isWebSocket && !isInjection;
+
+  // Compute badge counts for collapsible sections
+  const headersBadgeCount = useMemo(() => {
+    if (!isHttp) return 0;
+    return (
+      Object.keys(formData.responseHeaders).length +
+      Object.keys(formData.requestHeaders).length +
+      formData.removeRequestHeaders.length +
+      formData.queryParamRules.length
+    );
+  }, [isHttp, formData.responseHeaders, formData.requestHeaders, formData.removeRequestHeaders, formData.queryParamRules]);
+
+  const bodyHasData = useMemo(() => {
+    if (!isHttp) return false;
+    return formData.response.trim().length > 0 || formData.requestBody.trim().length > 0;
+  }, [isHttp, formData.response, formData.requestBody]);
 
   // Load route data when editing
   useEffect(() => {
     if (editingRoute && routes[editingRoute]) {
       const routeConfig = routes[editingRoute];
-      
+
       if (editingRoute.startsWith('WS:')) {
-        // WebSocket route
         const { url, name } = parseWebSocketKey(editingRoute);
         setFormData({
           ...defaultFormData,
           routeType: 'websocket',
           name: name || '',
           url,
-          delay: routeConfig.delay || 0,
+          delay: (routeConfig as any).delay || 0,
           incomingRules: (routeConfig as any).incomingRules || [],
-          outgoingRules: (routeConfig as any).outgoingRules || []
+          outgoingRules: (routeConfig as any).outgoingRules || [],
+        });
+      } else if (editingRoute.startsWith('INJ:')) {
+        const { urlPattern, name } = parseInjectionKey(editingRoute);
+        setFormData({
+          ...defaultFormData,
+          routeType: 'injection',
+          name: name || '',
+          url: urlPattern,
+          scripts: (routeConfig as any).scripts || [],
+          stylesheets: (routeConfig as any).stylesheets || [],
+          injectAt: (routeConfig as any).injectAt || 'document_end',
         });
       } else {
-        // HTTP route
         const { method, url, name } = parseRouteKey(editingRoute);
+        const rc = routeConfig as any;
+        const mode: InterceptionMode =
+          rc.interceptionMode || (rc.headersOnly ? 'passthrough' : 'mock');
         setFormData({
           ...defaultFormData,
           routeType: 'http',
           name: name || '',
           url,
           method: method as HttpMethod,
-          status: (routeConfig as any).status,
-          delay: routeConfig.delay ?? 0,
-          contentType: (routeConfig as any).contentType,
-          response: typeof (routeConfig as any).response === 'object' 
-            ? formatJson((routeConfig as any).response)
-            : String((routeConfig as any).response),
-          responseHeaders: (routeConfig as any).responseHeaders || {},
-          requestHeaders: (routeConfig as any).requestHeaders || {},
-          removeRequestHeaders: (routeConfig as any).removeRequestHeaders || [],
-          headersOnly: (routeConfig as any).headersOnly || false
+          status: rc.status,
+          delay: rc.delay ?? 0,
+          contentType: rc.contentType,
+          response:
+            typeof rc.response === 'object'
+              ? formatJson(rc.response)
+              : String(rc.response ?? ''),
+          responseHeaders: rc.responseHeaders || {},
+          requestHeaders: rc.requestHeaders || {},
+          removeRequestHeaders: rc.removeRequestHeaders || [],
+          headersOnly: rc.headersOnly || false,
+          interceptionMode: mode,
+          redirectUrl: rc.redirectUrl || '',
+          requestBody: rc.requestBody || '',
+          queryParamRules: rc.queryParamRules || [],
+          graphqlOperationName: rc.graphqlOperationName || '',
         });
       }
     } else {
@@ -105,36 +131,66 @@ const AddRouteForm: React.FC = () => {
     }
 
     if (formData.routeType === 'http') {
-      // HTTP validation
       if (formData.status < 100 || formData.status > 599) {
         newErrors.status = 'Status code must be between 100 and 599';
       }
 
-      if (!formData.headersOnly) {
-        if (!formData.response.trim()) {
-          newErrors.response = 'Response is required for full interception mode';
-        } else if (formData.contentType === 'application/json') {
-          const jsonValidation = validateJson(formData.response);
-          if (!jsonValidation.isValid) {
-            newErrors.response = jsonValidation.error;
+      switch (formData.interceptionMode) {
+        case 'mock':
+          if (!formData.response.trim()) {
+            newErrors.response = 'Response is required for mock mode';
+          } else if (formData.contentType === 'application/json') {
+            const jsonValidation = validateJson(formData.response);
+            if (!jsonValidation.isValid) {
+              newErrors.response = jsonValidation.error;
+            }
           }
+          break;
+        case 'passthrough': {
+          const hasResponseHeaders = Object.keys(formData.responseHeaders).length > 0;
+          const hasRequestHeaders = Object.keys(formData.requestHeaders).length > 0;
+          const hasRemoveHeaders = formData.removeRequestHeaders.length > 0;
+          const hasRequestBody = formData.requestBody.trim().length > 0;
+          const hasQueryParams = formData.queryParamRules.length > 0;
+
+          if (
+            !hasResponseHeaders &&
+            !hasRequestHeaders &&
+            !hasRemoveHeaders &&
+            !hasRequestBody &&
+            !hasQueryParams
+          ) {
+            newErrors.responseHeaders =
+              'At least one modification is required for passthrough mode';
+          }
+          break;
         }
-      } else {
-        const hasResponseHeaders = Object.keys(formData.responseHeaders).length > 0;
-        const hasRequestHeaders = Object.keys(formData.requestHeaders).length > 0;
-        const hasRemoveHeaders = formData.removeRequestHeaders.length > 0;
-        
-        if (!hasResponseHeaders && !hasRequestHeaders && !hasRemoveHeaders) {
-          newErrors.responseHeaders = 'At least one header modification is required for headers-only mode';
-        }
+        case 'block':
+          break;
+        case 'redirect':
+          if (!formData.redirectUrl.trim()) {
+            newErrors.redirectUrl = 'Redirect URL is required';
+          }
+          break;
       }
-    } else {
-      // WebSocket validation
-      const hasIncomingRules = formData.incomingRules.some(rule => rule.enabled && rule.match.trim());
-      const hasOutgoingRules = formData.outgoingRules.some(rule => rule.enabled && rule.match.trim());
-      
+    } else if (formData.routeType === 'websocket') {
+      const hasIncomingRules = formData.incomingRules.some(
+        (rule) => rule.enabled && rule.match.trim()
+      );
+      const hasOutgoingRules = formData.outgoingRules.some(
+        (rule) => rule.enabled && rule.match.trim()
+      );
+
       if (!hasIncomingRules && !hasOutgoingRules) {
-        newErrors.incomingRules = 'At least one message rule is required for WebSocket interception';
+        newErrors.incomingRules =
+          'At least one message rule is required for WebSocket interception';
+      }
+    } else if (formData.routeType === 'injection') {
+      const hasScripts = formData.scripts.some((s) => s.trim());
+      const hasStylesheets = formData.stylesheets.some((s) => s.trim());
+
+      if (!hasScripts && !hasStylesheets) {
+        (newErrors as any).scripts = 'At least one script or stylesheet is required';
       }
     }
 
@@ -144,7 +200,12 @@ const AddRouteForm: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      addNotification({title: 'Validation Error', message: 'Please fix the form errors before submitting', type: 'error', timestamp: Date.now()});
+      addNotification({
+        title: 'Validation Error',
+        message: 'Please fix the form errors before submitting',
+        type: 'error',
+        timestamp: Date.now(),
+      });
       return;
     }
 
@@ -155,25 +216,33 @@ const AddRouteForm: React.FC = () => {
       let routeConfig: any;
 
       if (formData.routeType === 'websocket') {
-        // WebSocket route
-        routeKey = formData.name 
+        routeKey = formData.name
           ? `WS:${formData.url}|${formData.name}`
           : `WS:${formData.url}`;
-
         routeConfig = {
           enabled: true,
           timestamp: Date.now(),
           name: formData.name,
           incomingRules: formData.incomingRules,
           outgoingRules: formData.outgoingRules,
-          delay: formData.delay
+          delay: formData.delay,
+        };
+      } else if (formData.routeType === 'injection') {
+        routeKey = createInjectionKey(formData.url, formData.name);
+        routeConfig = {
+          enabled: true,
+          timestamp: Date.now(),
+          name: formData.name,
+          scripts: formData.scripts.filter((s) => s.trim()),
+          stylesheets: formData.stylesheets.filter((s) => s.trim()),
+          injectAt: formData.injectAt,
+          urlPattern: formData.url,
         };
       } else {
-        // HTTP route
         routeKey = createRouteKey(formData.method, formData.url, formData.name);
 
         let responseBody: any;
-        if (!formData.headersOnly) {
+        if (formData.interceptionMode === 'mock') {
           if (formData.contentType === 'application/json') {
             const jsonValidation = validateJson(formData.response);
             responseBody = jsonValidation.parsed;
@@ -195,22 +264,25 @@ const AddRouteForm: React.FC = () => {
           responseHeaders: formData.responseHeaders,
           requestHeaders: formData.requestHeaders,
           removeRequestHeaders: formData.removeRequestHeaders,
-          headersOnly: formData.headersOnly
+          headersOnly: formData.interceptionMode === 'passthrough',
+          interceptionMode: formData.interceptionMode,
+          redirectUrl: formData.redirectUrl,
+          requestBody: formData.requestBody,
+          queryParamRules: formData.queryParamRules,
+          graphqlOperationName: formData.graphqlOperationName,
         };
       }
 
-      // Check if we're editing and the key has changed
-      const isEditing = editingRoute != null;
       const keyChanged = isEditing && editingRoute !== routeKey;
 
       if (isEditing && keyChanged) {
-        await chromeApi.removeRoute(editingRoute);
+        await chromeApi.removeRoute(editingRoute!);
         await chromeApi.addRoute(routeKey, routeConfig, formData.name);
         updateRoute(routeKey, routeConfig);
       } else {
-        const targetKey = isEditing ? editingRoute : routeKey;
+        const targetKey = isEditing ? editingRoute! : routeKey;
         await chromeApi.addRoute(targetKey, routeConfig, formData.name);
-        
+
         if (isEditing) {
           updateRoute(targetKey, routeConfig);
         } else {
@@ -218,21 +290,34 @@ const AddRouteForm: React.FC = () => {
         }
       }
 
-      const typeText = formData.routeType === 'websocket' ? ' WebSocket' : '';
-      const modeText = formData.routeType === 'http' && formData.headersOnly ? ' (Headers-Only)' : '';
+      const typeText =
+        formData.routeType === 'websocket'
+          ? ' WebSocket'
+          : formData.routeType === 'injection'
+          ? ' Injection'
+          : '';
+      const modeText =
+        formData.routeType === 'http' ? ` (${formData.interceptionMode})` : '';
 
       addNotification({
         title: 'Success',
-        message: (isEditing ? 'Route updated successfully' : 'Route added successfully') + typeText + modeText,
+        message:
+          (isEditing ? 'Route updated successfully' : 'Route added successfully') +
+          typeText +
+          modeText,
         type: 'success',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       handleCancel();
-      
     } catch (error) {
       console.error('Error saving route:', error);
-      addNotification({title: 'Error', message: 'Failed to save route', type: 'error', timestamp: Date.now()});
+      addNotification({
+        title: 'Error',
+        message: 'Failed to save route',
+        type: 'error',
+        timestamp: Date.now(),
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -242,327 +327,151 @@ const AddRouteForm: React.FC = () => {
     setFormData(defaultFormData);
     setErrors({});
     setEditingRoute(null);
-    setActiveTab('routes');
+    closeForm();
   };
 
-  const handleInputChange = (field: keyof RouteFormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    
+  const handleFieldChange = (field: keyof RouteFormData, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
 
-  const isEditing = editingRoute != null;
-  const isWebSocket = formData.routeType === 'websocket';
-
-  const getEditorLanguage = () => {
-    switch (formData.contentType) {
-      case 'application/json':
-        return 'json';
-      case 'text/plain':
-        return 'text';
-      case 'text/html':
-        return 'html';
-      case 'application/xml':
-        return 'xml';
-      default:
-        return 'text';
-    }
-  };
+  // Mode badge for the header
+  const modeBadge = isWebSocket ? (
+    <span className="ds-badge violet">WebSocket</span>
+  ) : isInjection ? (
+    <span className="ds-badge indigo">
+      Injection
+    </span>
+  ) : formData.interceptionMode === 'block' ? (
+    <span className="ds-badge rose">
+      Block
+    </span>
+  ) : formData.interceptionMode === 'redirect' ? (
+    <span className="ds-badge amber">
+      Redirect
+    </span>
+  ) : formData.interceptionMode === 'passthrough' ? (
+    <span className="ds-badge info">Passthrough</span>
+  ) : (
+    <span className="ds-badge success">Mock Response</span>
+  );
 
   return (
-    <Card className="max-w-4xl mx-auto">
-      <Card.Header>
-        <div className="flex items-center gap-2">
-          <Settings2 className="w-5 h-5 text-primary-500" />
-          <span className="text-lg font-semibold">
-            {isEditing ? 'Edit Route' : 'Add New Route'}
-          </span>
-          {isWebSocket ? (
-            <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-              WebSocket
-            </span>
-          ) : formData.headersOnly ? (
-            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-              Headers-Only
-            </span>
-          ) : (
-            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-              Full Response
-            </span>
-          )}
-        </div>
-      </Card.Header>
+    <div className="space-y-4">
+      {/* Mode badge row */}
+      <div className="flex items-center gap-2">
+        <Settings2 size={14} className="text-[var(--accent-indigo)]" />
+        <span className="text-[12px] font-medium text-[var(--text-secondary)]">Mode:</span>
+        {modeBadge}
+      </div>
 
-      <Card.Body className="space-y-6">
+      {/* Form sections */}
+      <div className="space-y-4">
+        {/* Basic Info — always visible */}
+        <BasicInfoSection
+          formData={formData}
+          errors={errors}
+          onFieldChange={handleFieldChange}
+        />
 
-      <RouteTypeSelection
+        {/* HTTP-specific sections */}
+        {isHttp && (
+          <>
+            {/* Interception Mode — always visible */}
+            <InterceptionModeSection
               formData={formData}
-              handleInputChange={(field: string, value: string) => handleInputChange(field as keyof RouteFormData, value)}
+              errors={errors}
+              onFieldChange={handleFieldChange}
             />
-        {/* Route Name */}
-        <Input
-          label="Route Name (optional)"
-          placeholder={isWebSocket ? "e.g. Chat Messages, Live Updates" : "e.g. Success Response, Error 404"}
-          value={formData.name}
-          onChange={(e) => handleInputChange('name', e.target.value)}
-          leftIcon={<Tag className="w-4 h-4" />}
-          helperText="Give your route a descriptive name to easily identify it"
-        />
 
-        {/* URL */}
-        <Input
-          label={isWebSocket ? "WebSocket URL to Intercept" : "URL to Intercept"}
-          placeholder={isWebSocket 
-            ? "e.g. wss://api.example.com/chat or ws://localhost:8080/updates"
-            : "e.g. /api/users or https://example.com/api/data"
-          }
-          value={formData.url}
-          onChange={(e) => handleInputChange('url', e.target.value)}
-          leftIcon={<Link className="w-4 h-4" />}
-          error={errors.url}
-          helperText={isWebSocket 
-            ? "Supports wildcards (*). Examples: wss://api.example.com/*, ws://localhost:*/chat"
-            : "Supports wildcards (*) and query parameters. Examples: /api/users, /api/users/*, https://api.example.com/data"
-          }
-          required
-        />
-
-        {/* HTTP-specific fields */}
-        {!isWebSocket && (
-          <>
-            {/* Interception Mode */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Interception Mode
-              </label>
-              
-              <div className="border-2 rounded-xl bg-white border-gray-200 hover:border-gray-300 transition-all duration-200">
-                <div className="p-3">
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Radio
-                        checked={!formData.headersOnly}
-                        onChange={() => handleInputChange('headersOnly', false)}
-                        value="full"
-                        name="interceptionMode"
-                        size="sm"
-                      />
-                      <Settings2 className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm text-gray-900">Full Response</span>
-                    </label>
-                    
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Radio
-                        checked={formData.headersOnly}
-                        onChange={() => handleInputChange('headersOnly', true)}
-                        value="headers"
-                        name="interceptionMode"
-                        size="sm"
-                      />
-                      <Filter className="w-4 h-4 text-purple-600" />
-                      <span className="text-sm text-gray-900">Headers Only</span>
-                    </label>
-                  </div>
-                  
-                  <div className="mt-2 text-xs text-gray-500">
-                    {formData.headersOnly 
-                      ? 'Modify request/response headers while letting the original request proceed'
-                      : 'Replace the entire response with your mock data'
-                    }
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Method */}
-            <Select
-              label="HTTP Method"
-              value={formData.method}
-              onChange={(e) => handleInputChange('method', e as any)}
+            {/* Request Config — collapsible, default open */}
+            <FormSection
+              title="Request Configuration"
+              icon={<Globe size={14} />}
+              defaultCollapsed={false}
+              forceExpanded={isEditing}
             >
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="DELETE">DELETE</option>
-              <option value="PATCH">PATCH</option>
-            </Select>
-
-            {/* Status and Delay Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {!formData.headersOnly && (
-                <Select
-                  label="Status Code"
-                  value={formData.status}
-                  onChange={(e) => handleInputChange('status', parseInt(e) || 200)}
-                >
-                  <option value={200}>200 OK</option>
-                  <option value={201}>201 Created</option>
-                  <option value={204}>204 No Content</option>
-                  <option value={301}>301 Moved Permanently</option>
-                  <option value={302}>302 Found</option>
-                  <option value={304}>304 Not Modified</option>
-                  <option value={400}>400 Bad Request</option>
-                  <option value={401}>401 Unauthorized</option>
-                  <option value={403}>403 Forbidden</option>
-                  <option value={404}>404 Not Found</option>
-                  <option value={422}>422 Unprocessable Entity</option>
-                  <option value={429}>429 Too Many Requests</option>
-                  <option value={500}>500 Internal Server Error</option>
-                  <option value={502}>502 Bad Gateway</option>
-                  <option value={503}>503 Service Unavailable</option>
-                  <option value={504}>504 Gateway Timeout</option>
-                </Select>
-              )}
-
-              <Input
-                label="Response Delay (ms)"
-                type="number"
-                min={0}
-                value={formData.delay}
-                onChange={(e) => handleInputChange('delay', parseInt(e.target.value) || 0)}
-                leftIcon={<Clock className="w-4 h-4" />}
-                error={errors.delay}
-                helperText={formData.headersOnly ? "Delay before modifying headers" : "Delay before returning mock response"}
+              <RequestConfigSection
+                formData={formData}
+                errors={errors}
+                onFieldChange={handleFieldChange}
               />
-            </div>
+            </FormSection>
 
-            {/* Content Type - Only show for full interception */}
-            {!formData.headersOnly && (
-              <Select
-                label="Content Type"
-                value={formData.contentType}
-                onChange={(e) => handleInputChange('contentType', e as any)}
+            {/* Headers — collapsible, auto-expand when has data */}
+            {formData.interceptionMode !== 'block' && (
+              <FormSection
+                title="Headers & Query Params"
+                icon={<Settings2 size={14} />}
+                badgeCount={headersBadgeCount}
+                forceExpanded={isEditing && headersBadgeCount > 0}
+                autoFocus
               >
-                <option value="application/json">application/json</option>
-                <option value="text/plain">text/plain</option>
-                <option value="text/html">text/html</option>
-                <option value="application/xml">application/xml</option>
-              </Select>
+                <HeadersSection
+                  formData={formData}
+                  onFieldChange={handleFieldChange}
+                />
+              </FormSection>
             )}
 
-            {/* Response Headers */}
-            <HeaderEditor
-              title="Response Headers"
-              description={formData.headersOnly 
-                ? "Headers to add/modify in the real server response" 
-                : "Headers to include in the mock response"
-              }
-              headers={formData.responseHeaders}
-              onHeadersChange={(headers: Record<string, string>) => handleInputChange('responseHeaders', headers)}
-              placeholder={{ key: 'X-Custom-Header', value: 'Custom Value' }}
-              commonHeaders={commonResponseHeaders}
-            />
-
-            {/* Request Headers */}
-            <HeaderEditor
-              title="Request Headers"
-              description="Headers to add or modify in outgoing requests"
-              headers={formData.requestHeaders}
-              onHeadersChange={(headers: Record<string, string>) => handleInputChange('requestHeaders', headers)}
-              placeholder={{ key: 'Authorization', value: 'Bearer token123' }}
-              commonHeaders={commonRequestHeaders}
-            />
-
-            {/* Remove Request Headers */}
-            <RemoveHeadersEditor
-              title="Remove Request Headers"
-              description="Headers to strip from outgoing requests"
-              removeHeaders={formData.removeRequestHeaders}
-              onRemoveHeadersChange={(headers: string[]) => handleInputChange('removeRequestHeaders', headers)}
-              commonHeaders={commonRemoveHeaders}
-            />
-
-            {/* Response Body - Only show for full interception or as optional for headers-only */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Response Body {formData.headersOnly && <span className="text-gray-500">(Optional)</span>}
-              </label>
-              
-              {formData.headersOnly && (
-                <div className="text-sm text-gray-600 mb-2">
-                  In headers-only mode, you can optionally provide a response body for testing, 
-                  but the real server response will be used.
-                </div>
-              )}
-              
-              <ReactAceEditor
-                value={formData.response}
-                onChange={(value) => handleInputChange('response', value)}
-                language={getEditorLanguage()}
-                height={formData.headersOnly ? 200 : 300}
-                placeholder={formData.headersOnly 
-                  ? "Optional: Enter test response content here" 
-                  : "Enter your response content here"
+            {/* Body — collapsible, auto-expand when has data */}
+            {formData.interceptionMode !== 'block' && (
+              <FormSection
+                title="Response & Request Body"
+                icon={<FileText size={14} />}
+                defaultCollapsed={formData.interceptionMode !== 'mock'}
+                forceExpanded={
+                  formData.interceptionMode === 'mock' ||
+                  (isEditing && bodyHasData)
                 }
-              />
-              
-              {errors.response && (
-                <p className="text-sm text-red-600">{errors.response}</p>
-              )}
-              {errors.responseHeaders && (
-                <p className="text-sm text-red-600">{errors.responseHeaders}</p>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* WebSocket-specific fields */}
-        {isWebSocket && (
-          <>
-            <Input
-              label="Processing Delay (ms)"
-              type="number"
-              min={0}
-              value={formData.delay}
-              onChange={(e) => handleInputChange('delay', parseInt(e.target.value) || 0)}
-              leftIcon={<Clock className="w-4 h-4" />}
-              error={errors.delay}
-              helperText="Delay before processing WebSocket messages"
-            />
-
-            {/* WebSocket Rules */}
-            <WebSocketRuleEditor
-              title="Incoming Message Rules"
-              rules={formData.incomingRules}
-              onRulesChange={(rules) => handleInputChange('incomingRules', rules)}
-              direction="incoming"
-              icon={<ArrowDownLeft className="w-4 h-4 text-green-600" />}
-            />
-
-            <WebSocketRuleEditor
-              title="Outgoing Message Rules"
-              rules={formData.outgoingRules}
-              onRulesChange={(rules) => handleInputChange('outgoingRules', rules)}
-              direction="outgoing"
-              icon={<ArrowUpRight className="w-4 h-4 text-blue-600" />}
-            />
-
-            {errors.incomingRules && (
-              <p className="text-sm text-red-600">{errors.incomingRules}</p>
+              >
+                <BodySection
+                  formData={formData}
+                  errors={errors}
+                  onFieldChange={handleFieldChange}
+                />
+              </FormSection>
             )}
           </>
         )}
-      </Card.Body>
 
-      <Card.Footer>
-        <Button
-          variant="secondary"
-          onClick={handleCancel}
-          leftIcon={<X className="w-4 h-4" />}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          isLoading={isSubmitting}
-          leftIcon={isEditing ? <Check className="w-4 h-4" /> : undefined}
-        >
-          {isEditing ? 'Save Changes' : 'Add Interception'}
-        </Button>
-      </Card.Footer>
-    </Card>
+        {/* Injection-specific section */}
+        {isInjection && (
+          <FormSection
+            title="Injection Scripts & Styles"
+            icon={<Code size={14} />}
+            collapsible={false}
+          >
+            <InjectionSection
+              formData={formData}
+              errors={errors}
+              onFieldChange={handleFieldChange}
+            />
+          </FormSection>
+        )}
+
+        {/* WebSocket-specific section */}
+        {isWebSocket && (
+          <WebSocketSection
+            formData={formData}
+            errors={errors}
+            onFieldChange={handleFieldChange}
+          />
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="pt-2">
+        <FormFooter
+          isEditing={isEditing}
+          isSubmitting={isSubmitting}
+          onCancel={handleCancel}
+          onSubmit={handleSubmit}
+        />
+      </div>
+    </div>
   );
 };
 

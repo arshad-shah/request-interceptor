@@ -3,7 +3,7 @@ import { Edit3, Trash2, Check, X } from 'lucide-react';
 import { WebSocketRule, RuleType, MatchType } from '@/types';
 import Button from '../ui/Button';
 import Toggle from '../ui/Toggle';
-import Select from '../ui/Select';
+import Select, { type SelectOption } from '../ui/Select';
 import Input from '../ui/Input';
 
 interface WebSocketRuleItemProps {
@@ -30,13 +30,13 @@ const WebSocketRuleItem: React.FC<WebSocketRuleItemProps> = ({
     setIsEditing(false);
   };
 
-  const ruleTypeOptions: { value: RuleType; label: string }[] = [
+  const ruleTypeOptions: SelectOption[] = [
     { value: 'replace', label: 'Replace' },
     { value: 'block', label: 'Block' },
     { value: 'inject', label: 'Inject' }
   ];
 
-  const matchTypeOptions: { value: MatchType; label: string }[] = [
+  const matchTypeOptions: SelectOption[] = [
     { value: 'exact', label: 'Exact' },
     { value: 'contains', label: 'Contains' },
     { value: 'regex', label: 'Regex' }
@@ -44,16 +44,16 @@ const WebSocketRuleItem: React.FC<WebSocketRuleItemProps> = ({
 
   const getRuleTypeColor = (type: RuleType) => {
     switch (type) {
-      case 'replace': return 'bg-blue-100 text-blue-700';
-      case 'block': return 'bg-red-100 text-red-700';
-      case 'inject': return 'bg-green-100 text-green-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'replace': return 'bg-[rgba(59,130,246,0.15)] text-[var(--accent-cyan)]';
+      case 'block': return 'bg-[rgba(244,63,94,0.15)] text-[var(--accent-rose)]';
+      case 'inject': return 'bg-[rgba(16,185,129,0.15)] text-[var(--accent-emerald)]';
+      default: return 'bg-[var(--bg-elevated)] text-[var(--text-secondary)]';
     }
   };
 
   if (isEditing) {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-[var(--radius-md)] p-4 space-y-4">
         {/* Header with toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -62,7 +62,7 @@ const WebSocketRuleItem: React.FC<WebSocketRuleItemProps> = ({
               onChange={(checked) => setTempRule(prev => ({ ...prev, enabled: checked }))}
               size="sm"
             />
-            <span className="text-sm font-medium text-gray-700">Enabled</span>
+            <span className="text-sm font-medium text-[var(--text-secondary)]">Enabled</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -90,26 +90,16 @@ const WebSocketRuleItem: React.FC<WebSocketRuleItemProps> = ({
           <Select
             label="Rule Type"
             value={tempRule.type}
-            onChange={(e) => setTempRule(prev => ({ ...prev, type: e as RuleType }))}
-          >
-            {ruleTypeOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
+            onChange={(value) => setTempRule(prev => ({ ...prev, type: value as RuleType }))}
+            options={ruleTypeOptions}
+          />
 
           <Select
             label="Match Type"
             value={tempRule.matchType}
-            onChange={(e) => setTempRule(prev => ({ ...prev, matchType: e as MatchType }))}
-          >
-            {matchTypeOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
+            onChange={(value) => setTempRule(prev => ({ ...prev, matchType: value as MatchType }))}
+            options={matchTypeOptions}
+          />
         </div>
 
         {/* Match input */}
@@ -159,7 +149,7 @@ const WebSocketRuleItem: React.FC<WebSocketRuleItemProps> = ({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-colors">
+    <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-[var(--radius-md)] p-3 hover:border-[var(--border-default)] transition-colors">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           {/* Header with toggle and badges */}
@@ -169,36 +159,36 @@ const WebSocketRuleItem: React.FC<WebSocketRuleItemProps> = ({
               onChange={(checked) => onUpdate({ enabled: checked })}
               size="sm"
             />
-            <span className={`text-xs px-2 py-0.5 rounded font-medium ${getRuleTypeColor(rule.type)}`}>
+            <span className={`text-xs px-2 py-0.5 rounded-[var(--radius-sm)] font-medium ${getRuleTypeColor(rule.type)}`}>
               {rule.type}
             </span>
-            <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+            <span className="text-xs px-2 py-0.5 bg-[var(--bg-surface)] text-[var(--text-tertiary)] rounded-[var(--radius-sm)]">
               {rule.matchType}
             </span>
           </div>
-          
+
           {/* Match pattern */}
           <div className="text-sm mb-1">
-            <span className="text-gray-500">Match:</span>
-            <span className="ml-2 font-mono text-gray-900 break-all">{rule.match}</span>
+            <span className="text-[var(--text-tertiary)]">Match:</span>
+            <span className="ml-2 font-mono text-[var(--text-primary)] break-all">{rule.match}</span>
           </div>
-          
+
           {/* Replacement/injection text */}
           {rule.replacement && (
             <div className="text-sm mb-1">
-              <span className="text-gray-500">
+              <span className="text-[var(--text-tertiary)]">
                 {rule.type === 'inject' ? 'Inject:' : 'Replace:'}
               </span>
-              <span className="ml-2 font-mono text-gray-900 break-all">{rule.replacement}</span>
+              <span className="ml-2 font-mono text-[var(--text-primary)] break-all">{rule.replacement}</span>
             </div>
           )}
-          
+
           {/* Description */}
           {rule.description && (
-            <div className="text-xs text-gray-500 mt-1">{rule.description}</div>
+            <div className="text-xs text-[var(--text-tertiary)] mt-1">{rule.description}</div>
           )}
         </div>
-        
+
         {/* Actions */}
         <div className="flex items-center gap-1 flex-shrink-0">
           <Button
@@ -215,7 +205,7 @@ const WebSocketRuleItem: React.FC<WebSocketRuleItemProps> = ({
             size="sm"
             onClick={onRemove}
             leftIcon={<Trash2 className="w-3 h-3" />}
-            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="text-xs text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.15)]"
           >
             Delete
           </Button>

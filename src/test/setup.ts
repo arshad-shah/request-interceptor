@@ -2,28 +2,28 @@ import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
 // Mock framer-motion
-vi.mock('framer-motion', () => {
-  const React = require('react');
-  
-  const createMotionComponent = (tag: string) => 
+vi.mock('framer-motion', async () => {
+  const React = await import('react');
+
+  const createMotionComponent = (tag: string) =>
     React.forwardRef(({ children, ...props }: any, ref: any) => {
       // Remove motion-specific props to avoid React warnings
       const {
-        animate,
-        initial,
-        exit,
-        transition,
-        whileHover,
-        whileTap,
-        whileInView,
-        whileFocus,
-        whileDrag,
-        layoutId,
-        layout,
-        onAnimationComplete,
-        onAnimationStart,
-        drag,
-        dragConstraints,
+        animate: _animate,
+        initial: _initial,
+        exit: _exit,
+        transition: _transition,
+        whileHover: _whileHover,
+        whileTap: _whileTap,
+        whileInView: _whileInView,
+        whileFocus: _whileFocus,
+        whileDrag: _whileDrag,
+        layoutId: _layoutId,
+        layout: _layout,
+        onAnimationComplete: _onAnimationComplete,
+        onAnimationStart: _onAnimationStart,
+        drag: _drag,
+        dragConstraints: _dragConstraints,
         ...domProps
       } = props;
       
@@ -90,7 +90,7 @@ const mockChrome = {
   },
 };
 
-// @ts-ignore
+// @ts-expect-error -- mockChrome is a partial implementation for testing
 global.chrome = mockChrome;
 
 // Mock console methods for cleaner test output

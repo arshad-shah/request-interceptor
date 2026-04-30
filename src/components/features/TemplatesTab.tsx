@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
-import { 
-  FileCode, 
-  Upload, 
+import {
+  FileCode,
+  Upload,
   Code
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
@@ -295,17 +294,15 @@ const TemplatesTab: React.FC = () => {
       </Card>
 
       {/* Preview */}
-      <AnimatePresence>
-        {showPreview && parsedRoutes.length > 0 && (
-          <RoutePreviews
-            parsedRoutes={parsedRoutes}
-            setShowPreview={setShowPreview}
-            setParsedRoutes={setParsedRoutes}
-            handleImportRoutes={handleImportRoutes}
-            isImporting={isImporting}
-          />
-        )}
-      </AnimatePresence>
+      {showPreview && parsedRoutes.length > 0 && (
+        <RoutePreviews
+          parsedRoutes={parsedRoutes}
+          setShowPreview={setShowPreview}
+          setParsedRoutes={setParsedRoutes}
+          handleImportRoutes={handleImportRoutes}
+          isImporting={isImporting}
+        />
+      )}
 
         <CollapsibleSchemaExamples />
     </div>

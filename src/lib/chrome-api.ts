@@ -1,4 +1,4 @@
-import { ChromeMessage, AppState, RouteConfig, WebSocketConfig } from '@/types';
+import { ChromeMessage, AppState, RouteConfig, WebSocketConfig, InjectionConfig } from '@/types';
 
 // Chrome runtime messaging helpers
 export const sendMessage = <T = any>(message: ChromeMessage): Promise<T> => {
@@ -26,7 +26,7 @@ export const chromeApi = {
   },
 
   // Add or update a route
-  addRoute: (route: string, config: RouteConfig | WebSocketConfig, name?: string): Promise<{ success: boolean; isUpdate: boolean }> => {
+  addRoute: (route: string, config: RouteConfig | WebSocketConfig | InjectionConfig, name?: string): Promise<{ success: boolean; isUpdate: boolean }> => {
     return sendMessage({ action: 'addRoute', route, config, name });
   },
 
@@ -61,7 +61,7 @@ export const addMessageListener = (callback: (message: ChromeMessage) => void): 
   const messageListener = (
     message: ChromeMessage, 
     sender: chrome.runtime.MessageSender, 
-    sendResponse: (response?: any) => void
+    _sendResponse: (response?: any) => void
   ) => {
     // Handle messages from the background script or extension itself
     // Background script messages will have sender.id === chrome.runtime.id
@@ -82,34 +82,8 @@ export const addMessageListener = (callback: (message: ChromeMessage) => void): 
   };
 };
 
-// Parse route key into components
-export const parseRouteKey = (routeKey: string) => {
-  const firstColonIndex = routeKey.indexOf(':');
-  if (firstColonIndex === -1) {
-    return { method: 'GET', url: routeKey, name: '' };
-  }
-  
-  const method = routeKey.substring(0, firstColonIndex);
-  const remaining = routeKey.substring(firstColonIndex + 1);
-  
-  const pipeIndex = remaining.indexOf('|');
-  if (pipeIndex === -1) {
-    return { method, url: remaining, name: '' };
-  }
-  
-  const url = remaining.substring(0, pipeIndex);
-  const name = remaining.substring(pipeIndex + 1);
-  
-  return { method, url, name };
-};
-
-// Create route key from components
-export const createRouteKey = (method: string, url: string, name?: string) => {
-  if (name) {
-    return `${method}:${url}|${name}`;
-  }
-  return `${method}:${url}`;
-};
+// Route key helpers — re-exported from core for backwards compatibility
+export { parseRouteKey, createRouteKey, createInjectionKey } from '@/core/route-keys';
 
 // Validate JSON string
 export const validateJson = (jsonString: string): { isValid: boolean; parsed?: any; error?: string } => {

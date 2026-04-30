@@ -1,34 +1,31 @@
 {
-  "name": "request-interceptor-extension",
+  "name": "request-interceptor",
   "version": "1.0.0",
-  "description": "Intercept and modify API responses for UI testing",
+  "description": "Developer toolkit for intercepting API responses, monitoring events, and inspecting browser storage",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
+    "dev": "extforge dev",
+    "build": "extforge build",
     "type-check": "tsc --noEmit",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "test": "vitest",
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@types/react-syntax-highlighter": "^15.5.13",
+    "@radix-ui/react-select": "^2.2.6",
     "ace-builds": "^1.43.2",
     "clsx": "^2.1.1",
-    "framer-motion": "^10.18.0",
     "lucide-react": "^0.540.0",
     "react": "^18.3.1",
     "react-ace": "^14.0.1",
     "react-dom": "^18.3.1",
     "react-syntax-highlighter": "^15.6.1",
-    "tailwind-merge": "^2.6.0",
     "zustand": "^4.5.7"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.12",
+    "@tailwindcss/cli": "^4.2.4",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -36,17 +33,26 @@
     "@types/node": "^24.3.0",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
-    "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^8.57.1",
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.20",
+    "extforge": "^0.2.0",
     "jsdom": "^26.1.0",
-    "tailwindcss": "^4.1.12",
+    "tailwindcss": "^4.1.18",
     "typescript": "^5.9.2",
-    "vite": "^5.4.19",
-    "vite-plugin-static-copy": "^0.17.1",
     "vitest": "^3.2.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "prismjs": ">=1.30.0",
+      "esbuild": ">=0.25.0",
+      "js-yaml": ">=4.1.1"
+    },
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

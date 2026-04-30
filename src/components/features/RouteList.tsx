@@ -1,24 +1,23 @@
 import React, { useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/stores/app-store';
 import { parseRouteKey, chromeApi } from '@/lib/chrome-api';
 import { ConfirmDialog } from '../ui/Dialog';
 import RouteItem from './RouteItem';
-import { parseWebSocketKey } from '@/lib/utils';
-import EmptyState from '@/components/common/EmptyState';
+import { parseWebSocketKey, parseInjectionKey } from '@/lib/utils';
+import { RoutesEmptyState } from '@/components/common/EmptyState';
 import FilterEmptyState from '@/components/common/FilterEmptyState';
 
 // Main RouteList component
 const RouteList: React.FC = () => {
-  const { 
-    routes, 
-    filters, 
-    setActiveTab, 
-    setEditingRoute, 
+  const {
+    routes,
+    filters,
+    openForm,
+    setEditingRoute,
     addNotification,
     removeRoute,
     toggleRoute,
-    setFilters 
+    setFilters
   } = useAppStore();
   
   const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; routeKey?: string }>({
@@ -26,19 +25,34 @@ const RouteList: React.FC = () => {
   });
 
   // Filter routes based on search and method filter
-  const filteredRoutes = Object.entries(routes).filter(([routeKey, config]) => {
+  const filteredRoutes = Object.entries(routes).filter(([routeKey, _config]) => {
+    const isWebSocket = routeKey.startsWith('WS:');
+    const isInjection = routeKey.startsWith('INJ:');
+
     // Check route type filter
     if (filters.routeType && filters.routeType !== 'all') {
-      const isWebSocket = routeKey.startsWith('WS:');
       if (filters.routeType === 'websocket' && !isWebSocket) return false;
-      if (filters.routeType === 'http' && isWebSocket) return false;
+      if (filters.routeType === 'http' && (isWebSocket || isInjection)) return false;
+      if (filters.routeType === 'injection' && !isInjection) return false;
     }
-    
-    // For WebSocket routes, skip method filter
-    if (routeKey.startsWith('WS:')) {
+
+    // Injection routes
+    if (isInjection) {
+      const { urlPattern, name } = parseInjectionKey(routeKey);
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        return (
+          urlPattern.toLowerCase().includes(searchLower) ||
+          name?.toLowerCase().includes(searchLower) ||
+          'injection'.includes(searchLower)
+        );
+      }
+      return true;
+    }
+
+    // WebSocket routes
+    if (isWebSocket) {
       const { url, name } = parseWebSocketKey(routeKey);
-      
-      // Search filter for WebSocket
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         return (
@@ -49,18 +63,16 @@ const RouteList: React.FC = () => {
       }
       return true;
     }
-    
-    // For HTTP routes
+
+    // HTTP routes
     const parsed = parseRouteKey(routeKey);
-    if (!parsed) return false; // Safety check
+    if (!parsed) return false;
     const { method, url, name } = parsed;
-    
-    // Method filter
+
     if (filters.method !== 'all' && method !== filters.method) {
       return false;
     }
-    
-    // Search filter
+
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       return (
@@ -69,13 +81,12 @@ const RouteList: React.FC = () => {
         name?.toLowerCase().includes(searchLower)
       );
     }
-    
+
     return true;
   });
 
   const handleEditRoute = (routeKey: string) => {
     setEditingRoute(routeKey);
-    setActiveTab('add');
   };
 
   const handleDeleteRoute = (routeKey: string) => {
@@ -107,21 +118,12 @@ const RouteList: React.FC = () => {
   };
 
   const handleToggleRoute = async (routeKey: string, enabled: boolean) => {
+    toggleRoute(routeKey, enabled);
     try {
-      // First update the background script
       await chromeApi.toggleRoute(routeKey, enabled);
-      
-      // Then update the local state using the store's toggleRoute method
-      toggleRoute(routeKey, enabled);
-      
-      addNotification({
-        title: 'Success',
-        message: enabled ? 'Route enabled successfully' : 'Route disabled successfully',
-        type: 'success',
-        timestamp: Date.now()
-      });
     } catch (error) {
       console.error('Failed to toggle route:', error);
+      toggleRoute(routeKey, !enabled);
       addNotification({
         title: 'Error',
         message: 'Failed to toggle route',
@@ -136,7 +138,7 @@ const RouteList: React.FC = () => {
   };
 
   if (Object.keys(routes).length === 0) {
-    return <EmptyState onAddRoute={() => setActiveTab('add')} />;
+    return <RoutesEmptyState onAddRoute={openForm} />;
   }
 
   if (filteredRoutes.length === 0 && (filters.search || filters.method !== 'all' || filters.routeType !== 'all')) {
@@ -146,18 +148,16 @@ const RouteList: React.FC = () => {
   return (
     <>
       <div className="space-y-3">
-        <AnimatePresence mode="popLayout">
-          {filteredRoutes.map(([routeKey, config]) => (
-            <RouteItem
-              key={routeKey}
-              routeKey={routeKey}
-              config={config}
-              onEdit={handleEditRoute}
-              onDelete={handleDeleteRoute}
-              onToggle={handleToggleRoute}
-            />
-          ))}
-        </AnimatePresence>
+        {filteredRoutes.map(([routeKey, config]) => (
+          <RouteItem
+            key={routeKey}
+            routeKey={routeKey}
+            config={config}
+            onEdit={handleEditRoute}
+            onDelete={handleDeleteRoute}
+            onToggle={handleToggleRoute}
+          />
+        ))}
       </div>
 
       <ConfirmDialog

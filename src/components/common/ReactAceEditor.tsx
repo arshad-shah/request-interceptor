@@ -1,19 +1,31 @@
 import React, { useState, useCallback } from 'react';
-import AceEditor from 'react-ace';
-import { 
-  Code, 
-  Check, 
-  AlertCircle, 
-  Copy, 
-  Download, 
-  Maximize2, 
-  Minimize2,
+import * as ReactAce from 'react-ace';
+
+function resolveAceEditor(mod: any): any {
+  let candidate = mod;
+  for (let i = 0; i < 3; i++) {
+    if (typeof candidate === 'function') return candidate;
+    if (candidate && typeof candidate === 'object' && 'default' in candidate) {
+      candidate = candidate.default;
+      continue;
+    }
+    break;
+  }
+  if (typeof console !== 'undefined') {
+    console.error('[ReactAceEditor] Could not resolve AceEditor component from react-ace module:', mod);
+  }
+  return candidate;
+}
+
+const AceEditor = resolveAceEditor(ReactAce) as typeof import('react-ace').default;
+import {
+  Code,
+  Check,
+  AlertCircle,
+  Copy,
   RotateCcw,
-  ChevronDown,
   FileCode,
-  Zap,
-  Sun,
-  Moon
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { validateJson, formatJson } from '@/lib/chrome-api';
@@ -26,13 +38,7 @@ import 'ace-builds/src-noconflict/mode-html';
 import 'ace-builds/src-noconflict/mode-xml';
 import 'ace-builds/src-noconflict/mode-javascript';
 
-import 'ace-builds/src-noconflict/theme-github';
-import 'ace-builds/src-noconflict/theme-monokai';
-import 'ace-builds/src-noconflict/theme-tomorrow';
 import 'ace-builds/src-noconflict/theme-twilight';
-import 'ace-builds/src-noconflict/theme-solarized_dark';
-import 'ace-builds/src-noconflict/theme-solarized_light';
-import 'ace-builds/src-noconflict/theme-terminal';
 
 import 'ace-builds/src-noconflict/ext-language_tools';
 import 'ace-builds/src-noconflict/ext-searchbox';
@@ -40,8 +46,7 @@ import 'ace-builds/src-noconflict/ext-searchbox';
 interface ReactAceEditorProps {
   value: string;
   onChange: (value: string) => void;
-  language?: 'json' | 'text' | 'html' | 'xml' | 'javascript';
-  theme?: 'github' | 'monokai' | 'tomorrow' | 'twilight' | 'solarized_dark' | 'solarized_light' | 'terminal';
+  language?: 'json' | 'text' | 'html' | 'xml' | 'javascript' | 'css';
   height?: string | number;
   className?: string;
   placeholder?: string;
@@ -61,13 +66,12 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
   value,
   onChange,
   language = 'json',
-  theme = 'github',
   height = 300,
   className,
   placeholder = 'Start coding...',
   readOnly = false,
   showLineNumbers = true,
-  fontSize = 16,
+  fontSize = 14,
   tabSize = 2,
   wordWrap = true,
   showPrintMargin = false,
@@ -78,101 +82,46 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
 }) => {
   const [error, setError] = useState<string>('');
   const [isValid, setIsValid] = useState(true);
-  const [currentTheme, setCurrentTheme] = useState(theme);
   const [cursorPosition, setCursorPosition] = useState({ row: 1, column: 1 });
   const [showThemeMenu, setShowThemeMenu] = useState(false);
 
-  // Enhanced theme configuration with categories
-  const themes = [
-    { 
-      value: 'github', 
-      label: 'GitHub Light', 
-      category: 'Light',
-      icon: Sun,
-      gradient: 'from-gray-50 to-white'
-    },
-    { 
-      value: 'solarized_light', 
-      label: 'Solarized Light', 
-      category: 'Light',
-      icon: Sun,
-      gradient: 'from-yellow-50 to-orange-50'
-    },
-    { 
-      value: 'tomorrow', 
-      label: 'Tomorrow', 
-      category: 'Light',
-      icon: Sun,
-      gradient: 'from-blue-50 to-indigo-50'
-    },
-    { 
-      value: 'monokai', 
-      label: 'Monokai', 
-      category: 'Dark',
-      icon: Moon,
-      gradient: 'from-gray-800 to-gray-900'
-    },
-    { 
-      value: 'twilight', 
-      label: 'Twilight', 
-      category: 'Dark',
-      icon: Moon,
-      gradient: 'from-purple-800 to-gray-900'
-    },
-    { 
-      value: 'solarized_dark', 
-      label: 'Solarized Dark', 
-      category: 'Dark',
-      icon: Moon,
-      gradient: 'from-slate-800 to-slate-900'
-    },
-    { 
-      value: 'terminal', 
-      label: 'Terminal', 
-      category: 'Dark',
-      icon: Moon,
-      gradient: 'from-green-900 to-black'
-    }
-  ];
-
-  const currentThemeInfo = themes.find(t => t.value === currentTheme) || themes[0];
-
-  // Language configuration with icons and colors
+  // Language configuration with dark theme colors
   const languageConfig = {
-    json: { 
-      icon: FileCode, 
-      color: 'text-yellow-600', 
-      bgColor: 'bg-yellow-50',
-      borderColor: 'border-yellow-200',
+    json: {
+      icon: FileCode,
+      color: 'text-[var(--accent-amber)]',
+      bgColor: 'bg-[rgba(245,158,11,0.15)]',
       name: 'JSON'
     },
-    javascript: { 
-      icon: Code, 
-      color: 'text-yellow-500', 
-      bgColor: 'bg-yellow-50',
-      borderColor: 'border-yellow-200',
+    javascript: {
+      icon: Code,
+      color: 'text-[var(--accent-amber)]',
+      bgColor: 'bg-[rgba(245,158,11,0.15)]',
       name: 'JavaScript'
     },
-    html: { 
-      icon: FileCode, 
-      color: 'text-orange-600', 
-      bgColor: 'bg-orange-50',
-      borderColor: 'border-orange-200',
+    html: {
+      icon: FileCode,
+      color: 'text-[var(--accent-orange)]',
+      bgColor: 'bg-[rgba(249,115,22,0.15)]',
       name: 'HTML'
     },
-    xml: { 
-      icon: FileCode, 
-      color: 'text-blue-600', 
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
+    xml: {
+      icon: FileCode,
+      color: 'text-[var(--accent-cyan)]',
+      bgColor: 'bg-[rgba(6,182,212,0.15)]',
       name: 'XML'
     },
-    text: { 
-      icon: FileCode, 
-      color: 'text-gray-600', 
-      bgColor: 'bg-gray-50',
-      borderColor: 'border-gray-200',
+    text: {
+      icon: FileCode,
+      color: 'text-[var(--text-secondary)]',
+      bgColor: 'bg-[var(--bg-elevated)]',
       name: 'Text'
+    },
+    css: {
+      icon: FileCode,
+      color: 'text-[var(--accent-indigo)]',
+      bgColor: 'bg-[rgba(99,102,241,0.15)]',
+      name: 'CSS'
     }
   };
 
@@ -218,21 +167,6 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
     }
   };
 
-  const handleDownload = () => {
-    const blob = new Blob([value], { 
-      type: language === 'json' ? 'application/json' : 'text/plain' 
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    
-    a.href = url;
-    a.download = `code.${language}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
   const handleReset = () => {
     onChange('');
   };
@@ -241,33 +175,32 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
     <>
       <div className={cn('relative group', className)}>
         <div className={cn(
-          'border-2 rounded-xl overflow-hidden bg-white transition-all duration-200',
-          'focus-within:ring-4 focus-within:ring-blue-500/20 focus-within:border-blue-500',
-          'hover:shadow-md',
-          error && !isValid 
-            ? 'border-red-300 shadow-red-100' 
-            : 'border-gray-200 hover:border-gray-300'
+          'border rounded-[var(--radius-lg)] overflow-hidden bg-[var(--bg-elevated)] transition-all duration-200',
+          'focus-within:ring-2 focus-within:ring-[var(--accent-cyan)] focus-within:border-[var(--accent-cyan)]',
+          error && !isValid
+            ? 'border-[var(--accent-rose)]'
+            : 'border-[var(--border-subtle)] hover:border-[var(--border-default)]'
         )}>
           {/* Compact Header */}
-          <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
+          <div className="flex items-center justify-between px-3 py-2 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)]">
             <div className="flex items-center gap-2">
               {/* Language Badge */}
               <div className={cn(
-                'flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium',
+                'flex items-center gap-1.5 px-2 py-1 rounded-[var(--radius-sm)] text-xs font-medium',
                 config.bgColor,
                 config.color
               )}>
                 <IconComponent className="w-3 h-3" />
                 <span>{config.name}</span>
               </div>
-              
+
               {/* JSON Validation */}
               {language === 'json' && (
                 <div className={cn(
-                  'flex items-center gap-1 px-2 py-1 rounded text-xs',
-                  isValid 
-                    ? 'bg-green-50 text-green-700' 
-                    : 'bg-red-50 text-red-700'
+                  'flex items-center gap-1 px-2 py-1 rounded-[var(--radius-sm)] text-xs',
+                  isValid
+                    ? 'bg-[rgba(16,185,129,0.15)] text-[var(--accent-emerald)]'
+                    : 'bg-[rgba(244,63,94,0.15)] text-[var(--accent-rose)]'
                 )}>
                   {isValid ? (
                     <Check className="w-3 h-3" />
@@ -281,46 +214,6 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
 
             {/* Compact Actions */}
             <div className="flex items-center gap-1">
-              {/* Theme Toggle */}
-              <div className="relative">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowThemeMenu(!showThemeMenu)}
-                  leftIcon={<currentThemeInfo.icon className="w-3 h-3" />}
-                  className="text-xs px-2"
-                >
-                  <span className="hidden sm:inline">{currentThemeInfo.category}</span>
-                </Button>
-                
-                {showThemeMenu && (
-                  <div className="absolute top-full right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                    <div className="p-2 max-h-64 overflow-y-auto">
-                      {themes.map(theme => (
-                        <button
-                          key={theme.value}
-                          onClick={() => {
-                            setCurrentTheme(theme.value as any);
-                            setShowThemeMenu(false);
-                          }}
-                          className={cn(
-                            'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors',
-                            currentTheme === theme.value 
-                              ? 'bg-blue-50 text-blue-700' 
-                              : 'hover:bg-gray-50 text-gray-700'
-                          )}
-                        >
-                          <theme.icon className="w-3 h-3" />
-                          <span>{theme.label}</span>
-                          {currentTheme === theme.value && (
-                            <Check className="w-3 h-3 ml-auto text-blue-600" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {/* Action Buttons */}
               <Button
@@ -332,7 +225,7 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
               >
                 <Copy className="w-3 h-3" />
               </Button>
-              
+
               {language === 'json' && (
                 <Button
                   variant="ghost"
@@ -345,13 +238,13 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
                   <Zap className="w-3 h-3" />
                 </Button>
               )}
-              
+
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleReset}
                 disabled={readOnly}
-                className="text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="text-xs px-2 text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.15)]"
                 title="Clear"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -360,10 +253,10 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
           </div>
 
           {/* Editor Container */}
-          <div className="relative bg-white">
+          <div className="relative">
             <AceEditor
               mode={language}
-              theme={currentTheme}
+              theme={'twilight'}
               value={value}
               onChange={handleChange}
               onCursorChange={handleCursorChange}
@@ -416,27 +309,22 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
           </div>
 
           {/* Compact Footer */}
-          <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
+          <div className="flex items-center justify-between px-3 py-1.5 bg-[var(--bg-surface)] border-t border-[var(--border-subtle)] text-xs text-[var(--text-tertiary)]">
             <div className="flex items-center gap-3">
               <span className="font-mono">Ln {cursorPosition.row}, Col {cursorPosition.column}</span>
               <span className="hidden sm:inline">{value.length} chars</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span>{config.name}</span>
-              <span>•</span>
-              <span>{currentThemeInfo.category}</span>
             </div>
           </div>
         </div>
 
         {/* Compact Error Display */}
         {error && !isValid && (
-          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="mt-2 p-3 bg-[rgba(244,63,94,0.1)] border border-[rgba(244,63,94,0.3)] rounded-[var(--radius-md)]">
             <div className="flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <AlertCircle className="w-4 h-4 text-[var(--accent-rose)] mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                <div className="text-sm font-medium text-red-800">JSON Error</div>
-                <div className="text-xs text-red-700 font-mono mt-1">{error}</div>
+                <div className="text-sm font-medium text-[var(--accent-rose)]">JSON Error</div>
+                <div className="text-xs text-[var(--text-secondary)] font-mono mt-1">{error}</div>
               </div>
             </div>
           </div>
@@ -445,7 +333,7 @@ const ReactAceEditor: React.FC<ReactAceEditorProps> = ({
 
       {/* Click Outside Handler for Theme Menu */}
       {showThemeMenu && (
-        <div 
+        <div
           className="fixed inset-0 z-[5]"
           onClick={() => setShowThemeMenu(false)}
         />

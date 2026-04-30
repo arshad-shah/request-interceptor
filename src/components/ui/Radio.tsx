@@ -1,5 +1,4 @@
 import React from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface RadioProps {
@@ -67,78 +66,30 @@ const Radio: React.FC<RadioProps> = ({
           value={value}
           name={name}
         />
-        
+
         {/* Radio Container */}
-        <motion.div
+        <div
           className={cn(
-            "relative rounded-full border-2 transition-all duration-200 ease-out",
+            "relative rounded-full border-2 transition-all duration-200 ease-out flex items-center justify-center",
             sizeConfig.container,
             !disabled && "group-hover:scale-105",
-            disabled && "opacity-60"
+            disabled && "opacity-60",
+            checked
+              ? "border-[var(--accent-cyan)] bg-[rgba(6,182,212,0.1)]"
+              : "border-[var(--border-default)] bg-[var(--bg-surface)]"
           )}
-          animate={{
-            borderColor: checked 
-              ? (disabled ? '#9ca3af' : '#3b82f6') 
-              : (disabled ? '#d1d5db' : '#e5e7eb'),
-            backgroundColor: checked 
-              ? (disabled ? '#f3f4f6' : '#eff6ff') 
-              : '#ffffff',
-            scale: !disabled && checked ? [1, 1.1, 1] : 1
-          }}
-          transition={{ 
-            duration: checked ? 0.3 : 0.2,
-            ease: "easeOut"
-          }}
-          whileHover={!disabled ? { scale: 1.05 } : {}}
-          whileTap={!disabled ? { scale: 0.95 } : {}}
         >
           {/* Inner dot */}
-          <AnimatePresence>
-            {checked && (
-              <motion.div
-                className={cn(
-                  "absolute inset-0 flex items-center justify-center"
-                )}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                transition={{ 
-                  type: "spring", 
-                  stiffness: 500, 
-                  damping: 25 
-                }}
-              >
-                <motion.div
-                  className={cn(
-                    "rounded-full transition-colors duration-200",
-                    sizeConfig.dot,
-                    checked 
-                      ? (disabled ? 'bg-gray-400' : 'bg-blue-500') 
-                      : 'bg-transparent'
-                  )}
-                  animate={{
-                    scale: [1, 1.2, 1]
-                  }}
-                  transition={{ duration: 0.3 }}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-          
-          {/* Active state ring */}
-          {checked && !disabled && (
-            <motion.div
-              className="absolute inset-0 rounded-full border-2 border-blue-400 opacity-30"
-              initial={{ scale: 1, opacity: 0 }}
-              animate={{ scale: 1.3, opacity: 0 }}
-              transition={{ 
-                duration: 0.6,
-                repeat: Infinity,
-                ease: "easeOut"
-              }}
+          {checked && (
+            <div
+              className={cn(
+                "rounded-full transition-all duration-200",
+                sizeConfig.dot,
+                "bg-[var(--accent-cyan)]"
+              )}
             />
           )}
-        </motion.div>
+        </div>
       </div>
 
       {/* Label and Description */}
@@ -146,36 +97,31 @@ const Radio: React.FC<RadioProps> = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             {icon && (
-              <motion.div
-                animate={{
-                  color: checked ? '#3b82f6' : '#6b7280'
-                }}
-                transition={{ duration: 0.2 }}
-              >
+              <div className={cn(
+                "transition-colors duration-200",
+                checked ? "text-[var(--accent-cyan)]" : "text-[var(--text-tertiary)]"
+              )}>
                 {icon}
-              </motion.div>
+              </div>
             )}
             {label && (
               <span className={cn(
                 "font-medium select-none transition-colors duration-200",
                 sizeConfig.text,
-                checked ? 'text-blue-700' : 'text-gray-700',
-                disabled && 'text-gray-500'
+                checked ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]",
+                disabled && "text-[var(--text-tertiary)]"
               )}>
                 {label}
               </span>
             )}
           </div>
           {description && (
-            <motion.p 
-              className="text-xs text-gray-500 mt-1 select-none"
-              animate={{
-                color: checked ? '#6b7280' : '#9ca3af'
-              }}
-              transition={{ duration: 0.2 }}
-            >
+            <p className={cn(
+              "text-xs mt-1 select-none transition-colors duration-200",
+              checked ? "text-[var(--text-secondary)]" : "text-[var(--text-tertiary)]"
+            )}>
               {description}
-            </motion.p>
+            </p>
           )}
         </div>
       )}

@@ -1,10 +1,18 @@
 // Complete types for the Request Interceptor extension
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
-export type RouteType = 'http' | 'websocket';
+export type RouteType = 'http' | 'websocket' | 'injection';
+export type InterceptionMode = 'mock' | 'passthrough' | 'block' | 'redirect';
 export type MessageDirection = 'incoming' | 'outgoing';
 export type MatchType = 'exact' | 'contains' | 'regex';
 export type RuleType = 'replace' | 'block' | 'inject';
+export type QueryParamAction = 'add' | 'remove' | 'modify';
+
+export interface QueryParamRule {
+  key: string;
+  value?: string;
+  action: QueryParamAction;
+}
 
 export interface HeaderConfig {
   [key: string]: string;
@@ -33,6 +41,21 @@ export interface RouteConfig {
   requestHeaders?: HeaderConfig;
   removeRequestHeaders?: string[];
   headersOnly?: boolean;
+  interceptionMode?: InterceptionMode;
+  redirectUrl?: string;
+  requestBody?: string;
+  queryParamRules?: QueryParamRule[];
+  graphqlOperationName?: string;
+}
+
+export interface InjectionConfig {
+  enabled: boolean;
+  timestamp: number;
+  name?: string;
+  scripts: string[];
+  stylesheets: string[];
+  injectAt: 'document_start' | 'document_end';
+  urlPattern: string;
 }
 
 export interface WebSocketConfig {
@@ -51,7 +74,7 @@ export interface Route {
 
 export interface AppState {
   enabled: boolean;
-  routes: Record<string, RouteConfig | WebSocketConfig>;
+  routes: Record<string, RouteConfig | WebSocketConfig | InjectionConfig>;
 }
 
 export interface ParsedRoute {
@@ -82,6 +105,11 @@ export interface TemplateRoute {
   requestHeaders?: HeaderConfig;
   removeRequestHeaders?: string[];
   headersOnly?: boolean;
+  interceptionMode?: InterceptionMode;
+  redirectUrl?: string;
+  requestBody?: string;
+  queryParamRules?: QueryParamRule[];
+  graphqlOperationName?: string;
 }
 
 export interface WebSocketTemplate {
@@ -122,7 +150,7 @@ export interface ChromeMessage {
   [key: string]: any;
 }
 
-export type TabId = 'routes' | 'add' | 'templates';
+export type TabId = 'routes' | 'templates' | 'network' | 'events' | 'storage';
 
 export interface RouteFormData {
   routeType: RouteType;
@@ -137,9 +165,18 @@ export interface RouteFormData {
   requestHeaders: HeaderConfig;
   removeRequestHeaders: string[];
   headersOnly: boolean;
+  interceptionMode: InterceptionMode;
+  redirectUrl: string;
+  requestBody: string;
+  queryParamRules: QueryParamRule[];
+  graphqlOperationName: string;
   // WebSocket specific
   incomingRules: WebSocketRule[];
   outgoingRules: WebSocketRule[];
+  // Injection specific
+  scripts: string[];
+  stylesheets: string[];
+  injectAt: 'document_start' | 'document_end';
 }
 
 export interface WebSocketFormData {
@@ -153,5 +190,5 @@ export interface WebSocketFormData {
 export interface FilterState {
   search: string;
   method: 'all' | HttpMethod;
-  routeType?: 'all' | RouteType;
+  routeType?: 'all' | 'http' | 'websocket' | 'injection';
 }

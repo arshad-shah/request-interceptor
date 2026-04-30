@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Request Interceptor - Test Page</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 24px; line-height: 1.5; }
+    h1 { margin-bottom: 8px; color: #7c8aff; }
+    h2 { margin: 24px 0 12px; color: #a78bfa; font-size: 1.1rem; border-bottom: 1px solid #2a2a3a; padding-bottom: 4px; }
+    .subtitle { color: #888; margin-bottom: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+    .card { background: #1a1a2e; border: 1px solid #2a2a3a; border-radius: 8px; padding: 16px; }
+    .card h3 { font-size: 0.9rem; color: #7c8aff; margin-bottom: 8px; }
+    button { background: #3730a3; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; margin: 4px 4px 4px 0; }
+    button:hover { background: #4338ca; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.danger { background: #991b1b; }
+    button.danger:hover { background: #b91c1c; }
+    pre { background: #111; border: 1px solid #333; border-radius: 4px; padding: 10px; margin-top: 8px; font-size: 0.8rem; overflow-x: auto; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+    .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-left: 8px; }
+    .status.ok { background: #065f46; color: #6ee7b7; }
+    .status.err { background: #7f1d1d; color: #fca5a5; }
+    .status.pending { background: #78350f; color: #fcd34d; }
+    .tag { display: inline-block; background: #2a2a3a; color: #a78bfa; padding: 1px 6px; border-radius: 3px; font-size: 0.7rem; margin-right: 4px; }
+    #ws-log { max-height: 300px; }
+    input[type=text] { background: #111; border: 1px solid #333; color: #e0e0e0; padding: 6px 10px; border-radius: 4px; width: 100%; margin: 4px 0; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+<h1>Request Interceptor Test Page</h1>
+<p class="subtitle">Import <code>test-routes.json</code> into the extension, then use the buttons below to trigger each route type.</p>
+
+<!-- HTTP Methods -->
+<h2>HTTP Methods</h2>
+<div class="grid">
+
+  <div class="card">
+    <h3><span class="tag">GET</span> Mock JSON response</h3>
+    <button onclick="testFetch('get-single')">GET /posts/1</button>
+    <pre id="get-single">Click to test...</pre>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">GET</span> Mock array + 500ms delay</h3>
+    <button onclick="testFetch('get-list')">GET /posts</button>
+    <pre id="get-list">Click to test...</pre>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">POST</span> Mock 201 Created</h3>
+    <button onclick="testFetch('post-create')">POST /posts</button>
+    <pre id="post-create">Click to test...</pre>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">PUT</span> Mock Update</h3>
+    <button onclick="testFetch('put-update')">PUT /posts/1</button>
+    <pre id="put-update">Click to test...</pre>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">DELETE</span> Mock 204</h3>
+    <button onclick="testFetch('delete-item')">DELETE /posts/1</button>
+    <pre id="delete-item">Click to test...</pre>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">PATCH</span> Mock Patch</h3>
+    <button onclick="testFetch('patch-item')">PATCH /posts/1</button>
+    <pre id="patch-item">Click to test...</pre>
+  </div>
+
+</div>
+
+<!-- Interception Modes -->
+<h2>Interception Modes</h2>
+<div class="grid">
+
+  <div class="card">
+    <h3><span class="tag">PASSTHROUGH</span> Headers only</h3>
+    <p style="font-size:0.8rem;color:#888;margin-bottom:8px;">Real response passes through; custom headers added.</p>
+    <button onclick="testFetch('passthrough')">GET /users/1</button>
+    <pre id="passthrough">Click to test...</pre>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">BLOCK</span> Blocked route</h3>
+    <button onclick="testFetch('blocked')">GET /comments</button>
+    <pre id="blocked">Click to test...</pre>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">REDIRECT</span> Redirect route</h3>
+    <p style="font-size:0.8rem;color:#888;margin-bottom:8px;">Albums endpoint redirects to posts.</p>
+    <button onclick="testFetch('redirect')">GET /albums</button>
+    <pre id="redirect">Click to test...</pre>
+  </div>
+
+</div>
+
+<!-- Special Features -->
+<h2>Special Features</h2>
+<div class="grid">
+
+  <div class="card">
+    <h3><span class="tag">QUERY</span> Query param rules</h3>
+    <button onclick="testFetch('query-params')">GET /todos</button>
+    <pre id="query-params">Click to test...</pre>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">HTML</span> HTML content type</h3>
+    <button onclick="testFetch('html-mock')">GET /photos</button>
+    <pre id="html-mock">Click to test...</pre>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">TEXT</span> Plain text content type</h3>
+    <button onclick="testFetch('text-mock')">GET /users</button>
+    <pre id="text-mock">Click to test...</pre>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">GRAPHQL</span> GraphQL operation matching</h3>
+    <button onclick="testFetch('gql-user')">GetUser query</button>
+    <button onclick="testFetch('gql-posts')">ListPosts query</button>
+    <pre id="gql-user">Click to test...</pre>
+    <pre id="gql-posts"></pre>
+  </div>
+
+</div>
+
+<!-- XHR -->
+<h2>XHR (XMLHttpRequest)</h2>
+<div class="grid">
+
+  <div class="card">
+    <h3><span class="tag">XHR</span> GET via XMLHttpRequest</h3>
+    <button onclick="testXHR()">XHR GET /posts/1</button>
+    <pre id="xhr-result">Click to test...</pre>
+  </div>
+
+</div>
+
+<!-- WebSocket -->
+<h2>WebSocket</h2>
+<div class="grid" style="grid-template-columns: 1fr;">
+
+  <div class="card">
+    <h3><span class="tag">WS</span> WebSocket echo test</h3>
+    <p style="font-size:0.8rem;color:#888;margin-bottom:8px;">
+      Rules: incoming "hello" gets prefixed, "secret" is blocked, 3+ digit numbers are redacted.
+      Outgoing "password" is masked, "ping" injects extra message.
+    </p>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="text" id="ws-input" placeholder="Type a message..." />
+      <button onclick="wsSend()" id="ws-send-btn" disabled>Send</button>
+      <button onclick="wsConnect()" id="ws-connect-btn">Connect</button>
+      <button onclick="wsDisconnect()" id="ws-disconnect-btn" class="danger" disabled>Disconnect</button>
+    </div>
+    <pre id="ws-log">Not connected.</pre>
+  </div>
+
+</div>
+
+<!-- Run All -->
+<h2>Batch Test</h2>
+<div class="card">
+  <button onclick="runAll()" style="font-size:1rem;padding:10px 24px;">Run All HTTP Tests</button>
+  <pre id="batch-result"></pre>
+</div>
+
+<script>
+  const BASE = 'https://jsonplaceholder.typicode.com';
+
+  const tests = {
+    'get-single':  () => fetch(`${BASE}/posts/1`),
+    'get-list':    () => fetch(`${BASE}/posts`),
+    'post-create': () => fetch(`${BASE}/posts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Test', body: 'Body' }) }),
+    'put-update':  () => fetch(`${BASE}/posts/1`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 1, title: 'Updated' }) }),
+    'delete-item': () => fetch(`${BASE}/posts/1`, { method: 'DELETE' }),
+    'patch-item':  () => fetch(`${BASE}/posts/1`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Patched' }) }),
+    'passthrough': () => fetch(`${BASE}/users/1`),
+    'blocked':     () => fetch(`${BASE}/comments`),
+    'redirect':    () => fetch(`${BASE}/albums`),
+    'query-params':() => fetch(`${BASE}/todos?completed=true&_limit=10`),
+    'html-mock':   () => fetch(`${BASE}/photos`),
+    'text-mock':   () => fetch(`${BASE}/users`),
+    'gql-user':    () => fetch('https://api.example.com/graphql', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: 'query GetUser { user(id:"1") { id name email } }', operationName: 'GetUser' }) }),
+    'gql-posts':   () => fetch('https://api.example.com/graphql', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: 'query ListPosts { posts { id title } }', operationName: 'ListPosts' }) }),
+  };
+
+  async function testFetch(id) {
+    const el = document.getElementById(id);
+    el.textContent = 'Loading...';
+    try {
+      const res = await tests[id]();
+      const status = res.status;
+      const ct = res.headers.get('content-type') || '';
+      const customHeaders = {};
+      for (const [k, v] of res.headers.entries()) {
+        if (k.startsWith('x-')) customHeaders[k] = v;
+      }
+      let body;
+      if (ct.includes('json')) {
+        body = await res.json();
+      } else {
+        body = await res.text();
+      }
+      el.textContent = JSON.stringify({ status, customHeaders, body }, null, 2);
+    } catch (err) {
+      el.textContent = `ERROR: ${err.message}`;
+    }
+  }
+
+  function testXHR() {
+    const el = document.getElementById('xhr-result');
+    el.textContent = 'Loading...';
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', `${BASE}/posts/1`);
+    xhr.onload = () => {
+      try {
+        el.textContent = JSON.stringify({ status: xhr.status, body: JSON.parse(xhr.responseText) }, null, 2);
+      } catch { el.textContent = `Status: ${xhr.status}\n${xhr.responseText}`; }
+    };
+    xhr.onerror = () => { el.textContent = 'XHR Error'; };
+    xhr.send();
+  }
+
+  // WebSocket
+  let ws = null;
+  function wsLog(msg) {
+    const el = document.getElementById('ws-log');
+    el.textContent += '\n' + msg;
+    el.scrollTop = el.scrollHeight;
+  }
+  function wsConnect() {
+    const log = document.getElementById('ws-log');
+    log.textContent = 'Connecting...';
+    ws = new WebSocket('wss://echo.websocket.org');
+    ws.onopen = () => { wsLog('Connected.'); document.getElementById('ws-send-btn').disabled = false; document.getElementById('ws-disconnect-btn').disabled = false; document.getElementById('ws-connect-btn').disabled = true; };
+    ws.onmessage = (e) => wsLog('< ' + e.data);
+    ws.onclose = () => { wsLog('Disconnected.'); document.getElementById('ws-send-btn').disabled = true; document.getElementById('ws-disconnect-btn').disabled = true; document.getElementById('ws-connect-btn').disabled = false; ws = null; };
+    ws.onerror = (e) => wsLog('WS Error: ' + (e.message || 'unknown'));
+  }
+  function wsSend() {
+    if (!ws) return;
+    const input = document.getElementById('ws-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+    wsLog('> ' + msg);
+    ws.send(msg);
+    input.value = '';
+  }
+  function wsDisconnect() { if (ws) ws.close(); }
+  document.getElementById('ws-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') wsSend(); });
+
+  // Batch
+  async function runAll() {
+    const el = document.getElementById('batch-result');
+    el.textContent = 'Running all tests...\n';
+    const ids = Object.keys(tests);
+    let pass = 0, fail = 0;
+    for (const id of ids) {
+      try {
+        await testFetch(id);
+        el.textContent += `  DONE: ${id}\n`;
+        pass++;
+      } catch (e) {
+        el.textContent += `  FAIL: ${id} - ${e.message}\n`;
+        fail++;
+      }
+    }
+    el.textContent += `\nComplete: ${pass} done, ${fail} failed`;
+  }
+</script>
+
+</body>
+</html>

@@ -1,201 +1,407 @@
-import React, { forwardRef, useState } from 'react';
-import { cn } from '@/lib/utils';
+import React, { forwardRef, useState, useId } from 'react';
+import { clsx } from 'clsx';
+import { Eye, EyeOff, AlertCircle, CheckCircle, Loader2, X } from 'lucide-react';
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+// ============================================================================
+// Types
+// ============================================================================
+
+type InputVariant = 'default' | 'outlined' | 'filled' | 'ghost';
+type InputSize = 'sm' | 'md' | 'lg';
+type InputStatus = 'default' | 'error' | 'success' | 'warning';
+
+interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
+  /** Visual style variant */
+  variant?: InputVariant;
+  /** Size of the input */
+  size?: InputSize;
+  /** Status state for validation feedback */
+  status?: InputStatus;
+  /** Label text above the input */
   label?: string;
+  /** Error message (also sets status to error) */
   error?: string;
+  /** Helper text below the input */
   helperText?: string;
+  /** Icon on the left side */
   leftIcon?: React.ReactNode;
+  /** Icon on the right side */
   rightIcon?: React.ReactNode;
+  /** Show clear button when input has value */
+  clearable?: boolean;
+  /** Callback when clear button is clicked */
+  onClear?: () => void;
+  /** Show loading spinner */
+  loading?: boolean;
+  /** Show character count (requires maxLength) */
+  showCount?: boolean;
+  /** Make the input take full width */
+  fullWidth?: boolean;
+  /** Additional wrapper className */
+  wrapperClassName?: string;
 }
 
-const Input = forwardRef<HTMLInputElement, InputProps>(({
-  className,
-  label,
-  error,
-  helperText,
-  leftIcon,
-  rightIcon,
-  id,
-  onFocus,
-  onBlur,
-  ...props
-}, ref) => {
-  const [isFocused, setIsFocused] = useState(false);
-  const [hasValue, setHasValue] = useState(!!props.value || !!props.defaultValue);
-  const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+// ============================================================================
+// Styles
+// ============================================================================
 
-  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    setIsFocused(true);
-    onFocus?.(e);
-  };
+const variantStyles: Record<InputVariant, string> = {
+  default: `
+    bg-[var(--bg-surface)]
+    border border-[var(--border-subtle)]
+    focus:border-[var(--border-focus)]
+  `,
+  outlined: `
+    bg-transparent
+    border-2 border-[var(--border-default)]
+    focus:border-[var(--accent-indigo)]
+    focus:bg-[var(--bg-surface)]/30
+  `,
+  filled: `
+    bg-[var(--bg-elevated)]
+    border border-transparent
+    focus:bg-[var(--bg-surface)]
+    focus:border-[var(--border-focus)]
+  `,
+  ghost: `
+    bg-transparent
+    border border-transparent
+    hover:bg-[var(--bg-surface)]
+    focus:bg-[var(--bg-surface)]
+    focus:border-[var(--border-subtle)]
+  `,
+};
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    setIsFocused(false);
-    onBlur?.(e);
-  };
+const sizeStyles: Record<InputSize, { input: string; icon: string; label: string }> = {
+  sm: {
+    input: 'h-8 px-2.5 text-[11px] rounded-[var(--radius-sm)]',
+    icon: 'w-3.5 h-3.5',
+    label: 'text-[10px]',
+  },
+  md: {
+    input: 'h-9 px-3 text-[12px] rounded-[var(--radius-md)]',
+    icon: 'w-4 h-4',
+    label: 'text-[10px]',
+  },
+  lg: {
+    input: 'h-11 px-4 text-[13px] rounded-[var(--radius-md)]',
+    icon: 'w-5 h-5',
+    label: 'text-[11px]',
+  },
+};
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setHasValue(!!e.target.value);
-    props.onChange?.(e);
-  };
+const statusStyles: Record<InputStatus, { border: string; icon: React.ReactNode; text: string }> = {
+  default: {
+    border: '',
+    icon: null,
+    text: 'text-[var(--text-tertiary)]',
+  },
+  error: {
+    border: 'border-[var(--accent-rose)]! focus:border-[var(--accent-rose)]!',
+    icon: <AlertCircle className="text-[var(--accent-rose)]" />,
+    text: 'text-[var(--accent-rose)]',
+  },
+  success: {
+    border: 'border-[var(--accent-emerald)]! focus:border-[var(--accent-emerald)]!',
+    icon: <CheckCircle className="text-[var(--accent-emerald)]" />,
+    text: 'text-[var(--accent-emerald)]',
+  },
+  warning: {
+    border: 'border-[var(--accent-amber)]! focus:border-[var(--accent-amber)]!',
+    icon: <AlertCircle className="text-[var(--accent-amber)]" />,
+    text: 'text-[var(--accent-amber)]',
+  },
+};
 
-  return (
-    <div className="space-y-2">
-      {label && (
-        <label 
-          htmlFor={inputId}
-          className={cn(
-            "block text-sm font-medium transition-all duration-200",
-            error 
-              ? "text-red-700" 
-              : isFocused 
-                ? "text-blue-700" 
-                : "text-gray-700",
-            props.disabled && "text-gray-400"
-          )}
-        >
-          {label}
-        </label>
-      )}
-      
-      <div className={cn(
-        "relative group",
-        "transition-all duration-200"
-      )}>
-        {/* Input container with enhanced styling */}
-        <div className={cn(
-          "relative flex items-center",
-          "border-2 rounded-xl bg-white overflow-hidden",
-          "transition-all duration-200",
-          "hover:shadow-md",
-          // Focus states
-          isFocused && !error && "ring-4 ring-blue-500/20 border-blue-500",
-          // Error states
-          error 
-            ? "border-red-300 shadow-red-100" 
-            : "border-gray-200 hover:border-gray-300",
-          error && isFocused && "border-red-500 ring-4 ring-red-500/20",
-          // Disabled states
-          props.disabled && "bg-gray-50 hover:shadow-none hover:border-gray-200 opacity-60"
-        )}>
+// ============================================================================
+// Component
+// ============================================================================
+
+const Input = forwardRef<HTMLInputElement, InputProps>(
+  (
+    {
+      className,
+      wrapperClassName,
+      variant = 'default',
+      size = 'md',
+      status: statusProp = 'default',
+      label,
+      error,
+      helperText,
+      leftIcon,
+      rightIcon,
+      clearable = false,
+      onClear,
+      loading = false,
+      showCount = false,
+      fullWidth = true,
+      type = 'text',
+      disabled,
+      maxLength,
+      value,
+      defaultValue,
+      id,
+      ...props
+    },
+    ref
+  ) => {
+    const generatedId = useId();
+    const inputId = id || generatedId;
+
+    // Internal state for password visibility
+    const [showPassword, setShowPassword] = useState(false);
+    const isPasswordType = type === 'password';
+    const actualType = isPasswordType && showPassword ? 'text' : type;
+
+    // Determine status (error prop overrides status prop)
+    const status = error ? 'error' : statusProp;
+
+    // Get current value for clearable and character count
+    const currentValue = value ?? defaultValue ?? '';
+    const hasValue = String(currentValue).length > 0;
+    const charCount = String(currentValue).length;
+
+    // Style lookups
+    const variantStyle = variantStyles[variant];
+    const sizeStyle = sizeStyles[size];
+    const statusStyle = statusStyles[status];
+
+    // Calculate padding based on icons
+    const hasLeftIcon = !!leftIcon;
+    const hasRightContent =
+      !!rightIcon ||
+      loading ||
+      (clearable && hasValue) ||
+      isPasswordType ||
+      status !== 'default';
+
+    const leftPadding = hasLeftIcon
+      ? size === 'sm'
+        ? 'pl-8'
+        : size === 'lg'
+        ? 'pl-11'
+        : 'pl-9'
+      : '';
+
+    const rightPadding = hasRightContent
+      ? size === 'sm'
+        ? 'pr-8'
+        : size === 'lg'
+        ? 'pr-11'
+        : 'pr-9'
+      : '';
+
+    // Handle clear
+    const handleClear = () => {
+      onClear?.();
+      // Also try to clear via native input if uncontrolled
+      const input = document.getElementById(inputId) as HTMLInputElement;
+      if (input) {
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value'
+        )?.set;
+        nativeInputValueSetter?.call(input, '');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    };
+
+    // Render right side icons/buttons
+    const renderRightContent = () => {
+      const items: React.ReactNode[] = [];
+
+      // Loading spinner
+      if (loading) {
+        items.push(
+          <Loader2
+            key="loading"
+            className={clsx(sizeStyle.icon, 'animate-spin text-[var(--text-tertiary)]')}
+          />
+        );
+      }
+
+      // Clear button
+      if (clearable && hasValue && !loading && !disabled) {
+        items.push(
+          <button
+            key="clear"
+            type="button"
+            onClick={handleClear}
+            className="p-0.5 rounded hover:bg-[var(--bg-hover)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+            tabIndex={-1}
+            aria-label="Clear input"
+          >
+            <X className={sizeStyle.icon} />
+          </button>
+        );
+      }
+
+      // Password toggle
+      if (isPasswordType && !loading) {
+        items.push(
+          <button
+            key="password"
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="p-0.5 rounded hover:bg-[var(--bg-hover)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+            tabIndex={-1}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            {showPassword ? (
+              <EyeOff className={sizeStyle.icon} />
+            ) : (
+              <Eye className={sizeStyle.icon} />
+            )}
+          </button>
+        );
+      }
+
+      // Status icon
+      if (status !== 'default' && statusStyle.icon && !loading) {
+        items.push(
+          <span key="status" className={sizeStyle.icon}>
+            {React.cloneElement(statusStyle.icon as React.ReactElement, {
+              className: sizeStyle.icon,
+            })}
+          </span>
+        );
+      }
+
+      // Custom right icon
+      if (rightIcon && !loading) {
+        items.push(
+          <span key="rightIcon" className={clsx(sizeStyle.icon, 'text-[var(--text-tertiary)]')}>
+            {rightIcon}
+          </span>
+        );
+      }
+
+      if (items.length === 0) return null;
+
+      return (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+          {items}
+        </div>
+      );
+    };
+
+    return (
+      <div
+        className={clsx(
+          'flex flex-col gap-1.5',
+          fullWidth && 'w-full',
+          wrapperClassName
+        )}
+      >
+        {/* Label */}
+        {label && (
+          <label
+            htmlFor={inputId}
+            className={clsx(
+              'ds-label font-medium',
+              sizeStyle.label,
+              disabled && 'opacity-50'
+            )}
+          >
+            {label}
+            {props.required && (
+              <span className="text-[var(--accent-rose)] ml-0.5">*</span>
+            )}
+          </label>
+        )}
+
+        {/* Input wrapper */}
+        <div className="relative">
           {/* Left icon */}
           {leftIcon && (
-            <div className={cn(
-              "absolute left-4 flex items-center justify-center",
-              "transition-colors duration-200 z-10",
-              error 
-                ? "text-red-500" 
-                : isFocused 
-                  ? "text-blue-500" 
-                  : hasValue 
-                    ? "text-gray-600" 
-                    : "text-gray-400",
-              props.disabled && "text-gray-400"
-            )}>
+            <span
+              className={clsx(
+                'absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none',
+                sizeStyle.icon,
+                disabled && 'opacity-50'
+              )}
+            >
               {leftIcon}
-            </div>
+            </span>
           )}
-          
-          {/* Input field */}
+
+          {/* Input element */}
           <input
             ref={ref}
             id={inputId}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onChange={handleChange}
-            className={cn(
-              "w-full px-4 py-3 bg-transparent",
-              "text-gray-900 placeholder-gray-400",
-              "focus:outline-none transition-all duration-200",
-              "disabled:cursor-not-allowed disabled:text-gray-500",
-              leftIcon && "pl-12",
-              rightIcon && "pr-12",
-              // Enhanced typography
-              "text-sm leading-6",
+            type={actualType}
+            disabled={disabled}
+            maxLength={maxLength}
+            value={value}
+            defaultValue={defaultValue}
+            className={clsx(
+              // Base styles
+              'w-full font-[var(--font-mono)]',
+              'text-[var(--text-primary)]',
+              'placeholder:text-[var(--text-tertiary)]',
+              'outline-none',
+              'transition-all duration-[var(--transition-fast)]',
+              // Variant styles
+              variantStyle,
+              // Size styles
+              sizeStyle.input,
+              // Status border override
+              status !== 'default' && statusStyle.border,
+              // Icon padding
+              leftPadding,
+              rightPadding,
+              // Disabled state
+              disabled && 'opacity-50 cursor-not-allowed',
+              // Custom className
               className
             )}
             {...props}
           />
-          
-          {/* Right icon */}
-          {rightIcon && (
-            <div className={cn(
-              "absolute right-4 flex items-center justify-center",
-              "transition-colors duration-200 z-10",
-              error 
-                ? "text-red-500" 
-                : isFocused 
-                  ? "text-blue-500" 
-                  : hasValue 
-                    ? "text-gray-600" 
-                    : "text-gray-400",
-              props.disabled && "text-gray-400"
-            )}>
-              {rightIcon}
-            </div>
-          )}
 
-          {/* Focus indicator bar */}
-          <div className={cn(
-            "absolute bottom-0 left-0 h-0.5 bg-blue-500 transition-all duration-300",
-            isFocused && !error ? "w-full" : "w-0",
-            error && isFocused && "bg-red-500"
-          )} />
+          {/* Right content (icons, buttons) */}
+          {renderRightContent()}
         </div>
 
-        {/* Character count for inputs with maxLength */}
-        {props.maxLength && hasValue && (
-          <div className="absolute -top-1 right-2 bg-white px-2">
-            <span className={cn(
-              "text-xs font-medium transition-colors duration-200",
-              error 
-                ? "text-red-500" 
-                : (props.value?.toString().length || 0) > props.maxLength * 0.8
-                  ? "text-orange-500"
-                  : "text-gray-400"
-            )}>
-              {props.value?.toString().length || 0}/{props.maxLength}
-            </span>
+        {/* Bottom row: helper text and character count */}
+        {(error || helperText || (showCount && maxLength)) && (
+          <div className="flex items-center justify-between gap-2">
+            {/* Error or helper text */}
+            <p
+              className={clsx(
+                'text-[11px] flex-1',
+                error ? statusStyle.text : 'text-[var(--text-tertiary)]'
+              )}
+            >
+              {error || helperText}
+            </p>
+
+            {/* Character count */}
+            {showCount && maxLength && (
+              <span
+                className={clsx(
+                  'text-[10px] font-mono tabular-nums',
+                  charCount > maxLength * 0.9
+                    ? 'text-[var(--accent-amber)]'
+                    : 'text-[var(--text-tertiary)]',
+                  charCount >= maxLength && 'text-[var(--accent-rose)]'
+                )}
+              >
+                {charCount}/{maxLength}
+              </span>
+            )}
           </div>
         )}
       </div>
-      
-      {/* Enhanced error and helper text */}
-      {(error || helperText) && (
-        <div className="flex items-start gap-2">
-          {error && (
-            <div className="w-1 h-4 bg-red-400 rounded-full flex-shrink-0 mt-0.5 animate-pulse"></div>
-          )}
-          <p className={cn(
-            "text-sm leading-5 transition-colors duration-200",
-            error 
-              ? "text-red-600 font-medium" 
-              : "text-gray-500"
-          )}>
-            {error || helperText}
-          </p>
-        </div>
-      )}
-
-      {/* Optional enhancement: Input type indicators */}
-      {props.type === 'password' && !error && !helperText && (
-        <p className="text-xs text-gray-400 flex items-center gap-1">
-          <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-          Use a strong password with at least 8 characters
-        </p>
-      )}
-      
-      {props.type === 'email' && !error && !helperText && (
-        <p className="text-xs text-gray-400 flex items-center gap-1">
-          <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-          We'll never share your email address
-        </p>
-      )}
-    </div>
-  );
-});
+    );
+  }
+);
 
 Input.displayName = 'Input';
 
 export default Input;
+
+// ============================================================================
+// Additional Exports for Convenience
+// ============================================================================
+
+export type { InputProps, InputVariant, InputSize, InputStatus };

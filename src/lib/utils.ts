@@ -1,10 +1,9 @@
 import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { HttpMethod } from '@/types';
 
-// Tailwind class merger utility
+// Class name utility (using clsx)
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+  return clsx(inputs);
 }
 
 // HTTP Method color utilities
@@ -102,68 +101,8 @@ export const debounce = <T extends (...args: any[]) => void>(
   };
 };
 
-// Check if URL matches pattern (including wildcards and regex)
-export const urlMatches = (requestUrl: string, patternUrl: string): boolean => {
-  // Check if patternUrl is a regex pattern (starts and ends with /)
-  if (patternUrl.startsWith('/') && patternUrl.lastIndexOf('/') > 0) {
-    try {
-      const lastSlashIndex = patternUrl.lastIndexOf('/');
-      const pattern = patternUrl.substring(1, lastSlashIndex);
-      const flags = patternUrl.substring(lastSlashIndex + 1);
-      
-      const regex = new RegExp(pattern, flags);
-      return regex.test(requestUrl);
-    } catch (e) {
-      console.warn(`Invalid regex pattern: ${patternUrl}`, e);
-    }
-  }
-  
-  // Process URLs
-  let requestUrlObj: URL, patternUrlObj: URL;
-  
-  try {
-    requestUrlObj = new URL(requestUrl, window.location.origin);
-    patternUrlObj = new URL(patternUrl.includes('://') ? patternUrl : patternUrl, window.location.origin);
-  } catch (e) {
-    try {
-      requestUrlObj = new URL(window.location.origin + (requestUrl.startsWith('/') ? requestUrl : '/' + requestUrl));
-      patternUrlObj = new URL(window.location.origin + (patternUrl.startsWith('/') ? patternUrl : '/' + patternUrl));
-    } catch (e2) {
-      return requestUrl === patternUrl;
-    }
-  }
-  
-  // Normalize paths (remove trailing slashes)
-  const normalizedRequestPath = requestUrlObj.pathname.replace(/\/+$/, '');
-  const normalizedPatternPath = patternUrlObj.pathname.replace(/\/+$/, '');
-  
-  // Direct path match
-  if (normalizedRequestPath === normalizedPatternPath) {
-    if (patternUrlObj.search) {
-      const patternParams = new URLSearchParams(patternUrlObj.search);
-      const requestParams = new URLSearchParams(requestUrlObj.search);
-      
-      for (const [key, value] of patternParams) {
-        if (requestParams.get(key) !== value) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-  
-  // Wildcard matching
-  if (patternUrl.includes('*')) {
-    const regexPattern = patternUrl
-      .replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&')
-      .replace(/\*/g, '.*');
-    
-    const regex = new RegExp(`^${regexPattern}$`);
-    return regex.test(requestUrl) || regex.test(requestUrlObj.pathname);
-  }
-  
-  return false;
-};
+// URL matching — re-exported from core
+export { urlMatches } from '@/core/url-matching';
 
 // Get route description based on method and URL
 export const getRouteDescription = (method: HttpMethod, url: string): string => {
@@ -210,16 +149,5 @@ export const formatTemplateName = (templateName: string): string => {
 };
 
 
-export const parseWebSocketKey = (routeKey: string) => {
-  const remaining = routeKey.substring(3); // Remove 'WS:'
-  const pipeIndex = remaining.indexOf('|');
-  
-  if (pipeIndex === -1) {
-    return { url: remaining, name: '' };
-  }
-  
-  const url = remaining.substring(0, pipeIndex);
-  const name = remaining.substring(pipeIndex + 1);
-  
-  return { url, name };
-}
+// Route key parsing — re-exported from core
+export { parseInjectionKey, parseWebSocketKey } from '@/core/route-keys';
