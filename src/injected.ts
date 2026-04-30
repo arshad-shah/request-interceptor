@@ -5,6 +5,7 @@ import { setupFetchInterceptor } from './core/interceptors/fetch-interceptor';
 import { setupXHRInterceptor } from './core/interceptors/xhr-interceptor';
 import { setupWebSocketInterceptor } from './core/interceptors/ws-interceptor';
 import { parseRouteKeyInline, parseWebSocketKeyInline } from './core/interceptors/interceptor-helpers';
+import { serializeEventData } from './core/event-serialization';
 
 (function() {
   // Store original methods
@@ -174,37 +175,6 @@ import { parseRouteKeyInline, parseWebSocketKeyInline } from './core/interceptor
   function sendEventToExtension(data: any) {
     if (!eventMonitorActive) return;
     originalWindowPostMessage.call(window, { type: EVENTBUS_CHANNEL, payload: data }, { targetOrigin: '*' });
-  }
-
-  function serializeEventData(data: any, depth = 0): any {
-    if (depth > 5) return '[Max Depth]';
-    if (data === null) return null;
-    if (data === undefined) return undefined;
-    const type = typeof data;
-    if (type === 'function') return `[Function: ${data.name || 'anonymous'}]`;
-    if (type !== 'object') return data;
-    if (data instanceof Event) {
-      return { _type: 'Event', type: data.type, bubbles: data.bubbles, cancelable: data.cancelable,
-               target: (data.target as any)?.tagName || null,
-               detail: (data as CustomEvent).detail ? serializeEventData((data as CustomEvent).detail, depth + 1) : null };
-    }
-    if (data instanceof Element) {
-      return `[Element: ${data.tagName}${data.id ? '#' + data.id : ''}]`;
-    }
-    if (Array.isArray(data)) return data.slice(0, 50).map(item => serializeEventData(item, depth + 1));
-    if (data instanceof Map) {
-      const obj: any = {};
-      data.forEach((v, k) => { obj[k] = serializeEventData(v, depth + 1); });
-      return { _type: 'Map', entries: obj };
-    }
-    if (data instanceof Set) {
-      return { _type: 'Set', values: [...data].map(v => serializeEventData(v, depth + 1)) };
-    }
-    try {
-      const result: any = {};
-      Object.keys(data).slice(0, 50).forEach(key => { result[key] = serializeEventData(data[key], depth + 1); });
-      return result;
-    } catch { return '[Unserializable Object]'; }
   }
 
   // Patch dispatchEvent for CustomEvent interception
