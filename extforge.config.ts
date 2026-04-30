@@ -1,7 +1,7 @@
 import { defineConfig } from 'extforge';
 
 export default defineConfig({
-  browsers: ['chrome'],
+  browsers: ['chrome', 'firefox', 'safari', 'edge'],
   framework: 'react',
   css: 'tailwind',
   manifest: {
