@@ -16,8 +16,8 @@ const pathAliases = {
   '@stores': resolve(__dirname, './src/stores'),
   '@types': resolve(__dirname, './src/types'),
   '@styles': resolve(__dirname, './src/styles'),
-  '@popup': resolve(__dirname, './src/popup'),
-  '@sidepanel': resolve(__dirname, './src/sidepanel'),
+  '@popup': resolve(__dirname, './src/ui/popup'),
+  '@sidepanel': resolve(__dirname, './src/ui/sidepanel'),
   '@assets': resolve(__dirname, './src/assets'),
 }
 
@@ -106,8 +106,8 @@ export default defineConfig({
         },
       },
       input: {
-        popup: resolve(__dirname, 'popup.html'),
-        sidepanel: resolve(__dirname, 'sidepanel.html'),
+        popup: resolve(__dirname, 'src/ui/popup/index.html'),
+        sidepanel: resolve(__dirname, 'src/ui/sidepanel/index.html'),
         background: resolve(__dirname, 'src/background.ts'),
       },
       output: {
