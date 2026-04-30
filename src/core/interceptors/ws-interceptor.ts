@@ -5,6 +5,7 @@
 
 import { urlMatches } from '../url-matching';
 import { parseWebSocketKeyInline, escapeRegExp, type LogFn } from './interceptor-helpers';
+import { pageToast } from '../notifications/page-toast';
 
 export interface WSInterceptorState {
   getWebSocketRoutes: () => Record<string, any>;
@@ -114,13 +115,16 @@ export function processMessage(
           case 'replace':
             processedMessage = applyReplacement(processedMessage, rule, log);
             log(`WebSocket ${direction} message replaced: ${rule.description || 'No description'}`);
+            pageToast(`WS ${direction} replaced`, 'info', { detail: rule.description });
             break;
           case 'block':
             log(`WebSocket ${direction} message blocked: ${rule.description || 'No description'}`);
+            pageToast(`WS ${direction} blocked`, 'error', { detail: rule.description });
             return { result: null, blocked: true };
           case 'inject':
             injectedMessage = rule.replacement;
             log(`WebSocket ${direction} message injection triggered: ${rule.description || 'No description'}`);
+            pageToast(`WS ${direction} injected`, 'info', { detail: rule.description });
             break;
         }
       }

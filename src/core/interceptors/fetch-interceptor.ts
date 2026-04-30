@@ -11,6 +11,17 @@ import {
   type LogFn
 } from './interceptor-helpers';
 import { applyQueryParamRules } from '../query-params';
+import { pageToast } from '../notifications/page-toast';
+
+function shortUrl(url: string): string {
+  try {
+    const u = new URL(url, window.location.origin);
+    const path = u.pathname + (u.search ? '?…' : '');
+    return path.length > 60 ? path.slice(0, 57) + '…' : path;
+  } catch {
+    return url.length > 60 ? url.slice(0, 57) + '…' : url;
+  }
+}
 
 export interface FetchInterceptorState {
   isActive: () => boolean;
@@ -46,6 +57,7 @@ export function setupFetchInterceptor(
         return new Promise((_resolve, reject) => {
           setTimeout(() => {
             log(`Blocked fetch request: ${method} ${url}`);
+            pageToast(`Blocked ${method}`, 'error', { detail: shortUrl(url) });
             reject(new TypeError('Request blocked by Request Interceptor'));
           }, interceptConfig.delay || 0);
         });
@@ -54,6 +66,7 @@ export function setupFetchInterceptor(
       if (mode === 'redirect') {
         const redirectUrl = interceptConfig.redirectUrl || url;
         log(`Redirecting fetch request: ${url} → ${redirectUrl}`);
+        pageToast(`Redirected ${method}`, 'warn', { detail: `${shortUrl(url)} → ${shortUrl(redirectUrl)}` });
         const modifiedOptions = { ...options };
 
         const finalUrl = applyQueryParamRules(redirectUrl, interceptConfig.queryParamRules || [], window.location.origin);
@@ -74,6 +87,7 @@ export function setupFetchInterceptor(
         return new Promise(resolve => {
           setTimeout(() => {
             const response = createMockResponse(interceptConfig.response, interceptConfig, log);
+            pageToast(`Mocked ${method}`, 'success', { detail: shortUrl(url) });
             resolve(response);
           }, interceptConfig.delay || 0);
         });
@@ -102,6 +116,7 @@ export function setupFetchInterceptor(
       if (interceptConfig.responseHeaders && Object.keys(interceptConfig.responseHeaders).length > 0) {
         return realRequestPromise.then((response: Response) => {
           log(`✓ Modifying response headers for: ${method} ${url}`);
+          pageToast(`Modified headers ${method}`, 'info', { detail: shortUrl(url) });
           return modifyResponseHeaders(response, interceptConfig, log);
         });
       }

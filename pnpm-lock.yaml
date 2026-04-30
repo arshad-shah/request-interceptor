@@ -84,8 +84,8 @@ importers:
         specifier: ^0.4.20
         version: 0.4.20(eslint@8.57.1)
       extforge:
-        specifier: file:../../extforge
-        version: file:../../extforge
+        specifier: ^0.2.0
+        version: 0.2.0(esbuild@0.27.2)
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
@@ -1379,10 +1379,12 @@ packages:
     resolution: {integrity: sha512-JhFGDVJ7tmDJItKhYgJCGLOWjuK9vPxiXoUFLwLDc99NlmklilbiQJwoctZtt13+xMw91MCk/REan6MWHqDjyA==}
     engines: {node: '>=12.0.0'}
 
-  extforge@file:../../extforge:
-    resolution: {directory: ../../extforge, type: directory}
+  extforge@0.2.0:
+    resolution: {integrity: sha512-I3Z2K3PKCuH8uRI1ua4AQ1o8zLq0RXKHBksfGFxsrzBWxtD+nLcXsXUNbtet31IleJeh4VIDr/iS0eG/OemwZA==}
     engines: {node: '>=20.0.0'}
     hasBin: true
+    peerDependencies:
+      esbuild: '>=0.25.0'
 
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
@@ -3502,7 +3504,7 @@ snapshots:
 
   expect-type@1.2.2: {}
 
-  extforge@file:../../extforge:
+  extforge@0.2.0(esbuild@0.27.2):
     dependencies:
       c12: 2.0.4
       chokidar: 4.0.3

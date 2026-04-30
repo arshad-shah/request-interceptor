@@ -9,6 +9,17 @@ import {
   type LogFn
 } from './interceptor-helpers';
 import { applyQueryParamRules } from '../query-params';
+import { pageToast } from '../notifications/page-toast';
+
+function shortUrl(url: string): string {
+  try {
+    const u = new URL(url, window.location.origin);
+    const path = u.pathname + (u.search ? '?…' : '');
+    return path.length > 60 ? path.slice(0, 57) + '…' : path;
+  } catch {
+    return url.length > 60 ? url.slice(0, 57) + '…' : url;
+  }
+}
 
 export interface XHRInterceptorState {
   isActive: () => boolean;
@@ -66,6 +77,7 @@ export function setupXHRInterceptor(
       if (mode === 'block') {
         setTimeout(() => {
           log(`Blocked XHR request: ${method} ${url}`);
+          pageToast(`Blocked XHR ${method}`, 'error', { detail: shortUrl(url) });
           Object.defineProperty(this, 'readyState', { value: 4, configurable: true });
           Object.defineProperty(this, 'status', { value: 0, configurable: true });
           Object.defineProperty(this, 'statusText', { value: '', configurable: true });
@@ -85,6 +97,7 @@ export function setupXHRInterceptor(
       if (mode === 'redirect') {
         const redirectUrl = interceptConfig.redirectUrl || url;
         log(`Redirecting XHR request: ${url} → ${redirectUrl}`);
+        pageToast(`Redirected XHR ${method}`, 'warn', { detail: `${shortUrl(url)} → ${shortUrl(redirectUrl)}` });
         const finalUrl = applyQueryParamRules(redirectUrl, interceptConfig.queryParamRules || [], window.location.origin);
         originalXHROpen.call(this, method, finalUrl, true);
 
@@ -109,6 +122,7 @@ export function setupXHRInterceptor(
       }
 
       if (mode === 'mock') {
+        pageToast(`Mocked XHR ${method}`, 'success', { detail: shortUrl(url) });
         setTimeout(() => {
           const responseBody = interceptConfig.response;
           let responseText: string;
