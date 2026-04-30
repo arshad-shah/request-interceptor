@@ -1,5 +1,5 @@
 {
-  "name": "web-tools-extension",
+  "name": "request-interceptor",
   "version": "1.0.0",
   "description": "Developer toolkit for intercepting API responses, monitoring events, and inspecting browser storage",
   "type": "module",
