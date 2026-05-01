@@ -6,19 +6,149 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, validateJson } from '@/lib/chrome-api';
-import { RouteConfig, WebSocketConfig } from '@/types';
+import { RouteConfig, WebSocketConfig, InjectionConfig } from '@/types';
+import {
+  validateHttpConfig,
+  validateWebSocketConfig,
+  validateInjectionConfig,
+} from '@/core/route-validation';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import ReactAceEditor from '@/components/common/ReactAceEditor';
 import CollapsibleSchemaExamples from '@/components/common/CollapsibleSchemaExamples';
 import RoutePreviews from './RoutePreviews';
 
+interface BuiltRoute {
+  raw: any;
+  key: string;
+  config: RouteConfig | WebSocketConfig | InjectionConfig;
+  routeType: 'http' | 'websocket' | 'injection';
+  label: string;
+}
+
+interface BuildError {
+  label: string;
+  error: string;
+  raw: any;
+}
+
+const inferRouteType = (route: any): 'http' | 'websocket' | 'injection' => {
+  if (route.routeType) return route.routeType;
+  if (route.scripts || route.stylesheets || route.urlPattern || route.injectAt) return 'injection';
+  if (route.incomingRules || route.outgoingRules) return 'websocket';
+  return 'http';
+};
+
+const labelFor = (route: any, fallback: string): string =>
+  route.name || fallback || 'Unnamed route';
+
+const buildRoute = (route: any): { ok: true; built: BuiltRoute } | { ok: false; error: BuildError } => {
+  const routeType = inferRouteType(route);
+  route.routeType = routeType;
+
+  if (routeType === 'injection') {
+    const urlPattern = route.urlPattern || route.url;
+    const label = labelFor(route, urlPattern);
+    if (!urlPattern || !String(urlPattern).trim()) {
+      return { ok: false, error: { label, error: 'Injection route must have a URL pattern', raw: route } };
+    }
+    const config: InjectionConfig = {
+      enabled: route.enabled !== false,
+      timestamp: Date.now(),
+      name: route.name,
+      urlPattern,
+      scripts: Array.isArray(route.scripts) ? route.scripts : [],
+      stylesheets: Array.isArray(route.stylesheets) ? route.stylesheets : [],
+      injectAt: route.injectAt === 'document_start' ? 'document_start' : 'document_end',
+    };
+    const result = validateInjectionConfig(config);
+    if (!result.valid) {
+      return { ok: false, error: { label, error: result.error || 'Invalid injection route', raw: route } };
+    }
+    const key = route.name ? `INJ:${urlPattern}|${route.name}` : `INJ:${urlPattern}`;
+    return { ok: true, built: { raw: route, key, config, routeType, label } };
+  }
+
+  if (routeType === 'websocket') {
+    const label = labelFor(route, route.url);
+    if (!route.url || !String(route.url).trim()) {
+      return { ok: false, error: { label, error: 'WebSocket route must have a URL', raw: route } };
+    }
+    const processRules = (rules: any[] = []) =>
+      rules.map((rule, index) => ({
+        id: rule.id || `rule-${Date.now()}-${index}`,
+        enabled: rule.enabled !== false,
+        type: rule.type || 'replace',
+        matchType: rule.matchType || 'contains',
+        match: rule.match || '',
+        replacement: rule.replacement || '',
+        flags: rule.flags || '',
+        description: rule.description || '',
+      }));
+    const config: WebSocketConfig = {
+      enabled: route.enabled !== false,
+      timestamp: Date.now(),
+      name: route.name,
+      incomingRules: processRules(route.incomingRules),
+      outgoingRules: processRules(route.outgoingRules),
+      delay: route.delay || 0,
+    };
+    const result = validateWebSocketConfig(config);
+    if (!result.valid) {
+      return { ok: false, error: { label, error: result.error || 'Invalid WebSocket route', raw: route } };
+    }
+    const key = route.name ? `WS:${route.url}|${route.name}` : `WS:${route.url}`;
+    return { ok: true, built: { raw: route, key, config, routeType, label } };
+  }
+
+  // HTTP
+  const label = labelFor(route, `${route.method || '?'} ${route.url || ''}`.trim());
+  if (!route.method || !String(route.method).trim()) {
+    return { ok: false, error: { label, error: 'HTTP route must have a method', raw: route } };
+  }
+  if (!route.url || !String(route.url).trim()) {
+    return { ok: false, error: { label, error: 'HTTP route must have a URL', raw: route } };
+  }
+  if (route.status !== undefined && (route.status < 100 || route.status > 599)) {
+    return { ok: false, error: { label, error: 'Status code must be between 100 and 599', raw: route } };
+  }
+
+  const headersOnly = route.headersOnly === true || route.interceptionMode === 'passthrough';
+  const interceptionMode = route.interceptionMode || (headersOnly ? 'passthrough' : 'mock');
+
+  const config: RouteConfig = {
+    status: route.status ?? 200,
+    delay: route.delay || 0,
+    contentType: route.contentType || 'application/json',
+    response: route.response,
+    enabled: route.enabled !== false,
+    timestamp: Date.now(),
+    name: route.name,
+    responseHeaders: route.responseHeaders || {},
+    requestHeaders: route.requestHeaders || {},
+    removeRequestHeaders: route.removeRequestHeaders || [],
+    headersOnly,
+    interceptionMode,
+    redirectUrl: route.redirectUrl || '',
+    requestBody: route.requestBody || '',
+    queryParamRules: Array.isArray(route.queryParamRules) ? route.queryParamRules : [],
+    graphqlOperationName: route.graphqlOperationName || '',
+  };
+  const result = validateHttpConfig(config);
+  if (!result.valid) {
+    return { ok: false, error: { label, error: result.error || 'Invalid HTTP route', raw: route } };
+  }
+  const key = route.name ? `${route.method}:${route.url}|${route.name}` : `${route.method}:${route.url}`;
+  return { ok: true, built: { raw: route, key, config, routeType, label } };
+};
+
 
 const TemplatesTab: React.FC = () => {
   const { addNotification, setActiveTab, addRoute } = useAppStore();
 
   const [schemaInput, setSchemaInput] = useState('');
-  const [parsedRoutes, setParsedRoutes] = useState<any[]>([]);
+  const [parsedRoutes, setParsedRoutes] = useState<BuiltRoute[]>([]);
+  const [parseErrors, setParseErrors] = useState<BuildError[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
@@ -55,58 +185,52 @@ const TemplatesTab: React.FC = () => {
       return;
     }
 
-    // Enhanced validation for both HTTP and WebSocket routes
-    const validRoutes = schema.routes.filter((route: any) => {
-      // Set default routeType if not specified
-      if (!route.routeType) {
-        // If it has WebSocket-specific fields, treat as WebSocket
-        if (route.incomingRules || route.outgoingRules) {
-          route.routeType = 'websocket';
-        } else {
-          route.routeType = 'http';
-        }
-      }
-
-      if (route.routeType === 'websocket') {
-        // WebSocket route validation
-        const hasValidRules = (
-          (route.incomingRules && Array.isArray(route.incomingRules) && route.incomingRules.length > 0) ||
-          (route.outgoingRules && Array.isArray(route.outgoingRules) && route.outgoingRules.length > 0)
-        );
-        
-        return route.url && hasValidRules;
+    const valid: BuiltRoute[] = [];
+    const errors: BuildError[] = [];
+    schema.routes.forEach((route: any) => {
+      const result = buildRoute(route);
+      if (result.ok) {
+        valid.push(result.built);
       } else {
-        // HTTP route validation
-        const hasValidResponse = route.response !== undefined;
-        const hasHeaders = (
-          (route.responseHeaders && Object.keys(route.responseHeaders).length > 0) ||
-          (route.requestHeaders && Object.keys(route.requestHeaders).length > 0) ||
-          (route.removeRequestHeaders && Array.isArray(route.removeRequestHeaders) && route.removeRequestHeaders.length > 0)
-        );
-        const isHeadersOnly = route.headersOnly === true;
-        
-        return route.method && route.url && (hasValidResponse || isHeadersOnly || hasHeaders);
+        errors.push(result.error);
       }
     });
 
-    if (validRoutes.length === 0) {
+    setParsedRoutes(valid);
+    setParseErrors(errors);
+    setShowPreview(valid.length > 0 || errors.length > 0);
+
+    if (errors.length > 0) {
+      const summary = errors
+        .slice(0, 3)
+        .map((e) => `${e.label}: ${e.error}`)
+        .join(' · ');
+      const more = errors.length > 3 ? ` (+${errors.length - 3} more)` : '';
       addNotification({
-        title: 'Error',
-        message: 'No valid routes found in schema',
+        title: `${errors.length} route${errors.length === 1 ? '' : 's'} rejected`,
+        message: `${summary}${more}`,
         type: 'error',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
-      return;
     }
 
-    setParsedRoutes(validRoutes);
-    setShowPreview(true);
-    addNotification({
-      title: 'Success',
-      message: `Parsed ${validRoutes.length} routes successfully`,
-      type: 'success',
-      timestamp: Date.now()
-    });
+    if (valid.length > 0) {
+      addNotification({
+        title: 'Parsed',
+        message: `${valid.length} valid route${valid.length === 1 ? '' : 's'} ready to import${
+          errors.length > 0 ? `, ${errors.length} skipped` : ''
+        }`,
+        type: errors.length > 0 ? 'warning' : 'success',
+        timestamp: Date.now(),
+      });
+    } else if (errors.length === 0) {
+      addNotification({
+        title: 'Error',
+        message: 'No routes found in schema',
+        type: 'error',
+        timestamp: Date.now(),
+      });
+    }
   };
 
   const handleImportRoutes = async () => {
@@ -124,84 +248,53 @@ const TemplatesTab: React.FC = () => {
 
     try {
       let importedCount = 0;
+      const failures: { label: string; error: string }[] = [];
 
-      for (const route of parsedRoutes) {
-        let routeKey: string;
-        let routeConfig: RouteConfig | WebSocketConfig;
-
-        if (route.routeType === 'websocket') {
-          // WebSocket route
-          routeKey = route.name 
-            ? `WS:${route.url}|${route.name}`
-            : `WS:${route.url}`;
-
-          // Ensure rules have proper structure with IDs
-          const processRules = (rules: any[] = []) => {
-            return rules.map((rule, index) => ({
-              id: rule.id || `rule-${Date.now()}-${index}`,
-              enabled: rule.enabled !== false,
-              type: rule.type || 'replace',
-              matchType: rule.matchType || 'contains',
-              match: rule.match || '',
-              replacement: rule.replacement || '',
-              flags: rule.flags || '',
-              description: rule.description || ''
-            }));
-          };
-
-          routeConfig = {
-            enabled: route.enabled !== false,
-            timestamp: Date.now(),
-            name: route.name,
-            incomingRules: processRules(route.incomingRules),
-            outgoingRules: processRules(route.outgoingRules),
-            delay: route.delay || 0
-          } as WebSocketConfig;
-        } else {
-          // HTTP route
-          routeKey = route.name 
-            ? `${route.method}:${route.url}|${route.name}`
-            : `${route.method}:${route.url}`;
-
-          routeConfig = {
-            status: route.status || 200,
-            delay: route.delay || 0,
-            contentType: route.contentType || 'application/json',
-            response: route.response,
-            enabled: route.enabled !== false,
-            timestamp: Date.now(),
-            name: route.name,
-            responseHeaders: route.responseHeaders || {},
-            requestHeaders: route.requestHeaders || {},
-            removeRequestHeaders: route.removeRequestHeaders || [],
-            headersOnly: route.headersOnly || false
-          } as RouteConfig;
-        }
-
+      for (const built of parsedRoutes) {
         try {
-          await chromeApi.addRoute(routeKey, routeConfig, route.name);
-          addRoute(routeKey, routeConfig);
+          await chromeApi.addRoute(built.key, built.config, built.raw.name);
+          addRoute(built.key, built.config);
           importedCount++;
         } catch (error) {
-          console.error('Failed to import route:', route, error);
+          const msg = error instanceof Error ? error.message : String(error);
+          console.error('Failed to import route:', built, error);
+          failures.push({ label: built.label, error: msg });
         }
 
         // Small delay to prevent overwhelming the background script
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise((resolve) => setTimeout(resolve, 50));
       }
 
-      addNotification({
-        title: 'Success',
-        message: `Successfully imported ${importedCount} routes`,
-        type: 'success',
-        timestamp: Date.now()
-      });
+      if (importedCount > 0) {
+        addNotification({
+          title: 'Success',
+          message: `Successfully imported ${importedCount} route${importedCount === 1 ? '' : 's'}`,
+          type: 'success',
+          timestamp: Date.now()
+        });
+      }
 
-      // Reset and navigate to routes tab
-      setSchemaInput('');
-      setParsedRoutes([]);
-      setShowPreview(false);
-      setActiveTab('routes');
+      if (failures.length > 0) {
+        const summary = failures
+          .slice(0, 3)
+          .map((f) => `${f.label}: ${f.error}`)
+          .join(' · ');
+        const more = failures.length > 3 ? ` (+${failures.length - 3} more)` : '';
+        addNotification({
+          title: `${failures.length} route${failures.length === 1 ? '' : 's'} skipped`,
+          message: `${summary}${more}`,
+          type: 'error',
+          timestamp: Date.now()
+        });
+      }
+
+      if (importedCount > 0 && failures.length === 0) {
+        setSchemaInput('');
+        setParsedRoutes([]);
+        setParseErrors([]);
+        setShowPreview(false);
+        setActiveTab('routes');
+      }
       
     } catch (error) {
       console.error('Error importing routes:', error);
@@ -293,12 +386,38 @@ const TemplatesTab: React.FC = () => {
         </Card.Body>
       </Card>
 
+      {/* Validation errors */}
+      {showPreview && parseErrors.length > 0 && (
+        <Card className="border-(--accent-rose)">
+          <Card.Header>
+            <div className="flex items-center gap-2 text-(--accent-rose)">
+              <span className="font-semibold">
+                {parseErrors.length} route{parseErrors.length === 1 ? '' : 's'} rejected
+              </span>
+            </div>
+          </Card.Header>
+          <Card.Body className="space-y-2">
+            {parseErrors.map((e, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3 p-3 rounded-sm border border-[rgba(244,63,94,0.3)] bg-[rgba(244,63,94,0.08)]"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-mono text-sm text-(--text-primary) truncate">{e.label}</div>
+                  <div className="text-xs text-(--accent-rose) mt-0.5">{e.error}</div>
+                </div>
+              </div>
+            ))}
+          </Card.Body>
+        </Card>
+      )}
+
       {/* Preview */}
       {showPreview && parsedRoutes.length > 0 && (
         <RoutePreviews
-          parsedRoutes={parsedRoutes}
+          parsedRoutes={parsedRoutes.map((b) => ({ ...b.raw, _builtKey: b.key }))}
           setShowPreview={setShowPreview}
-          setParsedRoutes={setParsedRoutes}
+          setParsedRoutes={() => setParsedRoutes([])}
           handleImportRoutes={handleImportRoutes}
           isImporting={isImporting}
         />

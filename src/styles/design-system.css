@@ -806,6 +806,23 @@ mark.ds-search-highlight {
 .ds-badge.options { background: var(--bg-surface); color: var(--text-tertiary); }
 .ds-badge.head { background: var(--bg-surface); color: var(--text-tertiary); }
 
+/* Interactive Badge (new Badge.tsx) */
+.ui-badge--interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  filter: brightness(1.08);
+}
+
+.ui-badge--interactive:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
+}
+
+.ui-badge--interactive:focus-visible {
+  outline: 2px solid var(--accent-indigo);
+  outline-offset: 2px;
+}
+
 /* ============================================
    Component: Floating Action Button
    ============================================ */

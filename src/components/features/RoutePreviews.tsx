@@ -19,8 +19,9 @@ const RoutePreviews: React.FC<RoutePreviewsProps> = ({
     handleImportRoutes,
     isImporting
 }) => {
-    const httpCount = parsedRoutes.filter(r => r.routeType !== 'websocket').length;
+    const httpCount = parsedRoutes.filter(r => r.routeType === 'http' || (!r.routeType && r.method)).length;
     const wsCount = parsedRoutes.filter(r => r.routeType === 'websocket').length;
+    const injCount = parsedRoutes.filter(r => r.routeType === 'injection').length;
 
     return (
         <Card className="border-[var(--accent-cyan)]">
@@ -38,6 +39,11 @@ const RoutePreviews: React.FC<RoutePreviewsProps> = ({
                             {wsCount > 0 && (
                                 <span className="px-2 py-1 bg-[rgba(139,92,246,0.15)] text-[var(--accent-violet)] rounded-[var(--radius-sm)] text-xs font-medium">
                                     {wsCount} WebSocket
+                                </span>
+                            )}
+                            {injCount > 0 && (
+                                <span className="px-2 py-1 bg-[rgba(99,102,241,0.15)] text-(--accent-indigo) rounded-sm text-xs font-medium">
+                                    {injCount} Injection
                                 </span>
                             )}
                         </div>

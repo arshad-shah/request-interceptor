@@ -26,8 +26,12 @@ export const chromeApi = {
   },
 
   // Add or update a route
-  addRoute: (route: string, config: RouteConfig | WebSocketConfig | InjectionConfig, name?: string): Promise<{ success: boolean; isUpdate: boolean }> => {
-    return sendMessage({ action: 'addRoute', route, config, name });
+  addRoute: async (route: string, config: RouteConfig | WebSocketConfig | InjectionConfig, name?: string): Promise<{ success: boolean; isUpdate: boolean }> => {
+    const response = await sendMessage<{ success: boolean; isUpdate: boolean; error?: string }>({ action: 'addRoute', route, config, name });
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to add route');
+    }
+    return response;
   },
 
   // Remove a route
