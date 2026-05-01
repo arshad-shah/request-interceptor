@@ -59,7 +59,7 @@ const RequestConfigSection: React.FC<RequestConfigSectionProps> = ({
       placeholder="e.g. GetUsers, CreatePost"
       value={formData.graphqlOperationName}
       onChange={(e) => onFieldChange('graphqlOperationName', e.target.value)}
-      leftIcon={<Search size={14} />}
+      leftIcon={<Search />}
       helperText="When set, only intercept GraphQL requests with this operation name"
     />
 
@@ -79,7 +79,7 @@ const RequestConfigSection: React.FC<RequestConfigSectionProps> = ({
         min={0}
         value={formData.delay}
         onChange={(e) => onFieldChange('delay', parseInt(e.target.value) || 0)}
-        leftIcon={<Clock size={14} />}
+        leftIcon={<Clock />}
         error={errors.delay}
         helperText="Delay before processing the request"
       />

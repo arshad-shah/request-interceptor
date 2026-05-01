@@ -213,10 +213,12 @@ export class NetworkManager {
       }
 
       console.log(`[NetworkManager] Debugger attached to tab ${tabId}`);
+      this.sendMessage({ type: 'NETWORK_DEBUGGER_ATTACHED', tabId });
       return true;
     } catch (e) {
       console.error(`[NetworkManager] Failed to attach debugger to tab ${tabId}:`, e);
       this.debuggerAttached.set(tabId, false);
+      this.sendMessage({ type: 'NETWORK_DEBUGGER_DETACHED', tabId, reason: String(e) });
       return false;
     }
   }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { StorageType } from '@/types/storage';
 import ReactAceEditor from '@/components/common/ReactAceEditor';
+import Input from '@/components/ui/Input';
 
 interface StorageEditorProps {
   storageType: StorageType;
@@ -61,18 +62,15 @@ const StorageEditor: React.FC<StorageEditorProps> = ({
           <button className="ds-icon-btn" onClick={onCancel}><X size={16} /></button>
         </div>
         <div className="ds-modal-body space-y-3">
-          <div>
-            <label className="ds-label mb-1 block">Key</label>
-            <input
-              type="text"
-              className="ds-input"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              disabled={!isNew}
-              placeholder="Enter key..."
-              autoFocus={isNew}
-            />
-          </div>
+          <Input
+            label="Key"
+            size="sm"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            disabled={!isNew}
+            placeholder="Enter key..."
+            autoFocus={isNew}
+          />
           <div>
             <label className="ds-label mb-1 block">Value</label>
             <ReactAceEditor

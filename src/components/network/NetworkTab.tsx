@@ -12,6 +12,7 @@ import {
   Download,
   PanelBottomClose,
   PanelRightClose,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   useNetworkStore,
@@ -33,6 +34,7 @@ import {
   downloadFile,
   addNetworkMessageListener,
   getCurrentTabId,
+  getDebuggerStatus,
 } from '../../lib/network-api';
 import NetworkStats from './NetworkStats';
 import NetworkFilters from './NetworkFilters';
@@ -94,16 +96,28 @@ export function NetworkTab() {
       if (!tabId) return;
       currentTabIdRef.current = tabId;
 
-      // Load existing requests (don't auto-attach debugger — recording starts off)
       const { requests, settings } = await getRequests(tabId);
       setRequests(requests);
       updateSettings(settings);
+
+      // Reflect ground truth: ask the background whether the debugger is currently attached.
+      // If recording is on but the debugger isn't attached (e.g. service-worker restart, prior
+      // session left it detached), attempt to attach now so the UI matches reality.
+      const recording = useNetworkStore.getState().settings.recording;
+      const realAttached = await getDebuggerStatus(tabId);
+
+      if (recording && !realAttached) {
+        const attached = await attachDebugger(tabId);
+        setDebuggerAttached(attached);
+      } else {
+        setDebuggerAttached(realAttached);
+      }
 
       isInitializedRef.current = true;
     };
 
     initialize();
-  }, [setRequests, updateSettings]);
+  }, [setRequests, updateSettings, setDebuggerAttached]);
 
   // ─── Handle Recording State Changes (after initialization) ─────────────────
   useEffect(() => {
@@ -139,6 +153,12 @@ export function NetworkTab() {
         isRecording
       ) {
         setRequests(message.requests as NetworkRequest[]);
+      }
+      if (
+        message.type === 'NETWORK_DEBUGGER_ATTACHED' &&
+        message.tabId === currentTabIdRef.current
+      ) {
+        setDebuggerAttached(true);
       }
       if (
         message.type === 'NETWORK_DEBUGGER_DETACHED' &&
@@ -346,10 +366,10 @@ export function NetworkTab() {
             <span className="ds-status-dot" />
             <span>{isRecording ? 'Recording' : 'Paused'}</span>
           </div>
-          {/* Debugger warning - inline in toolbar */}
-          {!debuggerAttached && (
+          {/* Only warn when recording is on but debugger detached unexpectedly. */}
+          {isRecording && !debuggerAttached && (
             <div className="flex items-center gap-1.5 px-2 py-1 bg-[rgba(245,158,11,0.15)] border border-[rgba(245,158,11,0.3)] rounded text-[11px] text-[var(--accent-amber)]">
-              <span>⚠</span>
+              <AlertTriangle size={12} />
               <span>Debugger not attached</span>
             </div>
           )}

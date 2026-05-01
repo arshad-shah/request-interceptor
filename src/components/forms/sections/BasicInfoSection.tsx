@@ -35,7 +35,7 @@ const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
         }
         value={formData.name}
         onChange={(e) => onFieldChange('name', e.target.value)}
-        leftIcon={<Tag size={14} />}
+        leftIcon={<Tag />}
         helperText="Give your route a descriptive name to easily identify it"
       />
 
@@ -48,7 +48,7 @@ const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
         }
         value={formData.url}
         onChange={(e) => onFieldChange('url', e.target.value)}
-        leftIcon={<Link size={14} />}
+        leftIcon={<Link />}
         error={errors.url}
         helperText={
           isWebSocket

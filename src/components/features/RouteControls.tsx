@@ -134,7 +134,7 @@ const RouteControls: React.FC = () => {
                 placeholder="Search routes by URL, method, or description..."
                 value={filters.search}
                 onChange={(e) => setFilters({ search: e.target.value })}
-                leftIcon={<Search size={14} />}
+                leftIcon={<Search />}
                 clearable
                 onClear={() => setFilters({ search: '' })}
               />

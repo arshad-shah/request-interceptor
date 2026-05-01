@@ -34,7 +34,6 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
   responseBody: null,
   filters: DEFAULT_FILTERS,
   settings: DEFAULT_SETTINGS,
-  isRecording: true,
   debuggerAttached: false,
   stats: {
     requestCount: 0,
@@ -174,8 +173,7 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
 
   toggleRecording: () => {
     set((state) => ({
-      isRecording: !state.isRecording,
-      settings: { ...state.settings, recording: !state.isRecording },
+      settings: { ...state.settings, recording: !state.settings.recording },
     }));
   },
 
@@ -311,7 +309,7 @@ export const useNetworkSettings = () =>
 export const useNetworkStats = () => useNetworkStore((state) => state.stats);
 
 export const useIsRecording = () =>
-  useNetworkStore((state) => state.isRecording);
+  useNetworkStore((state) => state.settings.recording);
 
 export const useDebuggerAttached = () =>
   useNetworkStore((state) => state.debuggerAttached);

@@ -2,6 +2,7 @@ import React from 'react';
 import { Search, Bookmark, GitCompare, Regex } from 'lucide-react';
 import { useEventsStore } from '@/stores/events-store';
 import { EventCategory } from '@/types/events';
+import Input from '@/components/ui/Input';
 
 const CATEGORIES: Array<{ label: string; value: 'all' | EventCategory }> = [
   { label: 'All', value: 'all' },
@@ -16,26 +17,27 @@ const EventFilters: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-2 p-2 border-b border-[var(--border-subtle)]">
-      {/* Search */}
-      <div className="ds-search-wrap">
-        <Search size={14} />
-        <input
-          type="text"
-          className="ds-search-input"
-          placeholder="Search events..."
-          value={filters.search}
-          onChange={(e) => setFilters({ search: e.target.value })}
-        />
-        <div className="absolute right-2 flex items-center gap-1">
+      <Input
+        size="sm"
+        placeholder="Search events..."
+        value={filters.search}
+        onChange={(e) => setFilters({ search: e.target.value })}
+        leftIcon={<Search />}
+        clearable
+        onClear={() => setFilters({ search: '' })}
+        rightIcon={
           <button
+            type="button"
             className={`ds-icon-btn sm ${filters.useRegex ? 'active' : ''}`}
             onClick={() => setFilters({ useRegex: !filters.useRegex })}
             title="Regex search"
+            aria-label="Toggle regex search"
+            tabIndex={-1}
           >
-            <Regex size={12} />
+            <Regex />
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Category filters + actions */}
       <div className="flex items-center gap-2 flex-wrap">

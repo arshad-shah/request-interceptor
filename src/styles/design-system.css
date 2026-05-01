@@ -307,7 +307,7 @@
   align-items: center;
 }
 
-.ds-search-wrap svg {
+.ds-search-wrap > svg {
   position: absolute;
   left: 10px;
   width: 14px;

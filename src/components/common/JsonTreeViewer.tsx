@@ -37,6 +37,7 @@ import {
   Link2,
 } from 'lucide-react';
 import { copyToClipboard } from '../../lib/network-api';
+import Input from '@/components/ui/Input';
 
 // ============================================================================
 // Types
@@ -734,37 +735,32 @@ export function JsonTreeViewer({
 
           <div className="jt-toolbar-center">
             {searchable && (
-              <div className="jt-search-box">
-                <Search size={12} className="jt-search-icon" />
-                <input
+              <div className="flex-1 max-w-[220px] min-w-[140px]">
+                <Input
                   ref={searchInputRef}
-                  type="text"
+                  size="sm"
                   value={searchTerm}
-                  onChange={e => performSearch(e.target.value)}
+                  onChange={(e) => performSearch(e.target.value)}
                   placeholder="Search... (Ctrl+F)"
-                  className="jt-search-input"
-                  onKeyDown={e => {
+                  leftIcon={<Search />}
+                  clearable
+                  onClear={() => performSearch('')}
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       goToNextMatch();
                     }
                   }}
+                  rightIcon={
+                    searchTerm ? (
+                      <span className="jt-search-count">
+                        {matchedList.length > 0
+                          ? `${currentMatchIdx + 1}/${matchedList.length}`
+                          : '0'}
+                      </span>
+                    ) : undefined
+                  }
                 />
-                {searchTerm && (
-                  <>
-                    <span className="jt-search-count">
-                      {matchedList.length > 0 
-                        ? `${currentMatchIdx + 1}/${matchedList.length}`
-                        : '0'}
-                    </span>
-                    <button 
-                      onClick={() => performSearch('')}
-                      className="jt-search-clear"
-                    >
-                      <X size={12} />
-                    </button>
-                  </>
-                )}
               </div>
             )}
           </div>

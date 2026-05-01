@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import ReactAceEditor from '@/components/common/ReactAceEditor';
+import Input from '@/components/ui/Input';
 
 interface CookieEditorProps {
   initialCookie?: {
@@ -69,14 +70,20 @@ const CookieEditor: React.FC<CookieEditorProps> = ({
         </div>
         <div className="ds-modal-body space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="ds-label mb-1 block">Name</label>
-              <input className="ds-input" value={name} onChange={e => setName(e.target.value)} disabled={!isNew} autoFocus={isNew} />
-            </div>
-            <div>
-              <label className="ds-label mb-1 block">Domain</label>
-              <input className="ds-input" value={domain} onChange={e => setDomain(e.target.value)} />
-            </div>
+            <Input
+              label="Name"
+              size="sm"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={!isNew}
+              autoFocus={isNew}
+            />
+            <Input
+              label="Domain"
+              size="sm"
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+            />
           </div>
           <div>
             <label className="ds-label mb-1 block">Value</label>
@@ -91,22 +98,31 @@ const CookieEditor: React.FC<CookieEditorProps> = ({
             />
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="ds-label mb-1 block">Path</label>
-              <input className="ds-input" value={path} onChange={e => setPath(e.target.value)} />
-            </div>
-            <div>
-              <label className="ds-label mb-1 block">SameSite</label>
-              <select className="ds-select" value={sameSite} onChange={e => setSameSite(e.target.value)}>
+            <Input
+              label="Path"
+              size="sm"
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+            />
+            <div className="flex flex-col gap-1.5">
+              <label className="ds-label font-medium text-[10px]">SameSite</label>
+              <select
+                className="ds-select sm"
+                value={sameSite}
+                onChange={(e) => setSameSite(e.target.value)}
+              >
                 <option value="lax">Lax</option>
                 <option value="strict">Strict</option>
                 <option value="no_restriction">None</option>
               </select>
             </div>
-            <div>
-              <label className="ds-label mb-1 block">Expires (days)</label>
-              <input className="ds-input" type="number" value={expirationDays} onChange={e => setExpirationDays(e.target.value)} />
-            </div>
+            <Input
+              label="Expires (days)"
+              size="sm"
+              type="number"
+              value={expirationDays}
+              onChange={(e) => setExpirationDays(e.target.value)}
+            />
           </div>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)] cursor-pointer">

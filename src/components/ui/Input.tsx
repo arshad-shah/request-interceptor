@@ -72,20 +72,30 @@ const variantStyles: Record<InputVariant, string> = {
   `,
 };
 
-const sizeStyles: Record<InputSize, { input: string; icon: string; label: string }> = {
+const sizeStyles: Record<
+  InputSize,
+  { input: string; icon: string; iconSlot: string; label: string }
+> = {
   sm: {
     input: 'h-8 px-2.5 text-[11px] rounded-[var(--radius-sm)]',
     icon: 'w-3.5 h-3.5',
+    // Slot has explicit dimensions; any SVG inside fills it. Consumers pass <Icon /> with no size.
+    iconSlot:
+      'flex items-center justify-center w-3.5 h-3.5 [&>svg]:w-full [&>svg]:h-full [&>svg]:shrink-0',
     label: 'text-[10px]',
   },
   md: {
     input: 'h-9 px-3 text-[12px] rounded-[var(--radius-md)]',
     icon: 'w-4 h-4',
+    iconSlot:
+      'flex items-center justify-center w-4 h-4 [&>svg]:w-full [&>svg]:h-full [&>svg]:shrink-0',
     label: 'text-[10px]',
   },
   lg: {
     input: 'h-11 px-4 text-[13px] rounded-[var(--radius-md)]',
     icon: 'w-5 h-5',
+    iconSlot:
+      'flex items-center justify-center w-5 h-5 [&>svg]:w-full [&>svg]:h-full [&>svg]:shrink-0',
     label: 'text-[11px]',
   },
 };
@@ -213,10 +223,12 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       // Loading spinner
       if (loading) {
         items.push(
-          <Loader2
+          <span
             key="loading"
-            className={clsx(sizeStyle.icon, 'animate-spin text-[var(--text-tertiary)]')}
-          />
+            className={clsx(sizeStyle.iconSlot, 'animate-spin text-[var(--text-tertiary)]')}
+          >
+            <Loader2 />
+          </span>
         );
       }
 
@@ -227,11 +239,14 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             key="clear"
             type="button"
             onClick={handleClear}
-            className="p-0.5 rounded hover:bg-[var(--bg-hover)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+            className={clsx(
+              sizeStyle.iconSlot,
+              'p-0.5 rounded hover:bg-[var(--bg-hover)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors',
+            )}
             tabIndex={-1}
             aria-label="Clear input"
           >
-            <X className={sizeStyle.icon} />
+            <X />
           </button>
         );
       }
@@ -243,15 +258,14 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             key="password"
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="p-0.5 rounded hover:bg-[var(--bg-hover)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+            className={clsx(
+              sizeStyle.iconSlot,
+              'p-0.5 rounded hover:bg-[var(--bg-hover)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors',
+            )}
             tabIndex={-1}
             aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
-            {showPassword ? (
-              <EyeOff className={sizeStyle.icon} />
-            ) : (
-              <Eye className={sizeStyle.icon} />
-            )}
+            {showPassword ? <EyeOff /> : <Eye />}
           </button>
         );
       }
@@ -259,10 +273,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       // Status icon
       if (status !== 'default' && statusStyle.icon && !loading) {
         items.push(
-          <span key="status" className={sizeStyle.icon}>
-            {React.cloneElement(statusStyle.icon as React.ReactElement, {
-              className: sizeStyle.icon,
-            })}
+          <span key="status" className={sizeStyle.iconSlot}>
+            {statusStyle.icon}
           </span>
         );
       }
@@ -270,7 +282,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       // Custom right icon
       if (rightIcon && !loading) {
         items.push(
-          <span key="rightIcon" className={clsx(sizeStyle.icon, 'text-[var(--text-tertiary)]')}>
+          <span
+            key="rightIcon"
+            className={clsx(sizeStyle.iconSlot, 'text-[var(--text-tertiary)]')}
+          >
             {rightIcon}
           </span>
         );
@@ -279,7 +294,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       if (items.length === 0) return null;
 
       return (
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
           {items}
         </div>
       );
@@ -316,8 +331,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           {leftIcon && (
             <span
               className={clsx(
-                'absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none',
-                sizeStyle.icon,
+                'absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none',
+                sizeStyle.iconSlot,
                 disabled && 'opacity-50'
               )}
             >

@@ -60,7 +60,7 @@ const InterceptionModeSection: React.FC<InterceptionModeSectionProps> = ({
         placeholder="https://other-api.example.com/endpoint"
         value={formData.redirectUrl}
         onChange={(e) => onFieldChange('redirectUrl', e.target.value)}
-        leftIcon={<ExternalLink size={14} />}
+        leftIcon={<ExternalLink />}
         error={(errors as any).redirectUrl}
         helperText="The URL to redirect the request to"
       />

@@ -22,7 +22,7 @@ const WebSocketSection: React.FC<WebSocketSectionProps> = ({
       min={0}
       value={formData.delay}
       onChange={(e) => onFieldChange('delay', parseInt(e.target.value) || 0)}
-      leftIcon={<Clock size={14} />}
+      leftIcon={<Clock />}
       error={errors.delay}
       helperText="Delay before processing WebSocket messages"
     />

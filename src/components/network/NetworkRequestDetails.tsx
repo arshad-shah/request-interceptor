@@ -82,6 +82,7 @@ import {
   CopyButton,
 } from './components';
 import { JsonTreeViewer } from '../common/JsonTreeViewer';
+import Input from '@/components/ui/Input';
 
 // ============================================================================
 // Types
@@ -566,20 +567,16 @@ export function NetworkRequestDetails({
           </div>
 
           {/* Search */}
-          <div className="flex-1 min-w-[180px] max-w-[300px] flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-base)] rounded-[var(--radius-sm)] border border-[var(--border-subtle)]">
-            <Search size={12} className="text-[var(--text-tertiary)] flex-shrink-0" />
-            <input
-              type="text"
+          <div className="flex-1 min-w-[180px] max-w-[300px]">
+            <Input
+              size="sm"
               value={wsSearch}
-              onChange={e => setWsSearch(e.target.value)}
+              onChange={(e) => setWsSearch(e.target.value)}
               placeholder="Filter messages..."
-              className="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] min-w-0"
+              leftIcon={<Search />}
+              clearable
+              onClear={() => setWsSearch('')}
             />
-            {wsSearch && (
-              <button onClick={() => setWsSearch('')} className="ds-icon-btn p-0.5 flex-shrink-0">
-                <X size={10} />
-              </button>
-            )}
           </div>
 
           {/* Stats */}
@@ -1154,25 +1151,19 @@ export function NetworkRequestDetails({
       {/* ─── Search Bar ─────────────────────────────────────────────────────── */}
       {isSearchVisible && (
         <div className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)]">
-          <Search size={14} className="text-[var(--text-tertiary)] flex-shrink-0" />
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Search headers, body, cookies..."
-            className="flex-1 bg-transparent border-none outline-none text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
-            autoFocus
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="ds-icon-btn"
-              title="Clear"
-            >
-              <X size={14} />
-            </button>
-          )}
+          <div className="flex-1 min-w-0">
+            <Input
+              ref={searchInputRef}
+              size="sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search headers, body, cookies..."
+              leftIcon={<Search />}
+              clearable
+              onClear={() => setSearchTerm('')}
+              autoFocus
+            />
+          </div>
           <button
             onClick={() => {
               setIsSearchVisible(false);

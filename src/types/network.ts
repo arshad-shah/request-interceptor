@@ -231,7 +231,6 @@ export interface NetworkState {
   // UI State
   filters: NetworkFilters;
   settings: NetworkSettings;
-  isRecording: boolean;
   debuggerAttached: boolean;
 
   // Stats
@@ -289,6 +288,7 @@ export type NetworkMessageType =
   | 'NETWORK_ATTACH_DEBUGGER'
   | 'NETWORK_DETACH_DEBUGGER'
   | 'NETWORK_GET_DEBUGGER_STATUS'
+  | 'NETWORK_DEBUGGER_ATTACHED'
   | 'NETWORK_DEBUGGER_DETACHED';
 
 export interface NetworkMessage {

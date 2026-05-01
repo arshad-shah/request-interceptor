@@ -6,6 +6,7 @@ import StorageStats from './StorageStats';
 import StorageList from './StorageList';
 import StorageEditor from './StorageEditor';
 import CookieEditor from './CookieEditor';
+import Input from '@/components/ui/Input';
 
 const STORAGE_TABS: Array<{ id: StorageType; label: string; color: string }> = [
   { id: 'localStorage', label: 'Local', color: 'var(--accent-blue)' },
@@ -295,14 +296,15 @@ const StorageTab: React.FC = () => {
 
       {/* Search + actions bar */}
       <div className="flex items-center gap-2 p-2 border-b border-[var(--border-subtle)]">
-        <div className="ds-search-wrap flex-1">
-          <Search size={14} />
-          <input
-            type="text"
-            className="ds-search-input"
+        <div className="flex-1 min-w-0">
+          <Input
+            size="sm"
             placeholder="Search items..."
             value={search}
             onChange={(e) => actions().setSearch(e.target.value)}
+            leftIcon={<Search />}
+            clearable
+            onClear={() => actions().setSearch('')}
           />
         </div>
         {activeStorageTab !== 'indexedDB' && (
