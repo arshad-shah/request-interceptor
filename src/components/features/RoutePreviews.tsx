@@ -24,13 +24,12 @@ const RoutePreviews: React.FC<RoutePreviewsProps> = ({
     const injCount = parsedRoutes.filter(r => r.routeType === 'injection').length;
 
     return (
-        <Card className="border-[var(--accent-cyan)]">
+        <Card>
             <Card.Header>
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-4 min-w-0">
 
-                        {/* Simple route type counts */}
-                        <div className="flex items-center gap-2 text-sm text-[var(--text-tertiary)]">
+                        <div className="flex items-center gap-1.5 flex-wrap text-(--text-tertiary)">
                             {httpCount > 0 && (
                                 <span className="px-2 py-1 bg-[rgba(16,185,129,0.15)] text-[var(--accent-emerald)] rounded-[var(--radius-sm)] text-xs font-medium">
                                     {httpCount} HTTP

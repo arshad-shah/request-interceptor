@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import {
   FileCode,
   Upload,
-  Code
+  Code,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, validateJson } from '@/lib/chrome-api';
@@ -346,73 +347,80 @@ const TemplatesTab: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-
-      {/* Schema Import */}
+    <div className="space-y-3">
       <Card>
         <Card.Header>
-          <div className="flex items-center gap-2">
-            <FileCode className="w-5 h-5 text-primary-500" />
-            <span>JSON Schema Import</span>
+          <div className="flex items-center gap-2 text-(--text-primary)">
+            <FileCode size={14} className="text-(--text-tertiary)" />
+            <span className="ds-panel-title">Import routes from JSON</span>
           </div>
         </Card.Header>
-        
-        <Card.Body className="space-y-4">
+
+        <Card.Body className="space-y-3">
           <ReactAceEditor
             value={schemaInput}
             onChange={setSchemaInput}
             language="json"
-            height={250}
-            placeholder="Paste your JSON schema here..."
+            height={220}
+            placeholder='Paste a routes schema, e.g. { "routes": [ ... ] }'
           />
-          
-          <div className="flex w-full items-end gap-3">
+
+          <div className="flex items-center justify-end gap-2">
             <Button
-              variant="secondary"
+              variant="default"
+              size="sm"
               onClick={handleFileImport}
-              leftIcon={<Upload className="w-4 h-4" />}
+              leftIcon={<Upload size={14} />}
             >
-              Import from File
+              From file
             </Button>
-            
+
             <Button
               variant="primary"
+              size="sm"
               onClick={handleParseSchema}
-              leftIcon={<Code className="w-4 h-4" />}
+              leftIcon={<Code size={14} />}
             >
-              Parse Schema
+              Parse
             </Button>
           </div>
         </Card.Body>
       </Card>
 
-      {/* Validation errors */}
       {showPreview && parseErrors.length > 0 && (
-        <Card className="border-(--accent-rose)">
-          <Card.Header>
+        <div className="ds-panel">
+          <div
+            className="ds-panel-header"
+            style={{
+              background: 'rgba(244,63,94,0.08)',
+              borderBottomColor: 'rgba(244,63,94,0.25)',
+            }}
+          >
             <div className="flex items-center gap-2 text-(--accent-rose)">
-              <span className="font-semibold">
-                {parseErrors.length} route{parseErrors.length === 1 ? '' : 's'} rejected
+              <AlertTriangle size={14} />
+              <span className="ds-panel-title text-(--accent-rose)">
+                {parseErrors.length} rejected
               </span>
             </div>
-          </Card.Header>
-          <Card.Body className="space-y-2">
+          </div>
+          <div className="ds-panel-body space-y-1.5">
             {parseErrors.map((e, i) => (
               <div
                 key={i}
-                className="flex items-start gap-3 p-3 rounded-sm border border-[rgba(244,63,94,0.3)] bg-[rgba(244,63,94,0.08)]"
+                className="flex items-baseline gap-2 py-1.5 border-b border-(--border-subtle) last:border-b-0"
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-mono text-sm text-(--text-primary) truncate">{e.label}</div>
-                  <div className="text-xs text-(--accent-rose) mt-0.5">{e.error}</div>
-                </div>
+                <span className="font-mono text-[12px] text-(--text-primary) truncate min-w-0 max-w-[40%]">
+                  {e.label}
+                </span>
+                <span className="text-[11px] text-(--accent-rose) flex-1 min-w-0">
+                  {e.error}
+                </span>
               </div>
             ))}
-          </Card.Body>
-        </Card>
+          </div>
+        </div>
       )}
 
-      {/* Preview */}
       {showPreview && parsedRoutes.length > 0 && (
         <RoutePreviews
           parsedRoutes={parsedRoutes.map((b) => ({ ...b.raw, _builtKey: b.key }))}
@@ -423,7 +431,7 @@ const TemplatesTab: React.FC = () => {
         />
       )}
 
-        <CollapsibleSchemaExamples />
+      <CollapsibleSchemaExamples />
     </div>
   );
 };
