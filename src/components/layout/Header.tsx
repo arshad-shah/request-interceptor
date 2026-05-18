@@ -1,8 +1,8 @@
 import { chromeApi } from "@/lib/chrome-api";
 import { useAppStore } from "@/stores/app-store";
 import React from 'react';
-import { Zap } from "lucide-react";
 import Toggle from "@/components/ui/Toggle";
+import BrandMark from "@/components/common/BrandMark";
 
 const Header: React.FC = () => {
   const { enabled, setEnabled, addNotification } = useAppStore();
@@ -26,9 +26,7 @@ const Header: React.FC = () => {
   return (
     <header className="flex items-center justify-between px-4 py-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-[var(--radius-md)] bg-[var(--accent-indigo)] flex items-center justify-center">
-          <Zap size={18} className="text-white" />
-        </div>
+        <BrandMark size={32} className="rounded-[var(--radius-md)]" />
         <div>
           <h1 className="text-[15px] font-bold tracking-tight text-[var(--text-primary)]">
             Request Interceptor

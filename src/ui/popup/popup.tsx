@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Zap, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
+import BrandMark from '@/components/common/BrandMark';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi, addMessageListener } from '@/lib/chrome-api';
 // Import custom UI components
@@ -63,7 +64,9 @@ const Popup: React.FC = () => {
       // Get the current window first
       const currentWindow = await chrome.windows.getCurrent();
 
+      // extforge-ignore-compat: chrome.sidePanel — runtime-guarded; Firefox/Safari fall through to the new-tab fallback below
       if (currentWindow?.id && chrome.sidePanel) {
+        // extforge-ignore-compat: chrome.sidePanel.open — only reached when sidePanel API is present
         await chrome.sidePanel.open({ windowId: currentWindow.id });
       } else {
         // Alternative: open the extension page in a new tab
@@ -97,9 +100,7 @@ const Popup: React.FC = () => {
         {/* Header Card */}
         <div className="bg-[var(--accent-indigo)] rounded-[var(--radius-lg)] p-4">
           <div className="flex items-center justify-center gap-3">
-            <div className="w-10 h-10 flex items-center justify-center bg-white/20 rounded-[var(--radius-md)]">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
+            <BrandMark size={40} className="rounded-[var(--radius-md)] shadow-sm" />
             <div className="text-center">
               <h1 className="text-lg font-bold text-white">Request Interceptor</h1>
               <p className="text-xs text-white/70">Chrome Extension</p>

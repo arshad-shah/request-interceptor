@@ -454,9 +454,11 @@ class StateManager {
   async openSidePanel(): Promise<void> {
     console.log('[Background] Opening side panel');
     try {
+      // extforge-ignore-compat: chrome.sidePanel — runtime-guarded; Firefox/Safari fall through to error branch
       if (chrome.sidePanel) {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab.id) {
+          // extforge-ignore-compat: chrome.sidePanel.open — only reached when sidePanel API is present
           chrome.sidePanel.open({ windowId: tab.windowId });
         } else {
           throw new Error('No active tab found');
