@@ -1,5 +1,4 @@
 import React from 'react';
-import { Route as RouteIcon } from 'lucide-react';
 import RouteControls from './RouteControls';
 import RouteList from './RouteList';
 import RouteTypeTabs from './RouteTypeTabs';

@@ -1,0 +1,53 @@
+name: Bug report
+description: Something isn't working the way it should.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to reproduce, including the route/interception config if relevant.
+      placeholder: |
+        1. Add a route with URL `…` matching `…`, mode `mock`.
+        2. Enable interception.
+        3. Reload `https://example.com`.
+        4. Observe …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: "e.g. Chrome 139.0.7258.139 on macOS 15.2"
+    validations:
+      required: true
+  - type: input
+    id: extension-version
+    attributes:
+      label: Extension version
+      placeholder: "e.g. 3.1.0 (see chrome://extensions or the popup)"
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Console / background errors
+      description: Any errors from the page console or `chrome://extensions` → "service worker" → Inspect.
+      render: shell
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
