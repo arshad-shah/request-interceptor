@@ -64,7 +64,6 @@ const Popup: React.FC = () => {
       const currentWindow = await chrome.windows.getCurrent();
 
       if (currentWindow?.id && chrome.sidePanel) {
-        // @ts-expect-error -- sidePanel.open is not yet in the @types/chrome typings
         await chrome.sidePanel.open({ windowId: currentWindow.id });
       } else {
         // Alternative: open the extension page in a new tab

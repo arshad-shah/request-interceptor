@@ -1,3 +1,11 @@
+// ExtForge's bundler emits react-refresh wrapper calls even in production builds.
+// Defining these as no-ops before any component module evaluates prevents
+// "$RefreshReg$ is not a function" at load time.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const g = globalThis as any;
+g.$RefreshReg$ ||= () => {};
+g.$RefreshSig$ ||= () => (type: unknown) => type;
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import Popup from './popup';
