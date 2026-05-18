@@ -11,17 +11,17 @@ export default defineConfig({
     description: 'Developer toolkit for intercepting API responses, monitoring events, and inspecting browser storage',
     icons: {
       '16': 'icons/icon-16.png',
+      '32': 'icons/icon-32.png',
       '48': 'icons/icon-48.png',
       '128': 'icons/icon-128.png',
-      '512': 'icons/icon-512.png',
     },
     action: {
       defaultPopup: 'ui/popup/index.html',
       defaultIcon: {
         '16': 'icons/icon-16.png',
+        '32': 'icons/icon-32.png',
         '48': 'icons/icon-48.png',
         '128': 'icons/icon-128.png',
-        '512': 'icons/icon-512.png',
       },
     },
     background: { entrypoint: 'background/index.js' },
