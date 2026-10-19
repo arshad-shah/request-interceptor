@@ -6,6 +6,8 @@
 import {
   shouldIntercept,
   getStatusText,
+  type HttpRouteConfig,
+  type InterceptRoutes,
   type LogFn
 } from './interceptor-helpers';
 import { applyQueryParamRules } from '../query-params';
@@ -23,10 +25,13 @@ function shortUrl(url: string): string {
 
 export interface XHRInterceptorState {
   isActive: () => boolean;
-  getRoutes: () => Record<string, any>;
+  getRoutes: () => InterceptRoutes;
 }
 
 type HeaderEntry = [name: string, value: string];
+
+/** Full argument list of XMLHttpRequest.open (method, url, async, user, password). */
+type OpenArgs = Parameters<XMLHttpRequest['open']>;
 
 /** RFC 7230 token: what XMLHttpRequest accepts as a header name. */
 const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
@@ -34,12 +39,12 @@ const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 interface TrackedXHR extends XMLHttpRequest {
   _interceptUrl?: string;
   _interceptMethod?: string;
-  _interceptOpenRest?: any[];
+  _interceptOpenRest?: unknown[];
   _interceptHeaders?: HeaderEntry[];
 }
 
 /** Apply a route's header removals/overrides to the headers the page set. */
-function applyHeaderRules(headers: HeaderEntry[], config: any, log: LogFn): HeaderEntry[] {
+function applyHeaderRules(headers: HeaderEntry[], config: HttpRouteConfig, log: LogFn): HeaderEntry[] {
   const remove = new Set<string>(
     (config.removeRequestHeaders || []).map((name: string) => name.toLowerCase())
   );
@@ -81,12 +86,12 @@ export function setupXHRInterceptor(
   originalXHRSend: typeof XMLHttpRequest.prototype.send,
   originalXHRSetRequestHeader: typeof XMLHttpRequest.prototype.setRequestHeader
 ): void {
-  XMLHttpRequest.prototype.open = function(this: TrackedXHR, method: string, url: string | URL, ...rest: any[]) {
+  XMLHttpRequest.prototype.open = function(this: TrackedXHR, method: string, url: string | URL, ...rest: unknown[]) {
     this._interceptUrl = String(url);
     this._interceptMethod = method;
     this._interceptOpenRest = rest;
     this._interceptHeaders = [];
-    return originalXHROpen.apply(this, [method, url, ...rest] as any);
+    return originalXHROpen.apply(this, [method, url, ...rest] as OpenArgs);
   };
 
   XMLHttpRequest.prototype.setRequestHeader = function(this: TrackedXHR, name: string, value: string) {
@@ -110,7 +115,7 @@ export function setupXHRInterceptor(
     };
     const reopen = (newUrl: string) => {
       const rest = this._interceptOpenRest?.length ? this._interceptOpenRest : [true];
-      originalXHROpen.apply(this, [this._interceptMethod, newUrl, ...rest] as any);
+      originalXHROpen.apply(this, [this._interceptMethod, newUrl, ...rest] as OpenArgs);
     };
 
     if (!state.isActive()) {

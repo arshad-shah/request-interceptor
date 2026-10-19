@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { setupWebSocketInterceptor, processMessage } from '../interceptors/ws-interceptor';
+import {
+  setupWebSocketInterceptor,
+  processMessage,
+  type ActiveSocket,
+  type WSRouteConfig,
+} from '../interceptors/ws-interceptor';
 
 const noopLog = () => {};
 
@@ -8,14 +13,14 @@ class FakeWebSocket extends EventTarget {
   static instances: FakeWebSocket[] = [];
   readyState = 1;
   binaryType: BinaryType = 'blob';
-  sent: any[] = [];
+  sent: unknown[] = [];
   onmessage: ((e: MessageEvent) => void) | null = null;
   constructor(public url: string) {
     super();
     FakeWebSocket.instances.push(this);
     this.addEventListener('message', (e) => this.onmessage?.(e as MessageEvent));
   }
-  send(data: any) {
+  send(data: unknown) {
     this.sent.push(data);
   }
   close() {
@@ -24,7 +29,7 @@ class FakeWebSocket extends EventTarget {
   }
 }
 
-const routes = {
+const routes: Record<string, WSRouteConfig> = {
   'WS:wss://feed.test/socket': {
     enabled: true,
     incomingRules: [
@@ -59,7 +64,7 @@ describe('setupWebSocketInterceptor', () => {
   });
 
   function install() {
-    const active = new Map<WebSocket, any>();
+    const active = new Map<WebSocket, ActiveSocket>();
     setupWebSocketInterceptor(
       { getWebSocketRoutes: () => routes },
       noopLog,
