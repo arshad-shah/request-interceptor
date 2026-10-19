@@ -84,21 +84,21 @@ export function processMessage(
   const rules = direction === 'incoming' ? config.incomingRules : config.outgoingRules;
   if (!rules || rules.length === 0) return { result: message, blocked: false };
 
-  let processedMessage = message;
+  let processedMessage: string;
   let injectedMessage: any = null;
 
-  // Convert to string for processing
-  if (typeof processedMessage !== 'string') {
-    if (processedMessage instanceof ArrayBuffer) {
-      processedMessage = new TextDecoder().decode(processedMessage);
-    } else if (processedMessage instanceof Blob) {
-      return { result: processedMessage, blocked: false };
-    } else if (typeof processedMessage === 'object') {
-      try { processedMessage = JSON.stringify(processedMessage); } catch { processedMessage = String(processedMessage); }
-    } else {
-      processedMessage = String(processedMessage);
-    }
+  // Rules match text. Binary frames are decoded only for matching and are
+  // forwarded unchanged (still binary) unless a rule actually rewrites them.
+  if (typeof message === 'string') {
+    processedMessage = message;
+  } else if (message instanceof ArrayBuffer || ArrayBuffer.isView(message)) {
+    processedMessage = new TextDecoder().decode(message as ArrayBuffer | ArrayBufferView);
+  } else if (message instanceof Blob) {
+    return { result: message, blocked: false };
+  } else {
+    processedMessage = String(message);
   }
+  let rewritten = false;
 
   for (const rule of rules) {
     if (!rule.enabled) continue;
@@ -113,7 +113,11 @@ export function processMessage(
       if (checkRuleMatch(processedMessage, rule, log)) {
         switch (rule.type) {
           case 'replace':
-            processedMessage = applyReplacement(processedMessage, rule, log);
+            {
+              const replaced = applyReplacement(processedMessage, rule, log);
+              rewritten ||= replaced !== processedMessage;
+              processedMessage = replaced;
+            }
             log(`WebSocket ${direction} message replaced: ${rule.description || 'No description'}`);
             pageToast(`WS ${direction} replaced`, 'info', { detail: rule.description });
             break;
@@ -133,7 +137,11 @@ export function processMessage(
     }
   }
 
-  return { result: processedMessage, blocked: false, injected: injectedMessage };
+  return {
+    result: rewritten || typeof message === 'string' ? processedMessage : message,
+    blocked: false,
+    injected: injectedMessage,
+  };
 }
 
 /** Check if a WebSocket URL should be intercepted */
@@ -185,6 +193,8 @@ export function setupWebSocketInterceptor(
       const interceptedWs = Object.create(originalWebSocket.prototype);
 
       activeWebSockets.set(interceptedWs, { config, realWs, url: wsUrl });
+      // Forget the socket however it closes (server, network or page)
+      realWs.addEventListener('close', () => activeWebSockets.delete(interceptedWs));
 
       // Proxy read-only properties
       ['url', 'readyState', 'bufferedAmount', 'extensions', 'protocol'].forEach(prop => {
@@ -192,6 +202,12 @@ export function setupWebSocketInterceptor(
           get() { return (realWs as any)[prop]; },
           configurable: true
         });
+      });
+
+      Object.defineProperty(interceptedWs, 'binaryType', {
+        get() { return realWs.binaryType; },
+        set(value: BinaryType) { realWs.binaryType = value; },
+        configurable: true
       });
 
       // Incoming message interceptor
@@ -256,10 +272,12 @@ export function setupWebSocketInterceptor(
       };
 
       // Proxy event handlers
+      const pageHandlers: Record<string, any> = {};
       ['onopen', 'onclose', 'onerror', 'onmessage'].forEach(prop => {
         Object.defineProperty(interceptedWs, prop, {
-          get() { return (realWs as Record<string, any>)[prop]; },
+          get() { return pageHandlers[prop] ?? null; },
           set(handler) {
+            pageHandlers[prop] = handler;
             if (prop === 'onmessage' && handler) {
               realWs[prop] = interceptIncomingMessage(handler);
             } else {
@@ -271,15 +289,33 @@ export function setupWebSocketInterceptor(
       });
 
       // Proxy addEventListener/removeEventListener
-      interceptedWs.addEventListener = function(type: string, listener: any, options?: any) {
-        if (type === 'message' && listener) {
-          return realWs.addEventListener(type, interceptIncomingMessage(listener), options);
+      // Wrapped listeners are remembered per (listener, type) so removal works
+      const wrappedListeners = new WeakMap<object, Map<string, any>>();
+      const wrapListener = (type: string, listener: any) => {
+        let byType = wrappedListeners.get(listener);
+        if (!byType) {
+          byType = new Map();
+          wrappedListeners.set(listener, byType);
         }
-        return realWs.addEventListener(type, listener ? listener.bind(interceptedWs) : listener, options);
+        let wrapped = byType.get(type);
+        if (!wrapped) {
+          const call = typeof listener === 'function'
+            ? (event: Event) => listener.call(interceptedWs, event)
+            : (event: Event) => listener.handleEvent(event);
+          wrapped = type === 'message' ? interceptIncomingMessage(call) : call;
+          byType.set(type, wrapped);
+        }
+        return wrapped;
+      };
+
+      interceptedWs.addEventListener = function(type: string, listener: any, options?: any) {
+        if (!listener) return realWs.addEventListener(type, listener, options);
+        return realWs.addEventListener(type, wrapListener(type, listener), options);
       };
 
       interceptedWs.removeEventListener = function(type: string, listener: any, options?: any) {
-        return realWs.removeEventListener(type, listener, options);
+        const wrapped = listener ? wrappedListeners.get(listener)?.get(type) : undefined;
+        return realWs.removeEventListener(type, wrapped ?? listener, options);
       };
 
       interceptedWs.dispatchEvent = function(event: Event) {
@@ -298,6 +334,9 @@ export function setupWebSocketInterceptor(
     log(`→ Not intercepting WebSocket: ${wsUrl}`);
     return new originalWebSocket(url, protocols);
   };
+
+  // Keep `ws instanceof WebSocket` true for intercepted and native sockets
+  (window as any).WebSocket.prototype = originalWebSocket.prototype;
 
   // Copy static properties
   (window as any).WebSocket.CONNECTING = 0;
