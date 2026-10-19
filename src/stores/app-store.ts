@@ -81,9 +81,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ enabled });
     if (!enabled) {
       set({ eventMonitorEnabled: false });
-      if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
-        chrome.runtime.sendMessage({ action: 'setEventMonitorEnabled', enabled: false });
-      }
     }
   },
   setEventMonitorEnabled: (enabled) => set({ eventMonitorEnabled: enabled }),
@@ -295,12 +292,3 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   }
 }));
-
-// Hydrate eventMonitorEnabled from background state on first load
-if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
-  chrome.runtime.sendMessage({ action: 'getState' }, (response) => {
-    if (response?.eventMonitorEnabled !== undefined) {
-      useAppStore.getState().setEventMonitorEnabled(response.eventMonitorEnabled);
-    }
-  });
-}

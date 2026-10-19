@@ -9,14 +9,12 @@ const Header: React.FC = () => {
 
   const handleToggle = async (isEnabled: boolean) => {
     try {
-      const response = await chromeApi.toggleEnabled(isEnabled);
-      if (response.success) {
-        setEnabled(isEnabled);
-      }
+      await chromeApi.toggleEnabled(isEnabled);
+      setEnabled(isEnabled);
     } catch (error) {
       addNotification({
-        title: 'Error',
-        message: 'Failed to toggle interceptor',
+        title: 'Could not toggle interception',
+        message: error instanceof Error ? error.message : 'Unknown error',
         type: 'error',
         timestamp: Date.now()
       });

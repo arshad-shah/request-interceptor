@@ -145,11 +145,6 @@ export interface NotificationAction {
   action: () => void;
 }
 
-export interface ChromeMessage {
-  action: string;
-  [key: string]: any;
-}
-
 export type TabId = 'routes' | 'templates' | 'network' | 'events' | 'storage';
 
 export interface RouteFormData {

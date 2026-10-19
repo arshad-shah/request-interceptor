@@ -2,6 +2,9 @@ import React, { useEffect, useCallback, useState, useMemo } from 'react';
 import { RefreshCw, Download, Upload, Plus, Trash2, Search, Database } from 'lucide-react';
 import { useStorageStore } from '@/stores/storage-store';
 import { StorageType, StorageItem, CookieItem } from '@/types/storage';
+import { request } from '@/lib/messaging';
+import { downloadFile } from '@/lib/chrome-api';
+import type { StorageAction } from '@/core/messaging/protocol';
 import StorageStats from './StorageStats';
 import StorageList from './StorageList';
 import StorageEditor from './StorageEditor';
@@ -35,72 +38,57 @@ const StorageTab: React.FC = () => {
   const [cookieAddModal, setCookieAddModal] = useState(false);
   const [importInput, setImportInput] = useState<HTMLInputElement | null>(null);
 
-  const getTabId = useCallback((): Promise<number | undefined> => {
-    return new Promise(resolve => {
-      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-        setTabUrl(tabs[0]?.url || '');
-        resolve(tabs[0]?.id);
-      });
-    });
+  const [error, setError] = useState<string | null>(null);
+
+  const getActiveTab = useCallback(async (): Promise<{ id?: number; url: string }> => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    setTabUrl(tab?.url || '');
+    return { id: tab?.id, url: tab?.url || '' };
+  }, []);
+
+  /** Run a storage operation, surfacing failures instead of silently doing nothing. */
+  const attempt = useCallback(async (operation: () => Promise<unknown>) => {
+    try {
+      setError(null);
+      await operation();
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      return false;
+    }
   }, []);
 
   const loadStorage = useCallback(async () => {
     const { setLoading, setLocalStorageItems, setSessionStorageItems, setCookies, setIndexedDBs, updateStats } = actions();
     setLoading(true);
-    const tabId = await getTabId();
-    if (!tabId) { setLoading(false); return; }
-
-    // Get localStorage + sessionStorage
-    chrome.runtime.sendMessage({ type: 'GET_ALL_STORAGE', tabId }, (response) => {
-      if (response) {
-        const localItems: StorageItem[] = Object.entries(response.localStorage || {}).map(([key, value]) => ({
-          key,
-          value: value as string,
-          size: (key.length + (value as string).length) * 2,
-          type: detectType(value as string),
-        }));
-        const sessionItems: StorageItem[] = Object.entries(response.sessionStorage || {}).map(([key, value]) => ({
-          key,
-          value: value as string,
-          size: (key.length + (value as string).length) * 2,
-          type: detectType(value as string),
-        }));
+    try {
+      const { id: tabId, url } = await getActiveTab();
+      if (!tabId) return;
+      await attempt(async () => {
+        const [web, cookieList, idb] = await Promise.all([
+          request('GET_WEB_STORAGE', { tabId }),
+          url ? request('GET_COOKIES', { url }) : Promise.resolve([]),
+          request('STORAGE_ACTION', { tabId, action: { type: 'GET_INDEXEDDB_INFO' } }),
+        ]);
+        const localItems = toItems(web.localStorage);
+        const sessionItems = toItems(web.sessionStorage);
         setLocalStorageItems(localItems);
         setSessionStorageItems(sessionItems);
+        setCookies(cookieList);
+        setIndexedDBs(idb.databases ?? []);
         updateStats({
           localStorageCount: localItems.length,
-          localStorageSize: response.localStorageSize || 0,
+          localStorageSize: web.localStorageSize,
           sessionStorageCount: sessionItems.length,
-          sessionStorageSize: response.sessionStorageSize || 0,
+          sessionStorageSize: web.sessionStorageSize,
+          cookiesCount: cookieList.length,
+          indexedDBCount: idb.databases?.length ?? 0,
         });
-      }
-    });
-
-    // Get cookies
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const url = tabs[0]?.url;
-      if (!url) return;
-      chrome.runtime.sendMessage({ type: 'GET_COOKIES', url }, (response) => {
-        if (response?.cookies) {
-          setCookies(response.cookies);
-          updateStats({ cookiesCount: response.cookies.length });
-        }
       });
-    });
-
-    // Get IndexedDB info
-    chrome.runtime.sendMessage({
-      type: 'EXECUTE_STORAGE_ACTION',
-      tabId,
-      action: { type: 'GET_INDEXEDDB_INFO' },
-    }, (response) => {
-      if (response?.databases) {
-        setIndexedDBs(response.databases);
-        updateStats({ indexedDBCount: response.databases.length });
-      }
+    } finally {
       setLoading(false);
-    });
-  }, [getTabId]);
+    }
+  }, [getActiveTab, attempt]);
 
   useEffect(() => {
     loadStorage();
@@ -115,112 +103,88 @@ const StorageTab: React.FC = () => {
     }
   };
 
-  const handleDelete = async (key: string) => {
-    const tabId = await getTabId();
-    if (!tabId) return;
+  /** Apply a page storage action to the active tab, then reload. */
+  const runAction = async (action: StorageAction) => {
+    const { id: tabId } = await getActiveTab();
+    if (!tabId) return false;
+    const ok = await attempt(() => request('STORAGE_ACTION', { tabId, action }));
+    await loadStorage();
+    return ok;
+  };
 
+  const handleDelete = async (key: string) => {
     if (activeStorageTab === 'cookies') {
-      chrome.runtime.sendMessage({ type: 'DELETE_COOKIE', url: tabUrl, name: key }, () => loadStorage());
+      await attempt(() => request('DELETE_COOKIE', { url: tabUrl, name: key }));
+      await loadStorage();
     } else if (activeStorageTab === 'indexedDB') {
-      chrome.runtime.sendMessage({
-        type: 'EXECUTE_STORAGE_ACTION',
-        tabId,
-        action: { type: 'DELETE_INDEXEDDB', dbName: key },
-      }, () => loadStorage());
+      await runAction({ type: 'DELETE_INDEXEDDB', dbName: key });
     } else {
-      const actionType = activeStorageTab === 'localStorage' ? 'DELETE_LOCAL' : 'DELETE_SESSION';
-      chrome.runtime.sendMessage({
-        type: 'EXECUTE_STORAGE_ACTION',
-        tabId,
-        action: { type: actionType, key },
-      }, () => loadStorage());
+      await runAction({ type: activeStorageTab === 'localStorage' ? 'DELETE_LOCAL' : 'DELETE_SESSION', key });
     }
   };
 
   const handleSave = async (key: string, value: string) => {
-    const tabId = await getTabId();
-    if (!tabId) return;
-
-    const actionType = activeStorageTab === 'localStorage' ? 'SET_LOCAL' : 'SET_SESSION';
-    chrome.runtime.sendMessage({
-      type: 'EXECUTE_STORAGE_ACTION',
-      tabId,
-      action: { type: actionType, key, value },
-    }, () => {
+    const ok = await runAction({ type: activeStorageTab === 'localStorage' ? 'SET_LOCAL' : 'SET_SESSION', key, value });
+    if (ok) {
       setEditModal(null);
       setAddModal(false);
-      loadStorage();
-    });
+    }
   };
 
-  const handleCookieSave = (cookie: Record<string, unknown>) => {
-    chrome.runtime.sendMessage({ type: 'SET_COOKIE', cookie }, () => {
+  const handleCookieSave = async (cookie: Record<string, unknown>) => {
+    const ok = await attempt(() => request('SET_COOKIE', { cookie: cookie as unknown as chrome.cookies.SetDetails }));
+    if (ok) {
       setCookieEditModal(null);
       setCookieAddModal(false);
-      loadStorage();
-    });
+    }
+    await loadStorage();
   };
 
   const handleClear = async () => {
-    const tabId = await getTabId();
-    if (!tabId) return;
-
-    if (activeStorageTab === 'localStorage') {
-      chrome.runtime.sendMessage({
-        type: 'EXECUTE_STORAGE_ACTION', tabId, action: { type: 'CLEAR_LOCAL' },
-      }, () => loadStorage());
-    } else if (activeStorageTab === 'sessionStorage') {
-      chrome.runtime.sendMessage({
-        type: 'EXECUTE_STORAGE_ACTION', tabId, action: { type: 'CLEAR_SESSION' },
-      }, () => loadStorage());
-    }
+    if (activeStorageTab === 'localStorage') await runAction({ type: 'CLEAR_LOCAL' });
+    else if (activeStorageTab === 'sessionStorage') await runAction({ type: 'CLEAR_SESSION' });
   };
 
   const handleExport = () => {
     const data: Record<string, unknown> = {};
     if (activeStorageTab === 'localStorage') {
-      localStorageItems.forEach(i => { (data as Record<string, string>)[i.key] = i.value; });
+      localStorageItems.forEach(i => { data[i.key] = i.value; });
     } else if (activeStorageTab === 'sessionStorage') {
-      sessionStorageItems.forEach(i => { (data as Record<string, string>)[i.key] = i.value; });
+      sessionStorageItems.forEach(i => { data[i.key] = i.value; });
     } else if (activeStorageTab === 'cookies') {
       data.cookies = cookies;
     }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${activeStorageTab}-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadFile(JSON.stringify(data, null, 2), `${activeStorageTab}-${Date.now()}.json`);
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    try {
-      const data = JSON.parse(text);
-      const tabId = await getTabId();
-      if (!tabId) return;
-
-      if (activeStorageTab === 'localStorage' || activeStorageTab === 'sessionStorage') {
-        const actionPrefix = activeStorageTab === 'localStorage' ? 'SET_LOCAL' : 'SET_SESSION';
-        const entries = Object.entries(data);
-        for (const [key, value] of entries) {
-          await new Promise<void>(resolve => {
-            chrome.runtime.sendMessage({
-              type: 'EXECUTE_STORAGE_ACTION',
-              tabId,
-              action: { type: actionPrefix, key, value: String(value) },
-            }, () => resolve());
-          });
-        }
-        loadStorage();
-      }
-    } catch {
-      console.error('Invalid JSON file');
-    }
     if (importInput) importInput.value = '';
+    if (!file || (activeStorageTab !== 'localStorage' && activeStorageTab !== 'sessionStorage')) return;
+
+    let data: unknown;
+    try {
+      data = JSON.parse(await file.text());
+    } catch {
+      setError(`${file.name} is not valid JSON`);
+      return;
+    }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      setError('Import expects a JSON object of key/value pairs');
+      return;
+    }
+    const { id: tabId } = await getActiveTab();
+    if (!tabId) return;
+    const type = activeStorageTab === 'localStorage' ? 'SET_LOCAL' : 'SET_SESSION';
+    await attempt(async () => {
+      for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+        await request('STORAGE_ACTION', {
+          tabId,
+          action: { type, key, value: typeof value === 'string' ? value : JSON.stringify(value) },
+        });
+      }
+    });
+    await loadStorage();
   };
 
   const handleAdd = () => {
@@ -278,6 +242,13 @@ const StorageTab: React.FC = () => {
           />
         </div>
       </div>
+
+      {error && (
+        <div role="alert" className="mx-2 mt-2 px-3 py-2 text-[12px] rounded-[var(--radius-md)] bg-[rgba(244,63,94,0.1)] border border-[rgba(244,63,94,0.3)] text-[var(--accent-rose)] flex items-start justify-between gap-2">
+          <span>{error}</span>
+          <button className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]" onClick={() => setError(null)} aria-label="Dismiss error">✕</button>
+        </div>
+      )}
 
       <StorageStats />
 
@@ -369,11 +340,23 @@ const StorageTab: React.FC = () => {
   );
 };
 
-function detectType(value: string): 'string' | 'json' | 'number' | 'boolean' {
-  try { JSON.parse(value); return 'json'; } catch { /* */ }
-  if (value === 'true' || value === 'false') return 'boolean';
-  if (!isNaN(Number(value)) && value.trim() !== '') return 'number';
+function detectType(value: string): StorageItem['type'] {
+  const trimmed = value.trim();
+  if (trimmed === 'true' || trimmed === 'false') return 'boolean';
+  if (trimmed !== '' && !isNaN(Number(trimmed))) return 'number';
+  if (/^[[{]/.test(trimmed)) {
+    try { JSON.parse(trimmed); return 'json'; } catch { /* not JSON */ }
+  }
   return 'string';
+}
+
+function toItems(entries: Record<string, string>): StorageItem[] {
+  return Object.entries(entries).map(([key, value]) => ({
+    key,
+    value,
+    size: (key.length + value.length) * 2,
+    type: detectType(value),
+  }));
 }
 
 export default StorageTab;

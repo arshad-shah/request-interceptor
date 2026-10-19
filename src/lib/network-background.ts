@@ -13,101 +13,17 @@ import {
 } from '../core/network-buffers';
 import { logger } from './logger';
 import { NETWORK_PANEL_PORT } from '../types/network';
+import type { MessageRouter } from '../core/messaging/router';
+import { emit } from './messaging';
 
 const log = logger.child('network');
 
-// ============================================
-// Types
-// ============================================
-
-interface NetworkHeader {
-  name: string;
-  value: string;
-}
-
-interface NetworkTiming {
-  startTime?: number;
-  dnsStart?: number;
-  dnsEnd?: number;
-  connectStart?: number;
-  connectEnd?: number;
-  sslStart?: number;
-  sslEnd?: number;
-  sendStart?: number;
-  sendEnd?: number;
-  receiveHeadersEnd?: number;
-  responseStart?: number;
-  responseEnd?: number;
-}
-
-interface NetworkRequest {
-  requestId: string;
-  tabId: number;
-  frameId?: number;
-  url: string;
-  hostname: string;
-  pathname: string;
-  filename: string;
-  query: string;
-  method: string;
-  type: string;
-  resourceType?: string;
-  initiator?: string;
-  requestHeaders: NetworkHeader[];
-  responseHeaders: NetworkHeader[];
-  hasPostData?: boolean;
-  postData?: string;
-  statusCode?: number;
-  statusLine?: string;
-  mimeType?: string;
-  contentType?: string;
-  protocol?: string;
-  size?: number;
-  encodedSize?: number;
-  encodedDataLength?: number;
-  startTime: number;
-  duration?: number;
-  timing?: NetworkTiming;
-  status: 'pending' | 'loading' | 'complete' | 'error';
-  error?: string;
-  fromCache?: boolean;
-  fromServiceWorker?: boolean;
-  ip?: string;
-  remoteIPAddress?: string;
-  remotePort?: number;
-  redirectedTo?: string;
-  responseBody?: ResponseBody;
-  // WebSocket specific fields
-  wsFramesSent?: number;
-  wsFramesReceived?: number;
-  wsSentSize?: number;
-  wsReceivedSize?: number;
-  wsFrames?: WebSocketFrame[];
-}
-
-interface ResponseBody {
-  body: string;
-  base64Encoded: boolean;
-  mimeType?: string;
-  truncated?: boolean;
-}
-
-interface WebSocketFrame {
-  type: 'sent' | 'received';
-  timestamp: number;
-  opcode: number; // 1 = text, 2 = binary
-  data: string;
-  length: number;
-  mask?: boolean;
-  truncated?: boolean;
-}
-
-interface NetworkSettings {
-  preserveLog: boolean;
-  recording: boolean;
-  disableCache: boolean;
-  showWaterfall: boolean;
-}
+import type {
+  NetworkHeader,
+  NetworkRequest,
+  NetworkSettings,
+  ResponseBody,
+} from '../types/network';
 
 // ============================================
 // Constants
@@ -159,7 +75,6 @@ export class NetworkManager {
 
   constructor() {
     this.setupDebuggerHandlers();
-    this.setupMessageHandlers();
     this.setupTabHandlers();
     this.setupPanelConnections();
   }
@@ -180,12 +95,7 @@ export class NetworkManager {
       this.debuggerAttached.delete(tabId);
       log.debug('Debugger detached', { tabId, reason });
 
-      // Notify UI
-      this.sendMessage({
-        type: 'NETWORK_DEBUGGER_DETACHED',
-        tabId,
-        reason,
-      });
+      emit('NETWORK_DEBUGGER_DETACHED', { tabId, reason });
     });
   }
 
@@ -205,14 +115,6 @@ export class NetworkManager {
           if (attached) void this.detachDebugger(tabId);
         }
       });
-    });
-  }
-
-  private setupMessageHandlers(): void {
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      if (!message.type?.startsWith('NETWORK_')) return false;
-      this.handleMessage(message, sender, sendResponse);
-      return true;
     });
   }
 
@@ -260,12 +162,12 @@ export class NetworkManager {
       }
 
       log.debug('Debugger attached', { tabId });
-      this.sendMessage({ type: 'NETWORK_DEBUGGER_ATTACHED', tabId });
+      emit('NETWORK_DEBUGGER_ATTACHED', { tabId });
       return true;
     } catch (e) {
       log.error('Failed to attach debugger', { tabId, error: String(e) });
       this.debuggerAttached.set(tabId, false);
-      this.sendMessage({ type: 'NETWORK_DEBUGGER_DETACHED', tabId, reason: String(e) });
+      emit('NETWORK_DEBUGGER_DETACHED', { tabId, reason: String(e) });
       return false;
     }
   }
@@ -748,100 +650,39 @@ export class NetworkManager {
   }
 
   private broadcastUpdate(tabId: number): void {
-    this.sendMessage({
-      type: 'NETWORK_REQUESTS_UPDATED',
-      tabId,
-      requests: this.getRequestSummaries(tabId),
-    });
-  }
-
-  private sendMessage(message: any): void {
-    chrome.runtime.sendMessage(message).catch(() => {
-      // UI might not be open
-    });
+    emit('NETWORK_REQUESTS_UPDATED', { tabId, requests: this.getRequestSummaries(tabId) });
   }
 
   // ============================================
   // Message Handling
   // ============================================
 
-  private async handleMessage(
-    message: any,
-    sender: chrome.runtime.MessageSender,
-    sendResponse: (response: any) => void
-  ): Promise<void> {
-    try {
-      switch (message.type) {
-        case 'NETWORK_GET_REQUESTS':
-          sendResponse({
-            requests: this.getRequestSummaries(message.tabId),
-            settings: this.settings,
-            attached: this.debuggerAttached.get(message.tabId) || false,
-          });
-          break;
-
-        case 'NETWORK_GET_REQUEST_DETAILS':
-          await this.handleGetRequestDetails(message, sendResponse);
-          break;
-
-        case 'NETWORK_GET_RESPONSE_BODY':
-          await this.handleGetResponseBody(message, sendResponse);
-          break;
-
-        case 'NETWORK_CLEAR_REQUESTS':
-          this.clearTabRequests(message.tabId);
-          sendResponse({ success: true });
-          break;
-
-        case 'NETWORK_UPDATE_SETTINGS':
-          this.settings = { ...this.settings, ...message.settings };
-          if ('disableCache' in message.settings) {
-            await this.updateCacheSettings();
-          }
-          sendResponse({ success: true, settings: this.settings });
-          break;
-
-        case 'NETWORK_GET_SETTINGS':
-          sendResponse({ settings: this.settings });
-          break;
-
-        case 'NETWORK_EXPORT_HAR': {
-          const har = await this.generateHAR(message.tabId);
-          sendResponse({ har });
-          break;
-        }
-
-        case 'NETWORK_REPLAY_REQUEST': {
-          const result = await this.replayRequest(message.request);
-          sendResponse({ result });
-          break;
-        }
-
-        case 'NETWORK_ATTACH_DEBUGGER': {
-          const attached = await this.attachDebugger(message.tabId);
-          sendResponse({ success: attached, attached });
-          break;
-        }
-
-        case 'NETWORK_DETACH_DEBUGGER':
-          await this.detachDebugger(message.tabId);
-          sendResponse({ success: true });
-          break;
-
-        case 'NETWORK_GET_DEBUGGER_STATUS':
-          sendResponse({ attached: this.debuggerAttached.get(message.tabId) || false });
-          break;
-
-        default:
-          sendResponse({ success: false, error: 'Unknown action' });
-      }
-    } catch (error) {
-      log.error('Error handling message', { type: message.type, error: String(error) });
-      sendResponse({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
+  /** Register this manager's requests on the background router. */
+  register(router: MessageRouter): void {
+    router
+      .on('NETWORK_GET_REQUESTS', ({ tabId }) => ({
+        requests: this.getRequestSummaries(tabId),
+        settings: this.settings,
+        attached: this.debuggerAttached.get(tabId) || false,
+      }))
+      .on('NETWORK_GET_REQUEST_DETAILS', async ({ tabId, requestId }) => {
+        const request = this.tabRequests.get(tabId)?.get(requestId);
+        const responseBody = request ? await this.getOrFetchBody(tabId, requestId) : undefined;
+        return { request: request ?? null, responseBody: responseBody ?? null };
+      })
+      .on('NETWORK_GET_RESPONSE_BODY', async ({ tabId, requestId }) => (await this.getOrFetchBody(tabId, requestId)) ?? null)
+      .on('NETWORK_CLEAR_REQUESTS', ({ tabId }) => this.clearTabRequests(tabId))
+      .on('NETWORK_UPDATE_SETTINGS', async ({ settings }) => {
+        this.settings = { ...this.settings, ...settings };
+        if ('disableCache' in settings) await this.updateCacheSettings();
+        return this.settings;
+      })
+      .on('NETWORK_GET_SETTINGS', () => this.settings)
+      .on('NETWORK_EXPORT_HAR', ({ tabId }) => this.generateHAR(tabId))
+      .on('NETWORK_REPLAY_REQUEST', ({ request }) => this.replayRequest(request))
+      .on('NETWORK_ATTACH_DEBUGGER', ({ tabId }) => this.attachDebugger(tabId))
+      .on('NETWORK_DETACH_DEBUGGER', ({ tabId }) => this.detachDebugger(tabId))
+      .on('NETWORK_GET_DEBUGGER_STATUS', ({ tabId }) => this.debuggerAttached.get(tabId) || false);
   }
 
   /** Fetch not-yet-cached bodies for this tab's text-like requests (bounded by the cache). */
@@ -860,23 +701,6 @@ export class NetworkManager {
     // WebSockets have frames, not a response body
     if (!request || request.type === 'websocket') return undefined;
     return this.fetchResponseBody(tabId, requestId, request.mimeType);
-  }
-
-  private async handleGetRequestDetails(message: any, sendResponse: (r: any) => void): Promise<void> {
-    const request = this.tabRequests.get(message.tabId)?.get(message.requestId);
-    const responseBody = request
-      ? await this.getOrFetchBody(message.tabId, message.requestId)
-      : undefined;
-
-    sendResponse({
-      request: request || null,
-      responseBody: responseBody || null,
-    });
-  }
-
-  private async handleGetResponseBody(message: any, sendResponse: (r: any) => void): Promise<void> {
-    const responseBody = await this.getOrFetchBody(message.tabId, message.requestId);
-    sendResponse({ responseBody: responseBody || null });
   }
 
   private async updateCacheSettings(): Promise<void> {

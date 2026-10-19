@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import BrandMark from '@/components/common/BrandMark';
 import { useAppStore } from '@/stores/app-store';
-import { chromeApi, addMessageListener } from '@/lib/chrome-api';
+import { chromeApi } from '@/lib/chrome-api';
+import { useBackgroundState } from '@/hooks/useBackgroundState';
 // Import custom UI components
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -10,46 +11,18 @@ import Toggle from '@/components/ui/Toggle';
 import Badge from '@/components/ui/Badge';
 
 const Popup: React.FC = () => {
-  const { enabled, routes, setEnabled, setRoutes, addNotification } = useAppStore();
+  const { enabled, routes, setEnabled, addNotification } = useAppStore();
 
-  useEffect(() => {
-    // Load initial state
-    chromeApi.getState().then(state => {
-      setEnabled(state.enabled);
-      setRoutes(state.routes);
-    }).catch(console.error);
-
-    // Listen for state changes from background
-    const messageListener = (message: any) => {
-      if (message.action === 'stateChanged') {
-        setEnabled(message.enabled);
-        if (message.routes) {
-          setRoutes(message.routes);
-        }
-      } else if (message.action === 'routesChanged') {
-        setRoutes(message.routes || {});
-        if (Object.hasOwn(message, 'enabled')) {
-          setEnabled(message.enabled);
-        }
-      }
-    };
-
-    const cleanup = addMessageListener(messageListener);
-
-    // Cleanup on unmount
-    return cleanup;
-  }, [setEnabled, setRoutes]);
+  useBackgroundState();
 
   const handleToggle = async (isEnabled: boolean) => {
     try {
-      const response = await chromeApi.toggleEnabled(isEnabled);
-      if (response.success) {
-        setEnabled(isEnabled);
-      }
+      await chromeApi.toggleEnabled(isEnabled);
+      setEnabled(isEnabled);
     } catch (error) {
       addNotification({
-        title: 'Error',
-        message: 'Failed to toggle interceptor',
+        title: 'Could not toggle interception',
+        message: error instanceof Error ? error.message : 'Unknown error',
         type: 'error',
         timestamp: Date.now()
       });
@@ -71,7 +44,7 @@ const Popup: React.FC = () => {
       } else {
         // Alternative: open the extension page in a new tab
         await chrome.tabs.create({
-          url: chrome.runtime.getURL('sidepanel.html')
+          url: chrome.runtime.getURL('ui/sidepanel/index.html')
         });
       }
     } catch (error) {
@@ -80,7 +53,7 @@ const Popup: React.FC = () => {
       // Fallback: open extension page in new tab
       try {
         await chrome.tabs.create({
-          url: chrome.runtime.getURL('sidepanel.html')
+          url: chrome.runtime.getURL('ui/sidepanel/index.html')
         });
       } catch (fallbackError) {
         console.error('Failed to open fallback tab:', fallbackError);

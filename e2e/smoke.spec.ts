@@ -1,4 +1,4 @@
-import { test, expect, sendMessage } from './fixtures';
+import { test, expect, request } from './fixtures';
 
 test('service worker starts and side panel renders every tab without errors', async ({ context, extensionId }) => {
   const page = await context.newPage();
@@ -15,12 +15,11 @@ test('service worker starts and side panel renders every tab without errors', as
 });
 
 test('mock route intercepts a page fetch', async ({ context, extPage, site }) => {
-  await sendMessage(extPage, {
-    action: 'addRoute',
+  await request(extPage, 'ADD_ROUTE', {
     route: `GET:${site}/api/items`,
     config: { enabled: true, status: 200, delay: 0, interceptionMode: 'mock', response: '{"mocked":true}', contentType: 'application/json' },
   });
-  await sendMessage(extPage, { action: 'toggleEnabled', enabled: true });
+  await request(extPage, 'SET_ENABLED', { enabled: true });
 
   const page = await context.newPage();
   await page.goto(site);
@@ -34,12 +33,11 @@ test('mock route intercepts a page fetch', async ({ context, extPage, site }) =>
 });
 
 test('passthrough keeps a Request object’s own headers', async ({ context, extPage, site }) => {
-  await sendMessage(extPage, {
-    action: 'addRoute',
+  await request(extPage, 'ADD_ROUTE', {
     route: `GET:${site}/api/auth`,
     config: { enabled: true, status: 200, delay: 0, interceptionMode: 'passthrough', response: '', requestHeaders: { 'X-Env': 'e2e' } },
   });
-  await sendMessage(extPage, { action: 'toggleEnabled', enabled: true });
+  await request(extPage, 'SET_ENABLED', { enabled: true });
 
   const page = await context.newPage();
   await page.goto(site);
@@ -61,13 +59,12 @@ test('network capture answers async requests and keeps bodies out of list update
     return tab.id!;
   }, site);
 
-  const attach = await sendMessage(extPage, { type: 'NETWORK_ATTACH_DEBUGGER', tabId });
-  expect(attach.attached).toBe(true);
+  expect(await request(extPage, 'NETWORK_ATTACH_DEBUGGER', { tabId })).toBe(true);
 
   await page.evaluate(async (url) => { await fetch(url); }, `${site}/api/captured`);
 
   const findCaptured = async () => {
-    const { requests } = await sendMessage(extPage, { type: 'NETWORK_GET_REQUESTS', tabId });
+    const { requests } = await request(extPage, 'NETWORK_GET_REQUESTS', { tabId });
     return requests.find((r: any) => r.url.endsWith('/api/captured'));
   };
   await expect.poll(async () => (await findCaptured())?.status).toBe('complete');
@@ -76,11 +73,11 @@ test('network capture answers async requests and keeps bodies out of list update
   expect(captured.responseBody).toBeUndefined();
   const requestId = captured.requestId as string;
 
-  const { responseBody } = await sendMessage(extPage, { type: 'NETWORK_GET_RESPONSE_BODY', tabId, requestId });
+  const responseBody = await request(extPage, 'NETWORK_GET_RESPONSE_BODY', { tabId, requestId });
   expect(JSON.parse(responseBody.body).real).toBe(true);
 
-  const { har } = await sendMessage(extPage, { type: 'NETWORK_EXPORT_HAR', tabId });
+  const har = await request<string>(extPage, 'NETWORK_EXPORT_HAR', { tabId });
   expect(JSON.parse(har).log.entries.length).toBeGreaterThan(0);
 
-  await sendMessage(extPage, { type: 'NETWORK_DETACH_DEBUGGER', tabId });
+  await request(extPage, 'NETWORK_DETACH_DEBUGGER', { tabId });
 });

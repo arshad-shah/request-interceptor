@@ -71,9 +71,14 @@ export const test = base.extend<Fixtures>({
   },
 });
 
-/** Send a runtime message from an extension page and return the response. */
-export function sendMessage<T = any>(extPage: Page, message: unknown): Promise<T> {
-  return extPage.evaluate((m) => chrome.runtime.sendMessage(m), message) as Promise<T>;
+/** Send a typed request from an extension page; returns its data or throws its error. */
+export async function request<T = any>(extPage: Page, type: string, payload?: unknown): Promise<T> {
+  const response = (await extPage.evaluate(
+    ([t, p]) => chrome.runtime.sendMessage({ type: t, payload: p }),
+    [type, payload] as const
+  )) as { ok: boolean; data?: T; error?: string };
+  if (!response?.ok) throw new Error(`${type} failed: ${response?.error ?? 'no response'}`);
+  return response.data as T;
 }
 
 export { expect } from '@playwright/test';
