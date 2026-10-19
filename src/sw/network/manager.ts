@@ -294,9 +294,13 @@ export class NetworkManager {
   // Broadcasting & messages
   // ============================================
 
+  /**
+   * Coalesce updates into at most one broadcast per interval. An already
+   * scheduled broadcast is kept (not reset), so constant traffic can't
+   * starve the UI of updates.
+   */
   private debouncedBroadcast(tabId: number): void {
-    const pending = this.pendingBroadcasts.get(tabId);
-    if (pending) clearTimeout(pending);
+    if (this.pendingBroadcasts.has(tabId)) return;
 
     this.pendingBroadcasts.set(
       tabId,
