@@ -6,8 +6,10 @@ interface RouteItemStatCardProps {
   icon?: ReactNode;
   variant?: 'default' | 'compact';
   className?: string;
-  color?: 'blue' | 'green' | 'orange' | 'purple' | 'gray' | 'red';
+  color?: StatColor;
 }
+
+type StatColor = 'blue' | 'green' | 'orange' | 'purple' | 'gray' | 'red';
 
 export const RouteItemStatCard = ({
   label,
@@ -135,13 +137,13 @@ export const RouteStatsGrid = ({
   contentTypeName,
   timestamp
 }: RouteStatsGridProps) => {
-  const getTypeColor = () => {
+  const getTypeColor = (): StatColor => {
     if (isWebSocket) return 'purple';
     if (isHeadersOnly) return 'blue';
     return 'green';
   };
 
-  const getStatusColor = (status: number) => {
+  const getStatusColor = (status: number): StatColor => {
     if (status >= 200 && status < 300) return 'green';
     if (status >= 300 && status < 400) return 'blue';
     if (status >= 400 && status < 500) return 'orange';
@@ -149,7 +151,7 @@ export const RouteStatsGrid = ({
     return 'gray';
   };
 
-  const stats = [
+  const allStats: { label: string; value: ReactNode; color: StatColor; show: boolean }[] = [
     {
       label: 'Type',
       value: <TypeDisplay headersOnly={isHeadersOnly} isWebSocket={isWebSocket} ruleCount={totalRules} />,
@@ -196,7 +198,8 @@ export const RouteStatsGrid = ({
       color: 'gray',
       show: true
     }
-  ].filter(stat => stat.show);
+  ];
+  const stats = allStats.filter(stat => stat.show);
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -205,7 +208,7 @@ export const RouteStatsGrid = ({
           key={stat.label}
           label={stat.label}
           value={stat.value}
-          color={stat.color as any}
+          color={stat.color}
           variant="compact"
         />
       ))}

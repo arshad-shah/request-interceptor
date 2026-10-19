@@ -45,7 +45,7 @@ const RouteItemDetails: React.FC<RouteItemDetailsProps> = ({ info }) => (
         isWebSocket={info.isWebSocket}
         totalRules={info.totalRules}
         httpConfig={info.httpConfig}
-        config={info.httpConfig as any}
+        config={info.httpConfig}
         contentTypeName={info.contentTypeName}
         timestamp={info.timestamp}
       />
