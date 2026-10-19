@@ -23,7 +23,7 @@ Load the `dist/chrome/` folder as an unpacked extension in `chrome://extensions`
 ## Architecture
 
 **Extension entry points** (each is a separate ExtForge entry):
-- `src/background.ts` — Service worker composition root: one `MessageRouter` shared by `src/sw/state.ts` (enabled flag, routes, event-monitor flag; persisted), `src/sw/events.ts` (per-tab event buffer), `src/sw/storage.ts` (cookies, web storage, IndexedDB via `chrome.scripting`) and `src/lib/network-background.ts` (network capture via `chrome.debugger`).
+- `src/background.ts` — Service worker composition root: one `MessageRouter` shared by `src/sw/state.ts` (enabled flag, routes, event-monitor flag; persisted), `src/sw/events.ts` (per-tab event buffer), `src/sw/storage.ts` (cookies, web storage, IndexedDB via `chrome.scripting`) and `src/sw/network/manager.ts` (network capture via `chrome.debugger`; pure request-state reducer, HAR and replay building live in `src/core/network/`).
 - `src/content.ts` — Content script injected at `document_start`. Relays messages between page and background. Uses `src/core/url-matching.ts` for injection route matching. Forwards EventBus monitor events.
 - `src/injected.ts` — Thin IIFE shell injected into page context. Delegates to `src/core/interceptors/` for fetch, XHR, and WebSocket interception. Also patches `dispatchEvent`, `postMessage`, and EventEmitter patterns for event monitoring.
 - `src/ui/sidepanel/index.tsx` — Side panel React app (main UI). HTML at `src/ui/sidepanel/index.html`.
