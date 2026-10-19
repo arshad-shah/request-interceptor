@@ -4,8 +4,8 @@
 
 import { Play, Link, Terminal, Code, ExternalLink } from 'lucide-react';
 import type { NetworkRequest } from '../../../types/network';
-import { generateCurl, replayRequest } from '../../../lib/network-api';
-import { generateFetchSnippet } from '../utils';
+import { replayRequest } from '../../../lib/network-api';
+import { generateCurlCommand, generateFetchSnippet } from '../utils';
 import type { CopyHandler, ShowToast } from './types';
 
 interface DetailsFooterProps {
@@ -39,7 +39,7 @@ export function DetailsFooter({ request, showToast, handleCopy }: DetailsFooterP
         <Link size={14} />
         URL
       </button>
-      <button onClick={() => handleCopy(generateCurl(request), 'cURL')} className="ds-btn">
+      <button onClick={() => handleCopy(generateCurlCommand(request), 'cURL')} className="ds-btn">
         <Terminal size={14} />
         cURL
       </button>

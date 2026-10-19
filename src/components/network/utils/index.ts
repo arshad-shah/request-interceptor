@@ -29,4 +29,4 @@ export {
   type BodyParseType,
   type ParsedBody,
 } from './body';
-export { generateFetchSnippet } from './snippets';
+export { generateCurlCommand, generateFetchSnippet } from './snippets';

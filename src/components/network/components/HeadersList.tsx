@@ -50,18 +50,12 @@ export function HeadersList({
           key={`${h.name}-${i}`}
           className="ds-header-row group hover:bg-[var(--bg-surface)] rounded px-1.5 py-0.5 -mx-1.5"
         >
-          <span
-            className="ds-header-name"
-            dangerouslySetInnerHTML={{
-              __html: highlightSearchTerm(h.name, searchTerm),
-            }}
-          />
-          <span
-            className="ds-header-value flex-1 break-all"
-            dangerouslySetInnerHTML={{
-              __html: highlightSearchTerm(h.value, searchTerm),
-            }}
-          />
+          <span className="ds-header-name">
+            {highlightSearchTerm(h.name, searchTerm)}
+          </span>
+          <span className="ds-header-value flex-1 break-all">
+            {highlightSearchTerm(h.value, searchTerm)}
+          </span>
           {showCopy && (
             <CopyButton
               text={h.value}

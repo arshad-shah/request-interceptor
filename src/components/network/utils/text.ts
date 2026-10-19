@@ -2,11 +2,22 @@
  * Text helpers for the request details panel
  */
 
-export function highlightSearchTerm(text: string, search: string): string {
+import { createElement, type ReactNode } from 'react';
+
+/**
+ * Wrap case-insensitive matches of `search` in <mark> elements.
+ * Returns React nodes (never an HTML string) so captured header names/values,
+ * which are attacker-controlled, are always rendered as text.
+ */
+export function highlightSearchTerm(text: string, search: string): ReactNode {
   if (!search || !text) return text;
   const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(${escaped})`, 'gi');
-  return text.replace(regex, '<mark class="ds-search-highlight">$1</mark>');
+  // With a capturing group, split() puts the matches at the odd indices.
+  return text.split(new RegExp(`(${escaped})`, 'gi')).map((part, i) =>
+    i % 2 === 1
+      ? createElement('mark', { key: i, className: 'ds-search-highlight' }, part)
+      : part
+  );
 }
 
 export function getLanguageFromMime(mimeType: string): string {
