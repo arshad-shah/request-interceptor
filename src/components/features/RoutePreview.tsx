@@ -1,9 +1,10 @@
 import React from 'react';
 import { MessageSquare, Filter, Code2, FileCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { PreviewRoute } from './template-import';
 
 interface RoutePreviewProps {
-  routes: any[];
+  routes: PreviewRoute[];
 }
 
 const RoutePreview: React.FC<RoutePreviewProps> = ({ routes }) => {
@@ -83,7 +84,7 @@ const RoutePreview: React.FC<RoutePreviewProps> = ({ routes }) => {
                     route.method === 'PUT' && "bg-[rgba(245,158,11,0.15)] text-[var(--accent-amber)] border-[rgba(245,158,11,0.3)]",
                     route.method === 'DELETE' && "bg-[rgba(244,63,94,0.15)] text-[var(--accent-rose)] border-[rgba(244,63,94,0.3)]",
                     route.method === 'PATCH' && "bg-[rgba(139,92,246,0.15)] text-[var(--accent-violet)] border-[rgba(139,92,246,0.3)]",
-                    !['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(route.method) && "bg-[var(--bg-elevated)] text-[var(--text-secondary)] border-[var(--border-subtle)]"
+                    !['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(route.method ?? '') && "bg-[var(--bg-elevated)] text-[var(--text-secondary)] border-[var(--border-subtle)]"
                   )}>
                     {route.method}
                   </span>
@@ -114,14 +115,14 @@ const RoutePreview: React.FC<RoutePreviewProps> = ({ routes }) => {
                         {(route.incomingRules?.length || 0) + (route.outgoingRules?.length || 0)} rules
                       </span>
                     </div>
-                    {route.incomingRules?.length > 0 && (
+                    {(route.incomingRules?.length ?? 0) > 0 && (
                       <span className="text-xs px-2 py-0.5 bg-[rgba(139,92,246,0.15)] text-[var(--accent-violet)] rounded-full border border-[rgba(139,92,246,0.3)]">
-                        {route.incomingRules.length} incoming
+                        {route.incomingRules?.length} incoming
                       </span>
                     )}
-                    {route.outgoingRules?.length > 0 && (
+                    {(route.outgoingRules?.length ?? 0) > 0 && (
                       <span className="text-xs px-2 py-0.5 bg-[rgba(139,92,246,0.15)] text-[var(--accent-violet)] rounded-full border border-[rgba(139,92,246,0.3)]">
-                        {route.outgoingRules.length} outgoing
+                        {route.outgoingRules?.length} outgoing
                       </span>
                     )}
                   </>
