@@ -170,9 +170,10 @@ export function NetworkRequestList({
   const listRef = useRef<HTMLDivElement>(null);
   const selectedRowRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to selected request
+  // Auto-scroll to selected request (only when the selection changes, not on data updates)
+  const selectedRequestId = selectedRequest?.requestId;
   useEffect(() => {
-    if (selectedRequest && selectedRowRef.current && listRef.current) {
+    if (selectedRequestId && selectedRowRef.current && listRef.current) {
       const list = listRef.current;
       const row = selectedRowRef.current;
       const listRect = list.getBoundingClientRect();
@@ -183,7 +184,7 @@ export function NetworkRequestList({
         row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     }
-  }, [selectedRequest?.requestId]);
+  }, [selectedRequestId]);
 
   // Handle sort
   const handleSort = useCallback((field: SortField) => {
