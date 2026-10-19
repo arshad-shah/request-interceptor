@@ -124,12 +124,15 @@ const RouteItemHeader: React.FC<RouteItemHeaderProps> = ({
 
       {/* Controls */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <Toggle
-          checked={info.isEnabled}
-          onChange={onToggle}
-          size="sm"
-          label={`Toggle ${info.url} route`}
-        />
+        {/* Keep switch clicks/keys from also expanding the row */}
+        <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <Toggle
+            checked={info.isEnabled}
+            onChange={onToggle}
+            size="sm"
+            label={`Toggle ${info.url} route`}
+          />
+        </div>
         <div
           className={cn(
             'p-1 rounded-[var(--radius-sm)] text-[var(--text-tertiary)] transition-transform',
