@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Bookmark, Clock, Code, Layers } from 'lucide
 import { CapturedEvent } from '@/types/events';
 import { useEventsStore } from '@/stores/events-store';
 import EventPayload from './EventPayload';
-import ReactAceEditor from '@/components/common/ReactAceEditor';
+import { CodeEditor } from '@/components/common/code-editor';
 
 const CATEGORY_COLORS: Record<string, string> = {
   CustomEvent: 'var(--accent-indigo)',
@@ -113,29 +113,23 @@ const EventCard: React.FC<EventCardProps> = ({ event, isSelected }) => {
 
           {activeTab === 'smart' && <EventPayload data={event.data} />}
           {activeTab === 'raw' && (
-            <ReactAceEditor
+            <CodeEditor
               value={JSON.stringify(event.data, null, 2)}
-              onChange={() => {}}
               language="json"
               readOnly
               height={250}
               showGutter={false}
               fontSize={12}
-              enableBasicAutocompletion={false}
-              enableLiveAutocompletion={false}
             />
           )}
           {activeTab === 'stack' && (
-            <ReactAceEditor
+            <CodeEditor
               value={event.stack || 'No stack trace available'}
-              onChange={() => {}}
               language="text"
               readOnly
               height={180}
               showGutter={false}
               fontSize={12}
-              enableBasicAutocompletion={false}
-              enableLiveAutocompletion={false}
             />
           )}
         </div>

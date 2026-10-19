@@ -15,7 +15,7 @@ import {
 } from '@/core/route-validation';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
-import ReactAceEditor from '@/components/common/ReactAceEditor';
+import { CodeEditor } from '@/components/common/code-editor';
 import CollapsibleSchemaExamples from '@/components/common/CollapsibleSchemaExamples';
 import RoutePreviews from './RoutePreviews';
 
@@ -357,7 +357,7 @@ const TemplatesTab: React.FC = () => {
         </Card.Header>
 
         <Card.Body className="space-y-3">
-          <ReactAceEditor
+          <CodeEditor
             value={schemaInput}
             onChange={setSchemaInput}
             language="json"

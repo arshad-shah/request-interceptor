@@ -4,8 +4,6 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { clsx } from 'clsx';
 import {
   Copy,
@@ -30,28 +28,8 @@ import type { PerformanceInsight, DecodedJwt, ParsedCookie } from './utils';
 import { highlightSearchTerm } from './utils';
 import { copyToClipboard } from '../../lib/network-api';
 import { JsonTreeViewer } from '../common/JsonTreeViewer';
+import { CodeView } from '../common/code-editor';
 
-// ============================================================================
-// Custom Syntax Highlighter Theme (matches design system)
-// ============================================================================
-
-const codeTheme = {
-  ...oneDark,
-  'pre[class*="language-"]': {
-    ...oneDark['pre[class*="language-"]'],
-    background: 'var(--bg-surface)',
-    margin: 0,
-    padding: '12px',
-    borderRadius: 'var(--radius-md)',
-    fontSize: '11px',
-    lineHeight: '1.5',
-  },
-  'code[class*="language-"]': {
-    ...oneDark['code[class*="language-"]'],
-    background: 'transparent',
-    fontSize: '11px',
-  },
-};
 
 // ============================================================================
 // Section Component
@@ -282,10 +260,8 @@ export function CodeBlock({
     return content;
   }, [content, language]);
 
-  const isLong = formattedContent.split('\n').length > 50;
-  const displayContent = isLong && !isExpanded
-    ? formattedContent.split('\n').slice(0, 50).join('\n') + '\n...'
-    : formattedContent;
+  const lineCount = useMemo(() => formattedContent.split('\n').length, [formattedContent]);
+  const isLong = lineCount > 50;
 
   // If JSON tree view is available and selected, use it
   if (isJsonTreeAvailable && viewMode === 'tree') {
@@ -357,18 +333,7 @@ export function CodeBlock({
         className="overflow-auto rounded-[var(--radius-md)]"
         style={{ maxHeight: isExpanded ? 'none' : maxHeight }}
       >
-        <SyntaxHighlighter
-          language={language}
-          style={codeTheme}
-          wrapLines={wrapLines}
-          wrapLongLines={wrapLines}
-          customStyle={{
-            margin: 0,
-            background: 'var(--bg-surface)',
-          }}
-        >
-          {displayContent}
-        </SyntaxHighlighter>
+        <CodeView content={formattedContent} language={language} wrap={wrapLines} />
       </div>
       {isLong && (
         <button
@@ -376,7 +341,7 @@ export function CodeBlock({
           className="w-full py-1.5 text-[11px] text-[var(--accent-blue)] hover:text-[var(--accent-blue)]/80 
             bg-[var(--bg-surface)] border-t border-[var(--border-subtle)] rounded-b-[var(--radius-md)]"
         >
-          {isExpanded ? 'Show less' : `Show all (${formattedContent.split('\n').length} lines)`}
+          {isExpanded ? 'Show less' : `Show all (${lineCount} lines)`}
         </button>
       )}
     </div>

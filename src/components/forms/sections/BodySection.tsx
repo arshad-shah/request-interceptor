@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactAceEditor from '@/components/common/ReactAceEditor';
+import { CodeEditor } from '@/components/common/code-editor';
 import { RouteFormData } from '@/types';
 
 interface BodySectionProps {
@@ -31,7 +31,7 @@ const BodySection: React.FC<BodySectionProps> = ({
         <div className="text-[11px] text-[var(--text-secondary)] mb-2">
           Override the request body sent to the server
         </div>
-        <ReactAceEditor
+        <CodeEditor
           value={formData.requestBody}
           onChange={(value) => onFieldChange('requestBody', value)}
           language="json"
@@ -55,7 +55,7 @@ const BodySection: React.FC<BodySectionProps> = ({
         </div>
       )}
 
-      <ReactAceEditor
+      <CodeEditor
         value={formData.response}
         onChange={(value) => onFieldChange('response', value)}
         language={getEditorLanguage(formData.contentType)}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import ReactAceEditor from '@/components/common/ReactAceEditor';
+import { CodeEditor } from '@/components/common/code-editor';
 import Input from '@/components/ui/Input';
 
 interface CookieEditorProps {
@@ -87,7 +87,7 @@ const CookieEditor: React.FC<CookieEditorProps> = ({
           </div>
           <div>
             <label className="ds-label mb-1 block">Value</label>
-            <ReactAceEditor
+            <CodeEditor
               value={value}
               onChange={setValue}
               language="text"
