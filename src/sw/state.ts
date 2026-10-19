@@ -171,7 +171,7 @@ export class StateStore {
 
   register(router: MessageRouter): void {
     router
-      .on('GET_STATE', () => this.snapshot())
+      .on('GET_STATE', () => this.snapshot(), { from: 'any' })
       .on('SET_ENABLED', ({ enabled }) => this.setEnabled(enabled))
       .on('ADD_ROUTE', ({ route, config, name }) => this.addRoute(route, config, name))
       .on('REMOVE_ROUTE', ({ route }) => this.removeRoute(route))

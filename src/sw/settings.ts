@@ -55,7 +55,7 @@ export class SettingsStore {
 
   register(router: MessageRouter): void {
     router
-      .on('GET_SETTINGS', () => this.settings)
+      .on('GET_SETTINGS', () => this.settings, { from: 'any' })
       .on('UPDATE_SETTINGS', ({ patch }) => this.replace(mergeSettings(this.settings, patch)))
       .on('IMPORT_SETTINGS', ({ settings }) => this.replace(normalizeSettings(settings)))
       .on('RESET_SETTINGS', () => this.replace(DEFAULT_SETTINGS));
