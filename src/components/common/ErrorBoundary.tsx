@@ -1,4 +1,5 @@
 import React from 'react';
+import BrandMark from './BrandMark';
 
 interface Props {
   /** Human-readable label for which surface crashed (e.g. "Side Panel"). */
@@ -51,9 +52,10 @@ export default class ErrorBoundary extends React.Component<Props, State> {
         }}
       >
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <h1 style={{ fontSize: 18, margin: '0 0 8px', color: '#f87171' }}>
-            {this.props.scope} crashed
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <BrandMark size={28} />
+            <h1 style={{ fontSize: 18, margin: 0, color: '#f87171' }}>{this.props.scope} crashed</h1>
+          </div>
           <p style={{ margin: '0 0 16px', color: '#9aa4af' }}>
             An unexpected error occurred while rendering. The rest of the extension is unaffected.
           </p>

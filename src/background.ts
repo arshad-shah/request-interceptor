@@ -7,6 +7,7 @@ import { migrateRoutes } from './core/route-migration';
 import { exportRoutes } from './core/route-export';
 import { findConflictingRoutes } from './core/route-conflicts';
 import { logger } from './lib/logger';
+import { actionIconPaths } from './brand/mark';
 
 const log = logger.child('background');
 
@@ -74,8 +75,7 @@ class StateManager {
   }
 
   updateIcon(): void {
-    const iconPath = { '16': 'icons/icon-16.png', '48': 'icons/icon-48.png', '128': 'icons/icon-128.png' };
-    chrome.action.setIcon({ path: iconPath }).catch((err: unknown) => {
+    chrome.action.setIcon({ path: actionIconPaths(this.state.enabled) }).catch((err: unknown) => {
       log.warn('setIcon failed', { error: String(err) });
     });
   }

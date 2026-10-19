@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Request Interceptor (off)">
+  <defs>
+    <linearGradient id="ri-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3f3f46"/>
+      <stop offset="1" stop-color="#27272a"/>
+    </linearGradient>
+    <linearGradient id="ri-stroke" gradientUnits="userSpaceOnUse" x1="16" y1="30" x2="84" y2="92">
+      <stop offset="0" stop-color="#d4d4d8"/>
+      <stop offset="1" stop-color="#a1a1aa"/>
+    </linearGradient>
+    <radialGradient id="ri-pin" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#e4e4e7"/>
+      <stop offset="1" stop-color="#a1a1aa"/>
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#ri-bg)"/>
+  <rect x="0.5" y="0.5" width="127" height="127" rx="27.5" fill="none" stroke="#ffffff" stroke-opacity="0.06"/>
+  <g fill="none" stroke="url(#ri-stroke)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 80 H64"/>
+    <path d="M64 80 V36"/>
+    <path d="M52 48 L64 36 L76 48"/>
+  </g>
+  <circle cx="22" cy="80" r="9" fill="url(#ri-stroke)"/>
+  <circle cx="22" cy="80" r="4" fill="#27272a"/>
+  <circle cx="64" cy="80" r="14" fill="url(#ri-pin)"/>
+  <circle cx="64" cy="80" r="5" fill="#52525b"/>
+</svg>

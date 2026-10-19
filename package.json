@@ -49,7 +49,9 @@
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "brand": "node scripts/brand.ts",
+    "brand:check": "node scripts/brand.ts --check"
   },
   "dependencies": {
     "@arshad-shah/log-kit": "1.1.0",

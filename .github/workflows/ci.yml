@@ -35,6 +35,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Brand assets match the source mark
+        run: pnpm brand:check
+
       - name: Test
         run: pnpm test:run
 
