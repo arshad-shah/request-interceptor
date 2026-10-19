@@ -2,6 +2,7 @@ import { test as base, chromium, type BrowserContext, type Page, type Worker } f
 import { createHash } from 'node:crypto';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import type { PayloadOf, RequestType, ResultOf } from '../src/core/messaging/protocol';
 import type { Duplex } from 'node:stream';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -175,13 +176,18 @@ export const test = base.extend<Fixtures>({
 });
 
 /** Send a typed request from an extension page; returns its data or throws its error. */
-export async function request<T = any>(extPage: Page, type: string, payload?: unknown): Promise<T> {
+export async function request<K extends RequestType>(
+  extPage: Page,
+  type: K,
+  // Loose on purpose: tests often send partial route configs
+  payload?: PayloadOf<K> | Record<string, unknown>
+): Promise<ResultOf<K>> {
   const response = (await extPage.evaluate(
     ([t, p]) => chrome.runtime.sendMessage({ type: t, payload: p }),
     [type, payload] as const
-  )) as { ok: boolean; data?: T; error?: string };
+  )) as { ok: boolean; data?: ResultOf<K>; error?: string };
   if (!response?.ok) throw new Error(`${type} failed: ${response?.error ?? 'no response'}`);
-  return response.data as T;
+  return response.data as ResultOf<K>;
 }
 
 export { expect } from '@playwright/test';

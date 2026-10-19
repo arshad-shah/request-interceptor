@@ -143,11 +143,11 @@ const CookieEditor: React.FC<CookieEditorProps> = ({
           <div className="flex items-center gap-6">
             <label className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">
               <Toggle size="sm" checked={secure} onChange={setSecure} label="Secure" />
-              Secure
+              <span aria-hidden="true">Secure</span>
             </label>
             <label className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">
               <Toggle size="sm" checked={httpOnly} onChange={setHttpOnly} label="HttpOnly" />
-              HttpOnly
+              <span aria-hidden="true">HttpOnly</span>
             </label>
           </div>
         </div>

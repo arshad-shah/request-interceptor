@@ -76,15 +76,16 @@ describe('SiteSwitch', () => {
     ]);
   });
 
-  // BUG: turning the switch on only removes the exact hostname from the deny list.
-  // When the site is blocked by a broader pattern (e.g. the parent domain
-  // `example.com`, `*.example.com` or a regex), the update is a no-op and the
-  // switch stays off, so the user cannot re-enable the site from the popup.
-  it.fails('turning on re-enables a site blocked by a parent-domain pattern', async () => {
+  // A broader deny rule (parent domain, wildcard, regex) is the user's own:
+  // the switch doesn't delete it, it names it and stays disabled.
+  it('names the broader rule that blocks the site and disables the switch', async () => {
     setup({ url: 'https://app.example.com/' }, { sites: { denylist: ['example.com'] } });
-    fireEvent.click(await screen.findByRole('switch', { name: 'Run on app.example.com' }));
-    await waitFor(() => expect(updates()).toHaveLength(1));
-    await waitFor(() => expect(screen.getByRole('switch', { name: 'Run on app.example.com' })).toBeChecked());
+    const toggle = await screen.findByRole('switch', { name: 'Run on app.example.com' });
+    expect(toggle).not.toBeChecked();
+    expect(toggle).toBeDisabled();
+    expect(screen.getByText(/Blocked by “example.com” in Settings → Sites/)).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(updates()).toHaveLength(0);
   });
 
   it('shows an update error', async () => {

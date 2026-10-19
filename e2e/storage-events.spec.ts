@@ -36,7 +36,7 @@ test('event monitor records page CustomEvents for that tab only', async ({ conte
   await expect
     .poll(async () => {
       await page.evaluate(() => document.dispatchEvent(new CustomEvent('cart:add', { detail: { sku: 42 } })));
-      const events = await request<any[]>(extPage, 'GET_EVENTS', { tabId });
+      const events = await request(extPage, 'GET_EVENTS', { tabId });
       return events.some((e) => e.eventType === 'cart:add');
     })
     .toBe(true);

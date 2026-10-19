@@ -31,7 +31,6 @@ export const clearRequests = (tabId: number) => request('NETWORK_CLEAR_REQUESTS'
 
 export const updateSettings = (settings: Partial<NetworkSettings>) => request('NETWORK_UPDATE_SETTINGS', { settings });
 
-export const getSettings = () => request('NETWORK_GET_SETTINGS');
 
 export const exportHAR = (tabId: number) => request('NETWORK_EXPORT_HAR', { tabId });
 
@@ -131,47 +130,7 @@ export function parseQueryParams(query: string | undefined): QueryParam[] {
   }
 }
 
-/**
- * Escape HTML for safe rendering
- */
-export function escapeHtml(str: string | undefined): string {
-  if (typeof str !== 'string') return String(str || '');
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
 
-/**
- * Syntax highlight JSON string
- */
-export function syntaxHighlightJson(json: string): string {
-  if (typeof json !== 'string') {
-    json = JSON.stringify(json, null, 2);
-  }
-
-  const escaped = escapeHtml(json);
-
-  return escaped.replace(
-    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
-    (match) => {
-      let cls = 'json-number';
-      if (/^"/.test(match)) {
-        if (/:$/.test(match)) {
-          cls = 'json-key';
-          match = match.slice(0, -1) + '</span><span class="json-colon">:</span>';
-          return `<span class="${cls}">${match}`;
-        } else {
-          cls = 'json-string';
-        }
-      } else if (/true|false/.test(match)) {
-        cls = 'json-boolean';
-      } else if (/null/.test(match)) {
-        cls = 'json-null';
-      }
-      return `<span class="${cls}">${match}</span>`;
-    }
-  );
-}
 
 /**
  * Check if string looks like JSON
@@ -184,30 +143,6 @@ export function looksLikeJson(str: string): boolean {
   );
 }
 
-/**
- * Format XML with indentation
- */
-export function formatXml(xml: string): string {
-  let formatted = '';
-  let indent = 0;
-  const parts = xml.replace(/>\s*</g, '><').split(/(<[^>]+>)/);
-
-  parts.forEach((part) => {
-    if (!part) return;
-
-    if (part.match(/^<\//)) {
-      indent--;
-    }
-
-    formatted += '  '.repeat(Math.max(0, indent)) + part + '\n';
-
-    if (part.match(/^<[^/]/) && !part.match(/\/>$/) && !part.match(/^<\?/)) {
-      indent++;
-    }
-  });
-
-  return formatted.trim();
-}
 
 /**
  * Calculate timing phases for display
@@ -285,36 +220,6 @@ export function calculateTimingPhases(
   return phases;
 }
 
-/**
- * Generate cURL command from request
- */
-export function generateCurl(request: NetworkRequest): string {
-  let curl = `curl '${request.url}'`;
-
-  if (request.method !== 'GET') {
-    curl += ` \\\n  -X ${request.method}`;
-  }
-
-  // Add headers
-  (request.requestHeaders || []).forEach((h) => {
-    const lowerName = h.name.toLowerCase();
-    // Skip headers that curl handles automatically
-    if (
-      !['host', 'content-length', 'connection', 'accept-encoding'].includes(
-        lowerName
-      )
-    ) {
-      curl += ` \\\n  -H '${h.name}: ${h.value.replace(/'/g, "'\\''")}'`;
-    }
-  });
-
-  // Add body if present
-  if (request.postData) {
-    curl += ` \\\n  --data-raw '${request.postData.replace(/'/g, "'\\''")}'`;
-  }
-
-  return curl;
-}
 
 /**
  * Download file with given content
@@ -364,24 +269,6 @@ export async function getCurrentTabId(): Promise<number | null> {
 }
 
 
-/**
- * Convert request to interceptable route format
- */
-export function requestToRoute(request: NetworkRequest): {
-  method: string;
-  url: string;
-  statusCode: number;
-  headers: { name: string; value: string }[];
-  body?: string;
-} {
-  return {
-    method: request.method,
-    url: request.url,
-    statusCode: request.statusCode || 200,
-    headers: request.responseHeaders || [],
-    body: undefined, // Will be populated with response body if available
-  };
-}
 
 /**
  * Hold the network-panel port open for the lifetime of the extension UI. The
