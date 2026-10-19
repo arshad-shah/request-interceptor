@@ -27,7 +27,7 @@ export class EventBuffer {
     router
       .on('EVENT_CAPTURED', ({ event, tabUrl }, sender) => {
         if (sender.tab?.id !== undefined) this.record(sender.tab.id, event, tabUrl);
-      })
+      }, { from: 'content' })
       .on('GET_EVENTS', ({ tabId }) => this.tabs.get(tabId) ?? [])
       .on('CLEAR_EVENTS', ({ tabId }) => void this.tabs.delete(tabId));
   }
