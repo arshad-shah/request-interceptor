@@ -247,6 +247,8 @@ export async function buildForwardInit(
   };
   if (base.mode !== 'navigate') init.mode = base.mode;
   if (base.integrity) init.integrity = base.integrity;
+  // 'about:client' is the default; anything else (incl. '' for no-referrer) was set by the page
+  if (base.referrer !== 'about:client') init.referrer = base.referrer;
 
   if (config.requestHeaders || config.removeRequestHeaders) {
     init.headers = modifyRequestHeaders(base.headers, config, log);
@@ -254,6 +256,10 @@ export async function buildForwardInit(
 
   if (overrideBody && config.requestBody && config.requestBody.trim()) {
     init.body = config.requestBody;
+  } else if (options.body instanceof ReadableStream) {
+    // Streaming upload: forward the stream instead of buffering it
+    init.body = base.body;
+    (init as RequestInit & { duplex: 'half' }).duplex = 'half';
   } else if (base.method !== 'GET' && base.method !== 'HEAD' && base.body !== null) {
     init.body = await base.arrayBuffer();
   }

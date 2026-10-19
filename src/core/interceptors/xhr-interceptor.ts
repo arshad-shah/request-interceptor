@@ -28,6 +28,9 @@ export interface XHRInterceptorState {
 
 type HeaderEntry = [name: string, value: string];
 
+/** RFC 7230 token: what XMLHttpRequest accepts as a header name. */
+const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+
 interface TrackedXHR extends XMLHttpRequest {
   _interceptUrl?: string;
   _interceptMethod?: string;
@@ -90,6 +93,10 @@ export function setupXHRInterceptor(
     // Not opened through our wrapper (or already sent): defer to native behavior/errors
     if (!this._interceptHeaders) {
       return originalXHRSetRequestHeader.call(this, name, value);
+    }
+    // Match native validation so invalid headers still throw here, not in send()
+    if (!HEADER_NAME.test(name) || /[\r\n\0]/.test(String(value))) {
+      throw new DOMException(`'${name}' is not a valid HTTP header field name or value.`, 'SyntaxError');
     }
     this._interceptHeaders.push([name, String(value)]);
   };

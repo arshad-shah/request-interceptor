@@ -6,6 +6,7 @@ import Header from '@/components/layout/Header';
 import Navigation from '@/components/layout/Navigation';
 import { RouteConfig, WebSocketConfig } from '@/types';
 import TabContent from '@/components/layout/TabContent';
+import { connectNetworkPanel } from '@/lib/network-api';
 
 const App: React.FC = () => {
   const { setEnabled, setRoutes } = useAppStore();
@@ -33,8 +34,6 @@ const App: React.FC = () => {
     const messageListener = (message: any) => {
       if (!isComponentMounted) return;
 
-      console.log('App received message:', message);
-
       if (message.action === 'stateChanged') {
         setEnabled(message.enabled);
         if (message.routes) {
@@ -59,6 +58,9 @@ const App: React.FC = () => {
       removeMessageListener(); // Properly remove the message listener
     };
   }, [setEnabled, setRoutes]);
+
+  // Keep network capture alive while the panel is open, whichever tab is shown
+  useEffect(() => connectNetworkPanel(), []);
 
   return (
     <div className="h-screen w-full flex flex-col bg-[var(--bg-base)] dark-theme overflow-hidden">

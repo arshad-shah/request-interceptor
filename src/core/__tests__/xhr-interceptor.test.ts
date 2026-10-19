@@ -88,6 +88,14 @@ describe('XHR interceptor', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it('rejects invalid header names at setRequestHeader, like native XHR', () => {
+    install({});
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', 'https://api.test/a');
+    expect(() => xhr.setRequestHeader('bad name', 'x')).toThrow();
+    expect(() => xhr.setRequestHeader('X-Ok', 'a\r\nb')).toThrow();
+  });
+
   it('block fires onerror once', () => {
     install({
       'GET:https://api.test/a': { enabled: true, interceptionMode: 'block' },

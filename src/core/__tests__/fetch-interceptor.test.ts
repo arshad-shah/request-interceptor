@@ -64,6 +64,16 @@ describe('fetch interceptor forwarding', () => {
     expect(new TextDecoder().decode(init.body)).toBe('{"a":1}');
   });
 
+  it('keeps a page-set referrer policy and referrer', async () => {
+    install({
+      'GET:https://api.test/items': { enabled: true, interceptionMode: 'passthrough', requestHeaders: { 'X-A': '1' } },
+    });
+    await window.fetch('https://api.test/items', { referrer: '', referrerPolicy: 'no-referrer' });
+    const [, init] = originalFetch.mock.calls[0];
+    expect(init.referrer).toBe('');
+    expect(init.referrerPolicy).toBe('no-referrer');
+  });
+
   it('does not reroute requests without a matching route', async () => {
     install({});
     await window.fetch('https://api.test/other', { method: 'GET' });

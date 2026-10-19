@@ -119,6 +119,13 @@ export function toRequestSummary<T extends { responseBody?: unknown; wsFrames?: 
   return summary;
 }
 
+const NON_TEXT_TYPES = new Set(['image', 'media', 'font', 'websocket']);
+
+/** Requests whose body is worth keeping/exporting (not images, fonts, media or sockets). */
+export function hasFetchableBody(request: { type?: string }): boolean {
+  return !NON_TEXT_TYPES.has(request.type ?? '');
+}
+
 const TEXT_MIME = /^(text\/|application\/(json|[\w.+-]*\+json|xml|[\w.+-]*\+xml|x-www-form-urlencoded|graphql|javascript))/i;
 
 /**

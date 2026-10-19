@@ -7,6 +7,7 @@ import {
   BodyCache,
   appendFrame,
   bodyKey,
+  hasFetchableBody,
   shouldPrefetchBody,
   toRequestSummary,
 } from '../core/network-buffers';
@@ -272,9 +273,13 @@ export class NetworkManager {
   async detachDebugger(tabId: number): Promise<void> {
     if (!this.debuggerAttached.get(tabId)) return;
 
+    // Keep bodies of listed requests: once detached they can't be fetched
+    await this.prefetchListedBodies(tabId);
+    // Cleared before awaiting so a quick re-attach isn't mistaken for "still attached"
+    this.debuggerAttached.set(tabId, false);
+
     try {
       await chrome.debugger.detach({ tabId });
-      this.debuggerAttached.set(tabId, false);
       log.debug('Debugger detached', { tabId });
     } catch (e) {
       log.warn('Failed to detach debugger', { tabId, error: String(e) });
@@ -839,11 +844,21 @@ export class NetworkManager {
     }
   }
 
+  /** Fetch not-yet-cached bodies for this tab's text-like requests (bounded by the cache). */
+  private async prefetchListedBodies(tabId: number): Promise<void> {
+    for (const request of this.getRequestsArray(tabId)) {
+      if (!hasFetchableBody(request)) continue;
+      if (this.requestBodies.has(bodyKey(tabId, request.requestId))) continue;
+      await this.fetchResponseBody(tabId, request.requestId, request.mimeType);
+    }
+  }
+
   private async getOrFetchBody(tabId: number, requestId: string): Promise<ResponseBody | undefined> {
     const cached = this.requestBodies.get(bodyKey(tabId, requestId));
     if (cached) return cached;
     const request = this.tabRequests.get(tabId)?.get(requestId);
-    if (!request) return undefined;
+    // WebSockets have frames, not a response body
+    if (!request || request.type === 'websocket') return undefined;
     return this.fetchResponseBody(tabId, requestId, request.mimeType);
   }
 
@@ -886,8 +901,12 @@ export class NetworkManager {
     const requests = this.getRequestsArray(tabId);
     const bodies = new Map<string, ResponseBody | undefined>();
     for (const req of requests) {
-      if (req.type === 'websocket') continue;
-      bodies.set(req.requestId, await this.getOrFetchBody(tabId, req.requestId));
+      // Cached bodies for everything; fetch only text-like ones (not images/fonts/media)
+      const cached = this.requestBodies.get(bodyKey(tabId, req.requestId));
+      bodies.set(
+        req.requestId,
+        cached ?? (hasFetchableBody(req) ? await this.getOrFetchBody(tabId, req.requestId) : undefined)
+      );
     }
 
     const har = {
@@ -933,6 +952,8 @@ export class NetworkManager {
                 mimeType: req.mimeType || 'application/octet-stream',
                 compression: (req.size || 0) - (req.encodedSize || 0),
                 text: body?.body || '',
+                ...(body?.base64Encoded ? { encoding: 'base64' } : {}),
+                ...(body?.truncated ? { comment: 'Body truncated by Request Interceptor' } : {}),
               },
               redirectURL: req.redirectedTo || '',
               headersSize: -1,

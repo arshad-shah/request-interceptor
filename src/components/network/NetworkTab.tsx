@@ -24,7 +24,6 @@ import {
 } from '../../stores/network-store';
 import { useAppStore } from '../../stores/app-store';
 import type { NetworkRequest, WebSocketFrame } from '../../types/network';
-import { NETWORK_PANEL_PORT } from '../../types/network';
 import type { RouteConfig, WebSocketConfig } from '../../types';
 import {
   getRequests,
@@ -135,13 +134,6 @@ export function NetworkTab() {
     selectedRequest && selectedWsFrames?.requestId === selectedRequest.requestId
       ? { ...selectedRequest, wsFrames: selectedWsFrames.frames }
       : selectedRequest;
-
-  // ─── Panel lifetime ───────────────────────────────────────────────────────
-  // The background detaches the debugger once no network panel holds this port.
-  useEffect(() => {
-    const port = chrome.runtime.connect({ name: NETWORK_PANEL_PORT });
-    return () => port.disconnect();
-  }, []);
 
   // ─── Initialize on mount ───────────────────────────────────────────────────
   useEffect(() => {

@@ -3,6 +3,7 @@ import {
   BodyCache,
   appendFrame,
   bodyKey,
+  hasFetchableBody,
   type BoundedFrame,
   shouldPrefetchBody,
   toRequestSummary,
@@ -112,5 +113,15 @@ describe('shouldPrefetchBody', () => {
     expect(shouldPrefetchBody({ type: 'script', mimeType: 'text/javascript', encodedSize: 10 }, 1000)).toBe(false);
     expect(shouldPrefetchBody({ type: 'xhr', mimeType: 'application/octet-stream', encodedSize: 10 }, 1000)).toBe(false);
     expect(shouldPrefetchBody({ type: 'xhr', mimeType: 'application/json', encodedSize: 5000 }, 1000)).toBe(false);
+  });
+});
+
+describe('hasFetchableBody', () => {
+  it('excludes images, fonts, media and sockets', () => {
+    expect(hasFetchableBody({ type: 'xhr' })).toBe(true);
+    expect(hasFetchableBody({ type: 'script' })).toBe(true);
+    expect(hasFetchableBody({ type: 'image' })).toBe(false);
+    expect(hasFetchableBody({ type: 'font' })).toBe(false);
+    expect(hasFetchableBody({ type: 'websocket' })).toBe(false);
   });
 });
