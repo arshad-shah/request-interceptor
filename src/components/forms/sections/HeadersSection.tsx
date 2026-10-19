@@ -8,10 +8,11 @@ import {
   commonRequestHeaders,
   commonRemoveHeaders,
 } from '@/constants/route-form';
+import { type FieldChangeHandler } from '../route-form-logic';
 
 interface HeadersSectionProps {
   formData: RouteFormData;
-  onFieldChange: (field: keyof RouteFormData, value: any) => void;
+  onFieldChange: FieldChangeHandler;
 }
 
 const HeadersSection: React.FC<HeadersSectionProps> = ({

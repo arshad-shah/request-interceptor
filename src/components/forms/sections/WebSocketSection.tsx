@@ -3,11 +3,12 @@ import { Clock, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import WebSocketRuleEditor from '../WebSocketRuleEditor';
 import { RouteFormData } from '@/types';
+import { type FieldChangeHandler, type RouteFormErrors } from '../route-form-logic';
 
 interface WebSocketSectionProps {
   formData: RouteFormData;
-  errors: Partial<Record<keyof RouteFormData, string>>;
-  onFieldChange: (field: keyof RouteFormData, value: any) => void;
+  errors: RouteFormErrors;
+  onFieldChange: FieldChangeHandler;
 }
 
 const WebSocketSection: React.FC<WebSocketSectionProps> = ({

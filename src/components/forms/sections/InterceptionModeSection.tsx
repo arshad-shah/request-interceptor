@@ -3,11 +3,12 @@ import { Settings2, Filter, Ban, ExternalLink } from 'lucide-react';
 import Radio from '@/components/ui/Radio';
 import Input from '@/components/ui/Input';
 import { RouteFormData, InterceptionMode } from '@/types';
+import { type FieldChangeHandler, type RouteFormErrors } from '../route-form-logic';
 
 interface InterceptionModeSectionProps {
   formData: RouteFormData;
-  errors: Partial<Record<keyof RouteFormData, string>>;
-  onFieldChange: (field: keyof RouteFormData, value: any) => void;
+  errors: RouteFormErrors;
+  onFieldChange: FieldChangeHandler;
 }
 
 const modeDescriptions: Record<InterceptionMode, string> = {
@@ -61,7 +62,7 @@ const InterceptionModeSection: React.FC<InterceptionModeSectionProps> = ({
         value={formData.redirectUrl}
         onChange={(e) => onFieldChange('redirectUrl', e.target.value)}
         leftIcon={<ExternalLink />}
-        error={(errors as any).redirectUrl}
+        error={errors.redirectUrl}
         helperText="The URL to redirect the request to"
       />
     )}
