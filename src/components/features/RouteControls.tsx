@@ -30,9 +30,9 @@ const RouteControls: React.FC = () => {
 
   const handleExport = async () => {
     try {
-      const response = await chromeApi.exportRoutes();
-      if (response.success) {
-        const jsonString = JSON.stringify(response.data, null, 2);
+      const exported = await chromeApi.exportRoutes();
+      {
+        const jsonString = JSON.stringify(exported, null, 2);
 
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);

@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import { Pause, Play, Download, Trash2, Radio } from 'lucide-react';
 import { useEventsStore, selectStats } from '@/stores/events-store';
 import { useAppStore } from '@/stores/app-store';
+import { chromeApi, downloadFile } from '@/lib/chrome-api';
+import { request, onEvent } from '@/lib/messaging';
 import Toggle from '@/components/ui/Toggle';
 import EmptyState from '@/components/common/EmptyState';
 import EventFilters from './EventFilters';
@@ -22,22 +24,20 @@ const EventsTab: React.FC = () => {
   const enabled = useAppStore(s => s.enabled);
   const eventMonitorEnabled = useAppStore(s => s.eventMonitorEnabled);
   const setEventMonitorEnabled = useAppStore(s => s.setEventMonitorEnabled);
+  const addNotification = useAppStore(s => s.addNotification);
 
   const listRef = useRef<HTMLDivElement>(null);
   const autoScroll = useRef(true);
 
   // Toggle event monitoring on/off — persist to background (broadcasts to all tabs)
+  // (The background turns the monitor off whenever interception is disabled.)
   const handleToggleMonitor = useCallback((on: boolean) => {
     setEventMonitorEnabled(on);
-    chrome.runtime.sendMessage({ action: 'setEventMonitorEnabled', enabled: on });
-  }, [setEventMonitorEnabled]);
-
-  // When master toggle turns off, disable event monitor
-  useEffect(() => {
-    if (!enabled && eventMonitorEnabled) {
-      handleToggleMonitor(false);
-    }
-  }, [enabled, eventMonitorEnabled, handleToggleMonitor]);
+    chromeApi.setEventMonitor(on).catch((error: Error) => {
+      setEventMonitorEnabled(!on);
+      addNotification({ title: 'Could not toggle event monitor', message: error.message, type: 'error', timestamp: Date.now() });
+    });
+  }, [setEventMonitorEnabled, addNotification]);
 
   // Load events for the active tab, and reload when the active tab changes
   useEffect(() => {
@@ -48,24 +48,22 @@ const EventsTab: React.FC = () => {
         const tabId = tabs[0]?.id;
         if (!tabId || tabId === currentTabId) return;
         currentTabId = tabId;
-        chrome.runtime.sendMessage({ type: 'GET_EVENTS', tabId }, (response) => {
-          if (tabId !== currentTabId) return;
-          storeActions().setEvents(response?.events || []);
-        });
+        request('GET_EVENTS', { tabId })
+          .then((events) => {
+            if (tabId === currentTabId) storeActions().setEvents(events);
+          })
+          .catch(() => storeActions().setEvents([]));
       });
     };
     loadForActiveTab();
 
     // Listen for new events from background (only for the tab being shown)
-    const listener = (message: { type: string; tabId?: number; event?: any }) => {
-      if (message.type === 'NEW_EVENT' && message.event && message.tabId === currentTabId) {
-        storeActions().addEvent(message.event);
-      }
-    };
-    chrome.runtime.onMessage.addListener(listener);
+    const offEvents = onEvent('EVENT_RECORDED', ({ tabId, event }) => {
+      if (tabId === currentTabId) storeActions().addEvent(event);
+    });
     chrome.tabs.onActivated.addListener(loadForActiveTab);
     return () => {
-      chrome.runtime.onMessage.removeListener(listener);
+      offEvents();
       chrome.tabs.onActivated.removeListener(loadForActiveTab);
     };
   }, []);
@@ -83,33 +81,29 @@ const EventsTab: React.FC = () => {
     autoScroll.current = scrollHeight - scrollTop - clientHeight < 50;
   };
 
-  const handleExport = useCallback(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tabId = tabs[0]?.id;
-      if (!tabId) return;
-      chrome.runtime.sendMessage({ type: 'EXPORT_EVENTS', tabId }, (response) => {
-        if (response?.events) {
-          const blob = new Blob([JSON.stringify(response.events, null, 2)], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `events-${Date.now()}.json`;
-          a.click();
-          URL.revokeObjectURL(url);
-        }
-      });
-    });
-  }, []);
+  const activeTabId = async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.id;
 
-  const handleClear = useCallback(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tabId = tabs[0]?.id;
-      if (!tabId) return;
-      chrome.runtime.sendMessage({ type: 'CLEAR_EVENTS', tabId }, () => {
-        storeActions().clearEvents();
-      });
-    });
-  }, []);
+  const handleExport = useCallback(async () => {
+    const tabId = await activeTabId();
+    if (!tabId) return;
+    try {
+      const events = await request('GET_EVENTS', { tabId });
+      downloadFile(JSON.stringify(events, null, 2), `events-${Date.now()}.json`);
+    } catch (error) {
+      addNotification({ title: 'Export failed', message: (error as Error).message, type: 'error', timestamp: Date.now() });
+    }
+  }, [addNotification]);
+
+  const handleClear = useCallback(async () => {
+    const tabId = await activeTabId();
+    if (!tabId) return;
+    try {
+      await request('CLEAR_EVENTS', { tabId });
+      storeActions().clearEvents();
+    } catch (error) {
+      addNotification({ title: 'Clear failed', message: (error as Error).message, type: 'error', timestamp: Date.now() });
+    }
+  }, [addNotification]);
 
   return (
     <div className="flex flex-col h-full">

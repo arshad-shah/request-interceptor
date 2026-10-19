@@ -1,12 +1,11 @@
-import { test, expect, sendMessage } from './fixtures';
+import { test, expect, request } from './fixtures';
 
 test('branded toast appears on the page when a mock fires', async ({ context, extPage, site }, testInfo) => {
-  await sendMessage(extPage, {
-    action: 'addRoute',
+  await request(extPage, 'ADD_ROUTE', {
     route: `GET:${site}/api/toast`,
     config: { enabled: true, status: 200, delay: 0, interceptionMode: 'mock', response: '{"ok":true}' },
   });
-  await sendMessage(extPage, { action: 'toggleEnabled', enabled: true });
+  await request(extPage, 'SET_ENABLED', { enabled: true });
 
   const page = await context.newPage();
   await page.goto(site);

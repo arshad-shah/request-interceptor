@@ -1,89 +1,16 @@
-import { ChromeMessage, AppState, RouteConfig, WebSocketConfig, InjectionConfig } from '@/types';
+import { request } from '@/lib/messaging';
+import type { AnyRouteConfig } from '@/core/messaging/protocol';
 
-// Chrome runtime messaging helpers
-export const sendMessage = <T = any>(message: ChromeMessage): Promise<T> => {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(message, (response) => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
-      } else {
-        resolve(response);
-      }
-    });
-  });
-};
-
-// Background script API methods
+// Background API: typed requests (see src/core/messaging/protocol.ts)
 export const chromeApi = {
-  // Get current state from background
-  getState: (): Promise<AppState> => {
-    return sendMessage({ action: 'getState' });
-  },
-
-  // Toggle interceptor enabled/disabled
-  toggleEnabled: (enabled: boolean): Promise<{ success: boolean }> => {
-    return sendMessage({ action: 'toggleEnabled', enabled });
-  },
-
-  // Add or update a route
-  addRoute: async (route: string, config: RouteConfig | WebSocketConfig | InjectionConfig, name?: string): Promise<{ success: boolean; isUpdate: boolean }> => {
-    const response = await sendMessage<{ success: boolean; isUpdate: boolean; error?: string }>({ action: 'addRoute', route, config, name });
-    if (!response.success) {
-      throw new Error(response.error || 'Failed to add route');
-    }
-    return response;
-  },
-
-  // Remove a route
-  removeRoute: (route: string): Promise<{ success: boolean }> => {
-    return sendMessage({ action: 'removeRoute', route });
-  },
-
-  // Toggle a specific route
-  toggleRoute: (route: string, enabled: boolean): Promise<{ success: boolean }> => {
-    return sendMessage({ action: 'toggleRoute', route, enabled });
-  },
-
-  // Clear all routes
-  clearRoutes: (): Promise<{ success: boolean }> => {
-    return sendMessage({ action: 'clearRoutes' });
-  },
-
-  // Export routes
-  exportRoutes: (): Promise<{ success: boolean; data: any }> => {
-    return sendMessage({ action: 'exportRoutes' });
-  },
-
-  // Open side panel
-  openSidePanel: (): Promise<{ success: boolean }> => {
-    return sendMessage({ action: 'openSidePanel' });
-  }
-};
-
-// Improved message listener with cleanup capability
-export const addMessageListener = (callback: (message: ChromeMessage) => void): (() => void) => {
-  const messageListener = (
-    message: ChromeMessage, 
-    sender: chrome.runtime.MessageSender, 
-    _sendResponse: (response?: any) => void
-  ) => {
-    // Handle messages from the background script or extension itself
-    // Background script messages will have sender.id === chrome.runtime.id
-    // Extension internal messages (popup/sidepanel) may not have sender.id or have undefined
-    if (!sender.id || sender.id === chrome.runtime.id) {
-      console.log('[chrome-api] Received message from background:', message);
-      callback(message);
-    }
-    return true; // Keep the message channel open for async responses
-  };
-
-  // Add the listener
-  chrome.runtime.onMessage.addListener(messageListener);
-
-  // Return cleanup function
-  return () => {
-    chrome.runtime.onMessage.removeListener(messageListener);
-  };
+  getState: () => request('GET_STATE'),
+  toggleEnabled: (enabled: boolean) => request('SET_ENABLED', { enabled }),
+  addRoute: (route: string, config: AnyRouteConfig, name?: string) => request('ADD_ROUTE', { route, config, name }),
+  removeRoute: (route: string) => request('REMOVE_ROUTE', { route }),
+  toggleRoute: (route: string, enabled: boolean) => request('TOGGLE_ROUTE', { route, enabled }),
+  clearRoutes: () => request('CLEAR_ROUTES'),
+  exportRoutes: () => request('EXPORT_ROUTES'),
+  setEventMonitor: (enabled: boolean) => request('SET_EVENT_MONITOR', { enabled }),
 };
 
 // Route key helpers — re-exported from core for backwards compatibility

@@ -6,200 +6,43 @@
 import type {
   NetworkRequest,
   NetworkSettings,
-  NetworkMessageResponse,
-  ResponseBody,
-  ReplayResult,
   QueryParam,
   TimingPhase,
 } from '../types/network';
 import { NETWORK_PANEL_PORT } from '../types/network';
+import { request } from './messaging';
 
 // ============================================
-// Chrome Message Helpers
+// Network API (typed requests; see src/core/messaging/protocol.ts)
 // ============================================
 
-async function sendNetworkMessage<T extends NetworkMessageResponse>(
-  message: Record<string, unknown>
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    if (!chrome?.runtime?.sendMessage) {
-      reject(new Error('Chrome runtime not available'));
-      return;
-    }
-
-    chrome.runtime.sendMessage(message, (response: T) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve(response);
-      }
-    });
-  });
+export async function getRequests(tabId: number) {
+  const { requests, settings, attached } = await request('NETWORK_GET_REQUESTS', { tabId });
+  return { requests, settings, debuggerAttached: attached };
 }
 
-// ============================================
-// Network API Functions
-// ============================================
+export const getRequestDetails = (tabId: number, requestId: string) =>
+  request('NETWORK_GET_REQUEST_DETAILS', { tabId, requestId });
 
-/**
- * Get all captured requests for a tab
- */
-export async function getRequests(
-  tabId: number
-): Promise<{ requests: NetworkRequest[]; settings: NetworkSettings; debuggerAttached: boolean }> {
-  const response = await sendNetworkMessage<NetworkMessageResponse>({
-    type: 'NETWORK_GET_REQUESTS',
-    tabId,
-  });
-  return {
-    requests: response.requests || [],
-    settings: response.settings || {
-      preserveLog: false,
-      recording: true,
-      disableCache: false,
-      showWaterfall: true,
-    },
-    debuggerAttached: response.attached || false,
-  };
-}
+export const getResponseBody = (tabId: number, requestId: string) =>
+  request('NETWORK_GET_RESPONSE_BODY', { tabId, requestId });
 
-/**
- * Get detailed info for a specific request
- */
-export async function getRequestDetails(
-  tabId: number,
-  requestId: string
-): Promise<{ request: NetworkRequest | null; responseBody: ResponseBody | null }> {
-  const response = await sendNetworkMessage<NetworkMessageResponse>({
-    type: 'NETWORK_GET_REQUEST_DETAILS',
-    tabId,
-    requestId,
-  });
-  return {
-    request: response.request || null,
-    responseBody: response.responseBody || null,
-  };
-}
+export const clearRequests = (tabId: number) => request('NETWORK_CLEAR_REQUESTS', { tabId });
 
-/**
- * Get response body for a request
- */
-export async function getResponseBody(
-  tabId: number,
-  requestId: string
-): Promise<ResponseBody | null> {
-  const response = await sendNetworkMessage<NetworkMessageResponse>({
-    type: 'NETWORK_GET_RESPONSE_BODY',
-    tabId,
-    requestId,
-  });
-  return response.responseBody || null;
-}
+export const updateSettings = (settings: Partial<NetworkSettings>) => request('NETWORK_UPDATE_SETTINGS', { settings });
 
-/**
- * Clear all requests for a tab
- */
-export async function clearRequests(tabId: number): Promise<boolean> {
-  const response = await sendNetworkMessage<NetworkMessageResponse>({
-    type: 'NETWORK_CLEAR_REQUESTS',
-    tabId,
-  });
-  return response.success || false;
-}
+export const getSettings = () => request('NETWORK_GET_SETTINGS');
 
-/**
- * Update network settings
- */
-export async function updateSettings(
-  settings: Partial<NetworkSettings>
-): Promise<NetworkSettings> {
-  const response = await sendNetworkMessage<NetworkMessageResponse>({
-    type: 'NETWORK_UPDATE_SETTINGS',
-    settings,
-  });
-  return (
-    response.settings || {
-      preserveLog: false,
-      recording: true,
-      disableCache: false,
-      showWaterfall: true,
-    }
-  );
-}
+export const exportHAR = (tabId: number) => request('NETWORK_EXPORT_HAR', { tabId });
 
-/**
- * Get current settings
- */
-export async function getSettings(): Promise<NetworkSettings> {
-  const response = await sendNetworkMessage<NetworkMessageResponse>({
-    type: 'NETWORK_GET_SETTINGS',
-  });
-  return (
-    response.settings || {
-      preserveLog: false,
-      recording: true,
-      disableCache: false,
-      showWaterfall: true,
-    }
-  );
-}
+export const replayRequest = (networkRequest: NetworkRequest) =>
+  request('NETWORK_REPLAY_REQUEST', { request: networkRequest });
 
-/**
- * Export requests as HAR format
- */
-export async function exportHAR(tabId: number): Promise<string> {
-  const response = await sendNetworkMessage<NetworkMessageResponse>({
-    type: 'NETWORK_EXPORT_HAR',
-    tabId,
-  });
-  return response.har || '';
-}
+export const attachDebugger = (tabId: number) => request('NETWORK_ATTACH_DEBUGGER', { tabId });
 
-/**
- * Replay a request
- */
-export async function replayRequest(
-  request: NetworkRequest
-): Promise<ReplayResult> {
-  const response = await sendNetworkMessage<NetworkMessageResponse>({
-    type: 'NETWORK_REPLAY_REQUEST',
-    request,
-  });
-  return response.result || { error: 'Unknown error' };
-}
+export const detachDebugger = (tabId: number) => request('NETWORK_DETACH_DEBUGGER', { tabId });
 
-/**
- * Attach debugger to tab for network monitoring
- */
-export async function attachDebugger(tabId: number): Promise<boolean> {
-  const response = await sendNetworkMessage<NetworkMessageResponse>({
-    type: 'NETWORK_ATTACH_DEBUGGER',
-    tabId,
-  });
-  return response.attached || false;
-}
-
-/**
- * Detach debugger from tab
- */
-export async function detachDebugger(tabId: number): Promise<boolean> {
-  const response = await sendNetworkMessage<NetworkMessageResponse>({
-    type: 'NETWORK_DETACH_DEBUGGER',
-    tabId,
-  });
-  return response.success || false;
-}
-
-/**
- * Get debugger status
- */
-export async function getDebuggerStatus(tabId: number): Promise<boolean> {
-  const response = await sendNetworkMessage<NetworkMessageResponse>({
-    type: 'NETWORK_GET_DEBUGGER_STATUS',
-    tabId,
-  });
-  return response.attached || false;
-}
+export const getDebuggerStatus = (tabId: number) => request('NETWORK_GET_DEBUGGER_STATUS', { tabId });
 
 // ============================================
 // Utility Functions
@@ -520,26 +363,6 @@ export async function getCurrentTabId(): Promise<number | null> {
   });
 }
 
-/**
- * Add message listener with cleanup
- */
-export function addNetworkMessageListener(
-  callback: (message: Record<string, unknown>) => void
-): () => void {
-  if (!chrome?.runtime?.onMessage) {
-    return () => {};
-  }
-
-  const listener = (message: Record<string, unknown>) => {
-    callback(message);
-  };
-
-  chrome.runtime.onMessage.addListener(listener);
-
-  return () => {
-    chrome.runtime.onMessage.removeListener(listener);
-  };
-}
 
 /**
  * Convert request to interceptable route format

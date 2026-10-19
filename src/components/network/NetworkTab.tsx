@@ -32,12 +32,12 @@ import {
   detachDebugger,
   exportHAR,
   downloadFile,
-  addNetworkMessageListener,
   getCurrentTabId,
   getDebuggerStatus,
   getRequestDetails,
   getResponseBody,
 } from '../../lib/network-api';
+import { onEvent } from '../../lib/messaging';
 import NetworkStats from './NetworkStats';
 import NetworkFilters from './NetworkFilters';
 import NetworkRequestList from './NetworkRequestList';
@@ -191,28 +191,20 @@ export function NetworkTab() {
 
   // ─── Listen for Network Updates ────────────────────────────────────────────
   useEffect(() => {
-    const cleanup = addNetworkMessageListener((message) => {
-      // Only process updates if we're recording
-      if (
-        message.type === 'NETWORK_REQUESTS_UPDATED' &&
-        message.tabId === currentTabIdRef.current &&
-        isRecording
-      ) {
-        setRequests(message.requests as NetworkRequest[]);
-      }
-      if (
-        message.type === 'NETWORK_DEBUGGER_ATTACHED' &&
-        message.tabId === currentTabIdRef.current
-      ) {
-        setDebuggerAttached(true);
-      }
-      if (
-        message.type === 'NETWORK_DEBUGGER_DETACHED' &&
-        message.tabId === currentTabIdRef.current
-      ) {
-        setDebuggerAttached(false);
-      }
-    });
+    const isCurrentTab = (tabId: number) => tabId === currentTabIdRef.current;
+    const offs = [
+      onEvent('NETWORK_REQUESTS_UPDATED', ({ tabId, requests }) => {
+        // Only process updates while recording
+        if (isCurrentTab(tabId) && isRecording) setRequests(requests);
+      }),
+      onEvent('NETWORK_DEBUGGER_ATTACHED', ({ tabId }) => {
+        if (isCurrentTab(tabId)) setDebuggerAttached(true);
+      }),
+      onEvent('NETWORK_DEBUGGER_DETACHED', ({ tabId }) => {
+        if (isCurrentTab(tabId)) setDebuggerAttached(false);
+      }),
+    ];
+    const cleanup = () => offs.forEach((off) => off());
 
     return cleanup;
   }, [isRecording, setRequests, setDebuggerAttached]);

@@ -51,7 +51,8 @@
     "test:coverage": "vitest --coverage",
     "test:e2e": "playwright test",
     "brand": "node scripts/brand.ts",
-    "brand:check": "node scripts/brand.ts --check"
+    "brand:check": "node scripts/brand.ts --check",
+    "verify": "pnpm type-check && pnpm lint && pnpm test:run && pnpm brand:check && pnpm build && pnpm test:e2e"
   },
   "dependencies": {
     "@arshad-shah/log-kit": "1.1.0",

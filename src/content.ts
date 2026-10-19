@@ -3,6 +3,8 @@
 // then relays messages between page ↔ background ↔ sidepanel.
 
 import { pageUrlMatches } from './core/url-matching';
+import { isEventMessage, type Events } from './core/messaging/protocol';
+import { request } from './lib/messaging';
 
 const SCRIPT_ID = 'request-interceptor-injected';
 
@@ -12,9 +14,6 @@ const SCRIPT_ID = 'request-interceptor-injected';
 const injectedElements: Map<string, HTMLElement[]> = new Map();
 const injectedSignatures: Map<string, string> = new Map();
 
-// Track state locally
-let isEnabled = false;
-let interceptedRoutes: Record<string, any> = {};
 let injectedScriptReady = false;
 let pendingCommands: Array<{ command: string; extra?: Record<string, any> }> = [];
 
@@ -122,54 +121,34 @@ injectPageScript();
 
 // ── Get initial state from background ────────────────────────────────────────
 
-chrome.runtime.sendMessage({ action: 'getState' }, (response) => {
-  if (!response) return;
-  isEnabled = response.enabled;
-  interceptedRoutes = response.routes || {};
+/** Push interception state into the page script and apply injection routes. */
+function applyState(enabled: boolean, routes: Record<string, any>) {
+  // updateRoutes re-initializes (and activates) the page interceptors; follow with the real state
+  sendCommand('updateRoutes', { routes });
+  sendCommand(enabled ? 'enable' : 'disable');
+  processInjectionRoutes(routes, enabled);
+}
 
-  if (isEnabled) {
-    sendCommand('initialize', { routes: interceptedRoutes });
+request('GET_STATE')
+  .then((state) => {
+    applyState(state.enabled, state.routes);
+    if (state.eventMonitorEnabled) sendCommand('enableEventMonitor');
+  })
+  .catch(() => {
+    /* extension context unavailable (reloaded); the page keeps working untouched */
+  });
+
+// ── Listen for events from background ────────────────────────────────────────
+
+chrome.runtime.onMessage.addListener((message: unknown) => {
+  if (!isEventMessage(message)) return false;
+  if (message.type === 'STATE_CHANGED') {
+    const { enabled, routes } = message.payload as Events['STATE_CHANGED'];
+    applyState(enabled, routes);
+  } else if (message.type === 'EVENT_MONITOR_CHANGED') {
+    sendCommand((message.payload as Events['EVENT_MONITOR_CHANGED']).enabled ? 'enableEventMonitor' : 'disableEventMonitor');
   }
-
-  if (response.eventMonitorEnabled) {
-    sendCommand('enableEventMonitor');
-  }
-
-  processInjectionRoutes(interceptedRoutes, isEnabled);
-});
-
-// ── Listen for messages from background ──────────────────────────────────────
-
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.action === 'stateChanged') {
-    isEnabled = message.enabled;
-    if (message.routes) interceptedRoutes = message.routes;
-
-    if (isEnabled) {
-      sendCommand('updateRoutes', { routes: interceptedRoutes });
-    } else {
-      sendCommand('disable');
-    }
-
-    processInjectionRoutes(interceptedRoutes, isEnabled);
-    sendResponse({ success: true });
-  }
-  else if (message.action === 'toggleEventMonitor') {
-    sendCommand(message.enabled ? 'enableEventMonitor' : 'disableEventMonitor');
-    sendResponse({ success: true });
-  }
-  else if (message.action === 'routesChanged') {
-    interceptedRoutes = message.routes || {};
-    if (Object.hasOwn(message, 'enabled')) isEnabled = message.enabled;
-
-    sendCommand('updateRoutes', { routes: interceptedRoutes });
-    sendCommand(isEnabled ? 'enable' : 'disable');
-
-    processInjectionRoutes(interceptedRoutes, isEnabled);
-    sendResponse({ success: true });
-  }
-
-  return true;
+  return false;
 });
 
 // ── Listen for messages from page context ────────────────────────────────────
@@ -184,15 +163,8 @@ window.addEventListener('message', (event) => {
 
   // EventBus Monitor events → forward to background
   if (event.data.type === 'eventbus-monitor-channel') {
-    // The extension context is gone after a reload/update; drop events quietly.
-    if (!chrome.runtime?.id) return;
-    chrome.runtime
-      .sendMessage({
-        type: 'EVENT_CAPTURED',
-        payload: event.data.payload,
-        tabUrl: window.location.href,
-      })
-      .catch(() => {});
+    // Fails quietly once the extension context is gone (reload/update)
+    request('EVENT_CAPTURED', { event: event.data.payload, tabUrl: window.location.href }).catch(() => {});
   }
 });
 

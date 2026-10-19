@@ -171,6 +171,8 @@ export interface WebSocketFrame {
   data: string;
   length: number;
   mask?: boolean;
+  /** Payload was cut to the capture limit; `length` is the original size. */
+  truncated?: boolean;
 }
 
 // ============================================
@@ -301,16 +303,6 @@ export interface NetworkMessage {
   reason?: string;
 }
 
-export interface NetworkMessageResponse {
-  success?: boolean;
-  requests?: NetworkRequest[];
-  request?: NetworkRequest | null;
-  responseBody?: ResponseBody | null;
-  settings?: NetworkSettings;
-  attached?: boolean;
-  har?: string;
-  result?: ReplayResult;
-}
 
 // ============================================
 // HAR Export Types

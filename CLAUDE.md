@@ -23,11 +23,13 @@ Load the `dist/chrome/` folder as an unpacked extension in `chrome://extensions`
 ## Architecture
 
 **Extension entry points** (each is a separate ExtForge entry):
-- `src/background.ts` — Service worker. Manages state, message routing, event storage (per-tab, in-memory), storage/cookie operations. Delegates to `src/core/` for validation, migration, export, and conflict detection.
+- `src/background.ts` — Service worker composition root: one `MessageRouter` shared by `src/sw/state.ts` (enabled flag, routes, event-monitor flag; persisted), `src/sw/events.ts` (per-tab event buffer), `src/sw/storage.ts` (cookies, web storage, IndexedDB via `chrome.scripting`) and `src/lib/network-background.ts` (network capture via `chrome.debugger`).
 - `src/content.ts` — Content script injected at `document_start`. Relays messages between page and background. Uses `src/core/url-matching.ts` for injection route matching. Forwards EventBus monitor events.
 - `src/injected.ts` — Thin IIFE shell injected into page context. Delegates to `src/core/interceptors/` for fetch, XHR, and WebSocket interception. Also patches `dispatchEvent`, `postMessage`, and EventEmitter patterns for event monitoring.
 - `src/ui/sidepanel/index.tsx` — Side panel React app (main UI). HTML at `src/ui/sidepanel/index.html`.
 - `src/ui/popup/index.tsx` — Popup React app. HTML at `src/ui/popup/index.html`.
+
+**Messaging** — every request and broadcast is declared in `src/core/messaging/protocol.ts` (`Requests`, `Events`). Requests are `{ type, payload }` answered with `{ ok, data | error }` by `src/core/messaging/router.ts`; UI and content scripts call `request(type, payload)` from `src/lib/messaging.ts` (throws `MessageError` on failure/timeout) and subscribe with `onEvent(type, cb)`. The background broadcasts with `emit` / `emitToTabs`. Add a message by extending the protocol, then registering a handler — never call `chrome.runtime.sendMessage` directly.
 
 **Core modules** (`src/core/`) — Pure, testable functions with no browser API dependencies:
 - `route-keys.ts` — Single source of truth for route key parsing/creation (HTTP, WS, INJ formats).
