@@ -110,7 +110,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       if (
         existing &&
         (existing.enabled ?? true) === normalizedEnabled &&
-        shallowEqualConfig(existing, incoming)
+        shallowEqualConfig(existing, { ...incoming, enabled: normalizedEnabled })
       ) {
         next[key] = existing;
         continue;
