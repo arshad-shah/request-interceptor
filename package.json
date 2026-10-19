@@ -49,7 +49,8 @@
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=e2e",
+    "test:soak": "playwright test --project=soak",
     "brand": "node scripts/brand.ts",
     "brand:check": "node scripts/brand.ts --check",
     "verify": "pnpm type-check && pnpm lint && pnpm test:run && pnpm brand:check && pnpm build && pnpm test:e2e"

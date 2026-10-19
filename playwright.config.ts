@@ -9,4 +9,10 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   retries: process.env.CI ? 1 : 0,
+  projects: [
+    // `pnpm test:e2e`: the fast functional suite
+    { name: 'e2e', testIgnore: /soak\.spec\.ts$/ },
+    // `pnpm test:soak`: long-running memory soak, run on demand
+    { name: 'soak', testMatch: /soak\.spec\.ts$/, retries: 0 },
+  ],
 });
