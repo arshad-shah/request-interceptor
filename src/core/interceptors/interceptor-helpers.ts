@@ -6,6 +6,7 @@
 import { urlMatches } from '../url-matching';
 import { matchesGraphqlOperation } from '../graphql';
 import { applyQueryParamRules as applyQPRules } from '../query-params';
+import type { RouteConfig } from '@/types';
 
 // Re-export for use in injected.ts
 export { applyQPRules as applyQueryParamRules };
@@ -13,6 +14,12 @@ export { applyQPRules as applyQueryParamRules };
 export type InterceptionMode = 'mock' | 'passthrough' | 'block' | 'redirect';
 
 export type LogFn = (message: string, level?: 'info' | 'warn' | 'error') => void;
+
+/** An HTTP route config as received in the page; any field may be missing. */
+export type HttpRouteConfig = Partial<RouteConfig>;
+
+/** Routes keyed by route key, as pushed to the page by the content script. */
+export type InterceptRoutes = Record<string, HttpRouteConfig>;
 
 export interface InterceptResult {
   routeKey: string;
@@ -65,9 +72,9 @@ export function parseWebSocketKeyInline(routeKey: string): { url: string; name: 
 export function shouldIntercept(
   method: string,
   url: string,
-  routes: Record<string, any>,
+  routes: InterceptRoutes,
   log: LogFn,
-  requestBody?: any
+  requestBody?: unknown
 ): InterceptResult | null {
   const normalizedMethod = method.toUpperCase();
 
@@ -152,7 +159,7 @@ export function getStatusText(status: number): string {
 }
 
 /** Create a mock Response object */
-export function createMockResponse(body: any, config: any, log: LogFn): Response {
+export function createMockResponse(body: unknown, config: HttpRouteConfig, log: LogFn): Response {
   let responseBody: string;
   let contentType: string;
 
@@ -202,7 +209,7 @@ export function createMockResponse(body: any, config: any, log: LogFn): Response
 }
 
 /** Apply request header modifications */
-export function modifyRequestHeaders(headers: Headers, config: any, log: LogFn): Headers {
+export function modifyRequestHeaders(headers: Headers, config: HttpRouteConfig, log: LogFn): Headers {
   const modifiedHeaders = new Headers(headers);
 
   if (config.removeRequestHeaders && Array.isArray(config.removeRequestHeaders)) {
@@ -230,7 +237,7 @@ export function modifyRequestHeaders(headers: Headers, config: any, log: LogFn):
 export async function buildForwardInit(
   resource: RequestInfo | URL,
   options: RequestInit,
-  config: any,
+  config: HttpRouteConfig,
   log: LogFn,
   { overrideBody }: { overrideBody: boolean }
 ): Promise<RequestInit> {
@@ -267,7 +274,7 @@ export async function buildForwardInit(
 }
 
 /** Apply response header modifications to a real response */
-export function modifyResponseHeaders(response: Response, config: any, log: LogFn): Response {
+export function modifyResponseHeaders(response: Response, config: HttpRouteConfig, log: LogFn): Response {
   if (!config.responseHeaders || Object.keys(config.responseHeaders).length === 0) {
     return response;
   }

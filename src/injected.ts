@@ -3,10 +3,26 @@
 
 import { setupFetchInterceptor } from './core/interceptors/fetch-interceptor';
 import { setupXHRInterceptor } from './core/interceptors/xhr-interceptor';
-import { setupWebSocketInterceptor } from './core/interceptors/ws-interceptor';
-import { parseRouteKeyInline, parseWebSocketKeyInline } from './core/interceptors/interceptor-helpers';
+import {
+  setupWebSocketInterceptor,
+  type ActiveSocket,
+  type WSRouteConfig,
+} from './core/interceptors/ws-interceptor';
+import {
+  parseRouteKeyInline,
+  parseWebSocketKeyInline,
+  type HttpRouteConfig,
+  type InterceptRoutes,
+} from './core/interceptors/interceptor-helpers';
 import { serializeEventData } from './core/event-serialization';
 import { configureToasts } from './core/notifications/page-toast';
+import type { CapturedEvent } from './types/events';
+
+/** Routes as pushed by the content script: HTTP and WebSocket configs keyed by route key. */
+type PageRoutes = Record<string, HttpRouteConfig | WSRouteConfig>;
+
+/** An emit-style method after it has been wrapped for monitoring. */
+type HookedFn = ((...args: unknown[]) => unknown) & { __eventbus_hooked?: boolean };
 
 (function() {
   // Store original methods
@@ -20,9 +36,9 @@ import { configureToasts } from './core/notifications/page-toast';
 
   // Internal state
   let isActive = false;
-  let interceptedRoutes: Record<string, any> = {};
-  let interceptedWebSockets: Record<string, any> = {};
-  const activeWebSockets: Map<WebSocket, any> = new Map();
+  let interceptedRoutes: InterceptRoutes = {};
+  let interceptedWebSockets: Record<string, WSRouteConfig> = {};
+  const activeWebSockets: Map<WebSocket, ActiveSocket> = new Map();
 
   // Console logging is opt-in (Settings → Diagnostics); errors are always shown.
   let consoleLogs = false;
@@ -54,28 +70,28 @@ import { configureToasts } from './core/notifications/page-toast';
   }
 
   function destroy() {
-    (window as any).fetch = originalFetch;
+    window.fetch = originalFetch;
     XMLHttpRequest.prototype.open = originalXHROpen;
     XMLHttpRequest.prototype.send = originalXHRSend;
     XMLHttpRequest.prototype.setRequestHeader = originalXHRSetRequestHeader;
-    (window as any).WebSocket = originalWebSocket;
+    window.WebSocket = originalWebSocket;
     activeWebSockets.clear();
     isActive = false;
     log('Request Interceptor destroyed');
   }
 
   const RequestInterceptor = {
-    initialize(routes: Record<string, any>) {
+    initialize(routes: PageRoutes) {
       interceptedRoutes = {};
       interceptedWebSockets = {};
 
       Object.keys(routes || {}).forEach(key => {
         if (key.startsWith('WS:')) {
-          interceptedWebSockets[key] = routes[key];
+          interceptedWebSockets[key] = routes[key] as WSRouteConfig;
         } else if (key.startsWith('INJ:')) {
           // Injection routes handled by content script
         } else {
-          interceptedRoutes[key] = routes[key];
+          interceptedRoutes[key] = routes[key] as HttpRouteConfig;
         }
       });
 
@@ -104,8 +120,8 @@ import { configureToasts } from './core/notifications/page-toast';
         try {
           const { url, name } = parseWebSocketKeyInline(key);
           const isEnabled = config.enabled === true || config.enabled === undefined || config.enabled !== false;
-          const incomingRules = (config.incomingRules || []).filter((r: any) => r.enabled).length;
-          const outgoingRules = (config.outgoingRules || []).filter((r: any) => r.enabled).length;
+          const incomingRules = (config.incomingRules || []).filter((r) => r.enabled).length;
+          const outgoingRules = (config.outgoingRules || []).filter((r) => r.enabled).length;
           log(`WebSocket Route: ${url} ${name ? `(${name})` : ''} - ${isEnabled ? 'ENABLED' : 'DISABLED'} - Rules: ${incomingRules} incoming, ${outgoingRules} outgoing`);
         } catch (error) {
           log(`Invalid WebSocket route key: ${key}`, 'error');
@@ -113,7 +129,7 @@ import { configureToasts } from './core/notifications/page-toast';
       });
     },
 
-    updateRoutes(routes: Record<string, any>) {
+    updateRoutes(routes: PageRoutes) {
       this.initialize(routes);
     },
 
@@ -130,7 +146,7 @@ import { configureToasts } from './core/notifications/page-toast';
     destroy
   };
 
-  (window as any).__requestInterceptor = RequestInterceptor;
+  Object.assign(window, { __requestInterceptor: RequestInterceptor });
 
   // Listen for commands from the content script
   window.addEventListener('message', (event) => {
@@ -176,7 +192,7 @@ import { configureToasts } from './core/notifications/page-toast';
     return stack ? stack.split('\n').slice(3, 8).join('\n') : '';
   }
 
-  function sendEventToExtension(data: any) {
+  function sendEventToExtension(data: CapturedEvent) {
     if (!eventMonitorActive) return;
     if (EVT_DEBUG) {
       let bytes = 0;
@@ -202,7 +218,7 @@ import { configureToasts } from './core/notifications/page-toast';
         category: 'CustomEvent',
         eventType: event.type,
         data: serializeEventData(event),
-        target: this === window ? 'window' : this === document ? 'document' : ((this as any).tagName || 'unknown'),
+        target: this === window ? 'window' : this === document ? 'document' : ((this as Partial<Element>).tagName || 'unknown'),
         stack: getEventStackTrace(),
       });
     }
@@ -210,9 +226,15 @@ import { configureToasts } from './core/notifications/page-toast';
   };
 
   // Patch postMessage for cross-frame communication interception
-  (window as any).postMessage = function(message: any, optionsOrOrigin?: any, transfer?: any) {
-    if (EVT_DEBUG) console.warn('[EVT-1] injected:dispatch', { trigger: 'postMessage', type: message?.type, active: eventMonitorActive });
-    if (eventMonitorActive && message && message.type !== EVENTBUS_CHANNEL && message.type !== 'REQUEST_INTERCEPTOR_COMMAND') {
+  window.postMessage = function(
+    this: Window,
+    message: unknown,
+    optionsOrOrigin?: string | WindowPostMessageOptions,
+    transfer?: Transferable[]
+  ) {
+    const messageType = message ? (message as { type?: unknown }).type : undefined;
+    if (EVT_DEBUG) console.warn('[EVT-1] injected:dispatch', { trigger: 'postMessage', type: messageType, active: eventMonitorActive });
+    if (eventMonitorActive && message && messageType !== EVENTBUS_CHANNEL && messageType !== 'REQUEST_INTERCEPTOR_COMMAND') {
       const target = typeof optionsOrOrigin === 'string' ? optionsOrOrigin : (optionsOrOrigin?.targetOrigin || '*');
       sendEventToExtension({
         id: generateEventId(),
@@ -227,16 +249,17 @@ import { configureToasts } from './core/notifications/page-toast';
     // Forward to original — use Function.prototype.apply to bypass strict TS overloads
     const args = transfer !== undefined ? [message, optionsOrOrigin, transfer] : optionsOrOrigin !== undefined ? [message, optionsOrOrigin] : [message];
     return (originalWindowPostMessage as (...a: unknown[]) => void).apply(this, args);
-  };
+  } as typeof window.postMessage;
 
   // Hook EventEmitter patterns on global objects
-  function hookEventEmitter(obj: any, name: string) {
+  function hookEventEmitter(obj: unknown, name: string) {
     if (!obj || typeof obj !== 'object') return;
+    const target = obj as Record<string, unknown>;
     const emitMethods = ['emit', '$emit', 'trigger', 'fire', 'publish', 'dispatch', 'broadcast', 'send'];
     for (const method of emitMethods) {
-      if (typeof obj[method] === 'function' && !obj[method].__eventbus_hooked) {
-        const original = obj[method];
-        obj[method] = function(eventName: string, ...args: any[]) {
+      const original = target[method];
+      if (typeof original === 'function' && !(original as HookedFn).__eventbus_hooked) {
+        target[method] = function(this: unknown, eventName: unknown, ...args: unknown[]) {
           if (EVT_DEBUG) console.warn('[EVT-1] injected:dispatch', { trigger: 'EventEmitter', type: eventName, active: eventMonitorActive });
           if (eventMonitorActive) sendEventToExtension({
             id: generateEventId(),
@@ -249,7 +272,7 @@ import { configureToasts } from './core/notifications/page-toast';
           });
           return original.apply(this, [eventName, ...args]);
         };
-        obj[method].__eventbus_hooked = true;
+        (target[method] as HookedFn).__eventbus_hooked = true;
       }
     }
   }
@@ -257,11 +280,14 @@ import { configureToasts } from './core/notifications/page-toast';
   // Scan for global EventBus instances
   const busNames = ['EventBus', 'eventBus', 'bus', '$bus', 'emitter', 'EventEmitter', 'pubsub', 'PubSub', 'mediator', 'Mediator', 'dispatcher', 'Dispatcher'];
   function scanForBuses() {
+    const globals = window as unknown as Record<string, unknown>;
     for (const name of busNames) {
-      if ((window as any)[name]) hookEventEmitter((window as any)[name], name);
+      if (globals[name]) hookEventEmitter(globals[name], name);
     }
-    if ((window as any).Vue && (window as any).Vue.prototype) hookEventEmitter((window as any).Vue.prototype, 'Vue');
-    if ((window as any).app && (window as any).app.$bus) hookEventEmitter((window as any).app.$bus, 'app.$bus');
+    const vue = globals.Vue as { prototype?: unknown } | undefined;
+    const app = globals.app as { $bus?: unknown } | undefined;
+    if (vue && vue.prototype) hookEventEmitter(vue.prototype, 'Vue');
+    if (app && app.$bus) hookEventEmitter(app.$bus, 'app.$bus');
   }
 
   if (document.readyState === 'loading') {

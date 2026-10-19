@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { setupFetchInterceptor } from '../interceptors/fetch-interceptor';
-import { modifyResponseHeaders } from '../interceptors/interceptor-helpers';
+import { modifyResponseHeaders, type InterceptRoutes } from '../interceptors/interceptor-helpers';
 
 const noopLog = () => {};
 
@@ -8,7 +8,7 @@ describe('fetch interceptor forwarding', () => {
   const nativeFetch = window.fetch;
   let originalFetch: ReturnType<typeof vi.fn>;
 
-  function install(routes: Record<string, any>) {
+  function install(routes: InterceptRoutes) {
     originalFetch = vi.fn(async () => new Response('ok'));
     setupFetchInterceptor(
       { isActive: () => true, getRoutes: () => routes },

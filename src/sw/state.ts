@@ -9,6 +9,7 @@ import { migrateRoutes } from '@/core/route-migration';
 import { exportRoutes } from '@/core/route-export';
 import { findConflictingRoutes } from '@/core/route-conflicts';
 import type { AnyRouteConfig, Routes, StateSnapshot } from '@/core/messaging/protocol';
+import type { InjectionConfig, RouteConfig, WebSocketConfig } from '@/types';
 import type { MessageRouter } from '@/core/messaging/router';
 import { emit, emitToTabs } from '@/lib/messaging';
 import { logger } from '@/lib/logger';
@@ -103,7 +104,8 @@ export class StateStore {
   }
 
   async addRoute(route: string, input: AnyRouteConfig, name?: string): Promise<{ isUpdate: boolean }> {
-    const config = structuredClone(input) as AnyRouteConfig & Record<string, any>;
+    // Every field any route type may carry; defaults below are filled per route type
+    const config = structuredClone(input) as Partial<RouteConfig & WebSocketConfig & InjectionConfig>;
     const validation = isWebSocketRoute(route)
       ? validateWebSocketConfig(config)
       : isInjectionRoute(route)
@@ -132,7 +134,7 @@ export class StateStore {
     const isUpdate = Object.hasOwn(this.state.routes, route);
     if (isHttpRoute(route) && config.enabled) this.disableConflicts(route, isUpdate);
 
-    this.state.routes[route] = config;
+    this.state.routes[route] = config as AnyRouteConfig;
     await this.save();
     this.broadcast();
     return { isUpdate };

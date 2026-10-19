@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { setupXHRInterceptor } from '../interceptors/xhr-interceptor';
+import type { InterceptRoutes } from '../interceptors/interceptor-helpers';
 
 const proto = XMLHttpRequest.prototype;
 const native = { open: proto.open, send: proto.send, setRequestHeader: proto.setRequestHeader };
@@ -9,16 +10,16 @@ describe('XHR interceptor', () => {
   let send: ReturnType<typeof vi.fn>;
   let setHeader: ReturnType<typeof vi.fn>;
 
-  function install(routes: Record<string, any>) {
+  function install(routes: InterceptRoutes) {
     open = vi.fn();
     send = vi.fn();
     setHeader = vi.fn();
     setupXHRInterceptor(
       { isActive: () => true, getRoutes: () => routes },
       () => {},
-      open as any,
-      send as any,
-      setHeader as any
+      open as unknown as typeof proto.open,
+      send as unknown as typeof proto.send,
+      setHeader as unknown as typeof proto.setRequestHeader
     );
   }
 

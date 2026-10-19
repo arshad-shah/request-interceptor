@@ -8,6 +8,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { HttpMethod } from '@/types';
 import Badge, { MethodBadge, StatusBadge } from '@/components/ui/Badge';
 import Toggle from '@/components/ui/Toggle';
 import type { RouteInfo } from '@/hooks/useRouteInfo';
@@ -55,7 +56,7 @@ const RouteItemHeader: React.FC<RouteItemHeaderProps> = ({
                 WS
               </span>
             ) : (
-              <MethodBadge method={info.method as any} />
+              <MethodBadge method={info.method as HttpMethod} />
             )}
           </div>
           <div
@@ -112,9 +113,9 @@ const RouteItemHeader: React.FC<RouteItemHeaderProps> = ({
             {info.isHttp && info.interceptionMode === 'mock' && (
               <StatusBadge status={info.httpConfig.status} />
             )}
-            {!info.isInjection && ((info.httpConfig as any).delay ?? 0) > 0 && (
+            {!info.isInjection && (info.httpConfig.delay ?? 0) > 0 && (
               <Badge variant="default" icon={<Clock size={10} />} iconPosition="left">
-                {(info.httpConfig as any).delay}ms
+                {info.httpConfig.delay}ms
               </Badge>
             )}
           </div>
@@ -123,12 +124,15 @@ const RouteItemHeader: React.FC<RouteItemHeaderProps> = ({
 
       {/* Controls */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <Toggle
-          checked={info.isEnabled}
-          onChange={onToggle}
-          size="sm"
-          label={`Toggle ${info.url} route`}
-        />
+        {/* Keep switch clicks/keys from also expanding the row */}
+        <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <Toggle
+            checked={info.isEnabled}
+            onChange={onToggle}
+            size="sm"
+            label={`Toggle ${info.url} route`}
+          />
+        </div>
         <div
           className={cn(
             'p-1 rounded-[var(--radius-sm)] text-[var(--text-tertiary)] transition-transform',

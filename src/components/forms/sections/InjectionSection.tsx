@@ -2,11 +2,12 @@ import React from 'react';
 import Radio from '@/components/ui/Radio';
 import { CodeEditor } from '@/components/common/code-editor';
 import { RouteFormData } from '@/types';
+import { type FieldChangeHandler, type RouteFormErrors } from '../route-form-logic';
 
 interface InjectionSectionProps {
   formData: RouteFormData;
-  errors: Partial<Record<keyof RouteFormData, string>>;
-  onFieldChange: (field: keyof RouteFormData, value: any) => void;
+  errors: RouteFormErrors;
+  onFieldChange: FieldChangeHandler;
 }
 
 const InjectionSection: React.FC<InjectionSectionProps> = ({
@@ -54,8 +55,8 @@ const InjectionSection: React.FC<InjectionSectionProps> = ({
         height={200}
         placeholder="// Enter JavaScript code to inject into matching pages"
       />
-      {(errors as any).scripts && (
-        <p className="text-[11px] text-[var(--accent-rose)]">{(errors as any).scripts}</p>
+      {errors.scripts && (
+        <p className="text-[11px] text-[var(--accent-rose)]">{errors.scripts}</p>
       )}
     </div>
 

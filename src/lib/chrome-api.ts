@@ -17,7 +17,7 @@ export const chromeApi = {
 export { parseRouteKey, createRouteKey, createInjectionKey } from '@/core/route-keys';
 
 // Validate JSON string
-export const validateJson = (jsonString: string): { isValid: boolean; parsed?: any; error?: string } => {
+export const validateJson = (jsonString: string): { isValid: boolean; parsed?: unknown; error?: string } => {
   try {
     const parsed = JSON.parse(jsonString);
     return { isValid: true, parsed };
@@ -30,7 +30,7 @@ export const validateJson = (jsonString: string): { isValid: boolean; parsed?: a
 };
 
 // Format JSON string with proper indentation
-export const formatJson = (obj: any): string => {
+export const formatJson = (obj: unknown): string => {
   try {
     // JSON.stringify returns undefined for functions and undefined values
     const result = JSON.stringify(obj, null, 2);

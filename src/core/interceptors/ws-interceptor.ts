@@ -6,13 +6,26 @@
 import { urlMatches } from '../url-matching';
 import { parseWebSocketKeyInline, escapeRegExp, type LogFn } from './interceptor-helpers';
 import { pageToast } from '../notifications/page-toast';
+import type { WebSocketConfig, WebSocketRule } from '@/types';
+
+/** A WebSocket route config as received in the page; any field may be missing. */
+export type WSRouteConfig = Partial<WebSocketConfig>;
 
 export interface WSInterceptorState {
-  getWebSocketRoutes: () => Record<string, any>;
+  getWebSocketRoutes: () => Record<string, WSRouteConfig>;
 }
 
+/** Bookkeeping for a socket the page opened through the interceptor. */
+export interface ActiveSocket {
+  config: WSRouteConfig;
+  realWs: WebSocket;
+  url: string;
+}
+
+type WSMessage = Parameters<WebSocket['send']>[0];
+
 /** Validate a WebSocket rule */
-function validateWebSocketRule(rule: any): { valid: boolean; error?: string } {
+function validateWebSocketRule(rule: Partial<WebSocketRule> | null | undefined): { valid: boolean; error?: string } {
   if (!rule || typeof rule !== 'object') {
     return { valid: false, error: 'Rule must be an object' };
   }
@@ -33,7 +46,7 @@ function validateWebSocketRule(rule: any): { valid: boolean; error?: string } {
 }
 
 /** Check if a rule matches a message */
-function checkRuleMatch(message: string, rule: any, log: LogFn): boolean {
+function checkRuleMatch(message: string, rule: WebSocketRule, log: LogFn): boolean {
   switch (rule.matchType) {
     case 'exact':
       if (message === rule.match) return true;
@@ -54,7 +67,7 @@ function checkRuleMatch(message: string, rule: any, log: LogFn): boolean {
 }
 
 /** Apply rule replacement to a message */
-function applyReplacement(message: string, rule: any, log: LogFn): string {
+function applyReplacement(message: string, rule: WebSocketRule, log: LogFn): string {
   switch (rule.matchType) {
     case 'exact':
       return message === rule.match ? (rule.replacement || '') : message;
@@ -74,18 +87,18 @@ function applyReplacement(message: string, rule: any, log: LogFn): string {
 
 /** Process a WebSocket message through rules */
 export function processMessage(
-  message: any,
-  config: any,
+  message: unknown,
+  config: WSRouteConfig | null | undefined,
   direction: 'incoming' | 'outgoing',
   log: LogFn
-): { result: any; blocked: boolean; injected?: any } {
+): { result: unknown; blocked: boolean; injected?: string | null } {
   if (!config) return { result: message, blocked: false };
 
   const rules = direction === 'incoming' ? config.incomingRules : config.outgoingRules;
   if (!rules || rules.length === 0) return { result: message, blocked: false };
 
   let processedMessage: string;
-  let injectedMessage: any = null;
+  let injectedMessage: string | null = null;
 
   // Rules match text. Binary frames are decoded only for matching and are
   // forwarded unchanged (still binary) unless a rule actually rewrites them.
@@ -100,14 +113,15 @@ export function processMessage(
   }
   let rewritten = false;
 
-  for (const rule of rules) {
-    if (!rule.enabled) continue;
+  for (const candidate of rules as Partial<WebSocketRule>[]) {
+    if (!candidate.enabled) continue;
 
-    const validation = validateWebSocketRule(rule);
+    const validation = validateWebSocketRule(candidate);
     if (!validation.valid) {
       log(`Skipping invalid rule: ${validation.error}`, 'warn');
       continue;
     }
+    const rule = candidate as WebSocketRule;
 
     try {
       if (checkRuleMatch(processedMessage, rule, log)) {
@@ -126,7 +140,7 @@ export function processMessage(
             pageToast(`WS ${direction} blocked`, 'error', { detail: rule.description, event: 'websocket' });
             return { result: null, blocked: true };
           case 'inject':
-            injectedMessage = rule.replacement;
+            injectedMessage = rule.replacement ?? null;
             log(`WebSocket ${direction} message injection triggered: ${rule.description || 'No description'}`);
             pageToast(`WS ${direction} injected`, 'info', { detail: rule.description, event: 'websocket' });
             break;
@@ -145,7 +159,7 @@ export function processMessage(
 }
 
 /** Check if a WebSocket URL should be intercepted */
-function shouldInterceptWebSocket(url: string, wsRoutes: Record<string, any>, log: LogFn): string | null {
+function shouldInterceptWebSocket(url: string, wsRoutes: Record<string, WSRouteConfig>, log: LogFn): string | null {
   log(`Checking WebSocket interception for: ${url}`);
 
   const enabledRoutes = Object.keys(wsRoutes).filter(key => {
@@ -179,9 +193,9 @@ export function setupWebSocketInterceptor(
   state: WSInterceptorState,
   log: LogFn,
   originalWebSocket: typeof WebSocket,
-  activeWebSockets: Map<WebSocket, any>
+  activeWebSockets: Map<WebSocket, ActiveSocket>
 ): void {
-  (window as any).WebSocket = function(url: string | URL, protocols?: string | string[]) {
+  const InterceptedWebSocket = function(url: string | URL, protocols?: string | string[]) {
     const wsUrl = String(url);
     const routeKey = shouldInterceptWebSocket(wsUrl, state.getWebSocketRoutes(), log);
 
@@ -199,7 +213,7 @@ export function setupWebSocketInterceptor(
       // Proxy read-only properties
       ['url', 'readyState', 'bufferedAmount', 'extensions', 'protocol'].forEach(prop => {
         Object.defineProperty(interceptedWs, prop, {
-          get() { return (realWs as any)[prop]; },
+          get() { return realWs[prop as keyof WebSocket]; },
           configurable: true
         });
       });
@@ -247,7 +261,7 @@ export function setupWebSocketInterceptor(
       };
 
       // Proxy send
-      interceptedWs.send = function(data: any) {
+      interceptedWs.send = function(data: WSMessage) {
         log(`WebSocket outgoing message: ${data}`);
         const result = processMessage(data, config, 'outgoing', log);
 
@@ -262,7 +276,7 @@ export function setupWebSocketInterceptor(
         }
 
         if (result.result !== null) {
-          realWs.send(result.result);
+          realWs.send(result.result as WSMessage);
         }
       };
 
@@ -272,7 +286,7 @@ export function setupWebSocketInterceptor(
       };
 
       // Proxy event handlers
-      const pageHandlers: Record<string, any> = {};
+      const pageHandlers: Record<string, unknown> = {};
       ['onopen', 'onclose', 'onerror', 'onmessage'].forEach(prop => {
         Object.defineProperty(interceptedWs, prop, {
           get() { return pageHandlers[prop] ?? null; },
@@ -281,7 +295,7 @@ export function setupWebSocketInterceptor(
             if (prop === 'onmessage' && handler) {
               realWs[prop] = interceptIncomingMessage(handler);
             } else {
-              (realWs as any)[prop] = handler ? handler.bind(interceptedWs) : handler;
+              (realWs as unknown as Record<string, unknown>)[prop] = handler ? handler.bind(interceptedWs) : handler;
             }
           },
           configurable: true
@@ -290,8 +304,9 @@ export function setupWebSocketInterceptor(
 
       // Proxy addEventListener/removeEventListener
       // Wrapped listeners are remembered per (listener, type) so removal works
-      const wrappedListeners = new WeakMap<object, Map<string, any>>();
-      const wrapListener = (type: string, listener: any) => {
+      type WrappedListener = (event: MessageEvent) => void;
+      const wrappedListeners = new WeakMap<object, Map<string, WrappedListener>>();
+      const wrapListener = (type: string, listener: EventListenerOrEventListenerObject): EventListener => {
         let byType = wrappedListeners.get(listener);
         if (!byType) {
           byType = new Map();
@@ -305,17 +320,26 @@ export function setupWebSocketInterceptor(
           wrapped = type === 'message' ? interceptIncomingMessage(call) : call;
           byType.set(type, wrapped);
         }
-        return wrapped;
+        return wrapped as EventListener;
       };
 
-      interceptedWs.addEventListener = function(type: string, listener: any, options?: any) {
-        if (!listener) return realWs.addEventListener(type, listener, options);
+      interceptedWs.addEventListener = function(
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | AddEventListenerOptions
+      ) {
+        // A null listener is a native no-op; pass it through unchanged
+        if (!listener) return realWs.addEventListener(type, listener as unknown as EventListener, options);
         return realWs.addEventListener(type, wrapListener(type, listener), options);
       };
 
-      interceptedWs.removeEventListener = function(type: string, listener: any, options?: any) {
+      interceptedWs.removeEventListener = function(
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | EventListenerOptions
+      ) {
         const wrapped = listener ? wrappedListeners.get(listener)?.get(type) : undefined;
-        return realWs.removeEventListener(type, wrapped ?? listener, options);
+        return realWs.removeEventListener(type, (wrapped ?? listener) as EventListenerOrEventListenerObject, options);
       };
 
       interceptedWs.dispatchEvent = function(event: Event) {
@@ -333,14 +357,24 @@ export function setupWebSocketInterceptor(
 
     log(`→ Not intercepting WebSocket: ${wsUrl}`);
     return new originalWebSocket(url, protocols);
-  };
+  } as unknown as WebSocketShim;
+  window.WebSocket = InterceptedWebSocket as unknown as typeof WebSocket;
 
   // Keep `ws instanceof WebSocket` true for intercepted and native sockets
-  (window as any).WebSocket.prototype = originalWebSocket.prototype;
+  InterceptedWebSocket.prototype = originalWebSocket.prototype;
 
   // Copy static properties
-  (window as any).WebSocket.CONNECTING = 0;
-  (window as any).WebSocket.OPEN = 1;
-  (window as any).WebSocket.CLOSING = 2;
-  (window as any).WebSocket.CLOSED = 3;
+  InterceptedWebSocket.CONNECTING = 0;
+  InterceptedWebSocket.OPEN = 1;
+  InterceptedWebSocket.CLOSING = 2;
+  InterceptedWebSocket.CLOSED = 3;
+}
+
+/** The replacement constructor's writable surface (the native one's statics are readonly). */
+interface WebSocketShim {
+  prototype: WebSocket;
+  CONNECTING: number;
+  OPEN: number;
+  CLOSING: number;
+  CLOSED: number;
 }

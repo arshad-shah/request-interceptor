@@ -3,11 +3,12 @@ import { Tag, Link } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import RouteTypeSelection from '../RouteTypeSelection';
 import { RouteFormData } from '@/types';
+import { type FieldChangeHandler, type RouteFormErrors } from '../route-form-logic';
 
 interface BasicInfoSectionProps {
   formData: RouteFormData;
-  errors: Partial<Record<keyof RouteFormData, string>>;
-  onFieldChange: (field: keyof RouteFormData, value: any) => void;
+  errors: RouteFormErrors;
+  onFieldChange: FieldChangeHandler;
 }
 
 const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({

@@ -8,6 +8,7 @@ import {
   createMockResponse,
   buildForwardInit,
   modifyResponseHeaders,
+  type InterceptRoutes,
   type LogFn
 } from './interceptor-helpers';
 import { applyQueryParamRules } from '../query-params';
@@ -25,7 +26,7 @@ function shortUrl(url: string): string {
 
 export interface FetchInterceptorState {
   isActive: () => boolean;
-  getRoutes: () => Record<string, any>;
+  getRoutes: () => InterceptRoutes;
 }
 
 /**
@@ -36,7 +37,7 @@ export function setupFetchInterceptor(
   log: LogFn,
   originalFetch: typeof window.fetch
 ): void {
-  (window as any).fetch = function(resource: RequestInfo | URL, options: RequestInit = {}) {
+  window.fetch = function(this: unknown, resource: RequestInfo | URL, options: RequestInit = {}): Promise<Response> {
     if (!state.isActive()) {
       return originalFetch.call(this, resource, options);
     }

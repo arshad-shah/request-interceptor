@@ -1,11 +1,12 @@
 import React from 'react';
 import { CodeEditor } from '@/components/common/code-editor';
 import { RouteFormData } from '@/types';
+import { type FieldChangeHandler, type RouteFormErrors } from '../route-form-logic';
 
 interface BodySectionProps {
   formData: RouteFormData;
-  errors: Partial<Record<keyof RouteFormData, string>>;
-  onFieldChange: (field: keyof RouteFormData, value: any) => void;
+  errors: RouteFormErrors;
+  onFieldChange: FieldChangeHandler;
 }
 
 function getEditorLanguage(contentType: string): 'json' | 'text' | 'html' | 'xml' {
