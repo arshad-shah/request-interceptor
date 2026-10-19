@@ -166,11 +166,15 @@ window.addEventListener('message', (event) => {
 
   // EventBus Monitor events → forward to background
   if (event.data.type === 'eventbus-monitor-channel') {
-    chrome.runtime.sendMessage({
-      type: 'EVENT_CAPTURED',
-      payload: event.data.payload,
-      tabUrl: window.location.href,
-    });
+    // The extension context is gone after a reload/update; drop events quietly.
+    if (!chrome.runtime?.id) return;
+    chrome.runtime
+      .sendMessage({
+        type: 'EVENT_CAPTURED',
+        payload: event.data.payload,
+        tabUrl: window.location.href,
+      })
+      .catch(() => {});
   }
 });
 

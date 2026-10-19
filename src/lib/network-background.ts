@@ -10,6 +10,9 @@ import {
   shouldPrefetchBody,
   toRequestSummary,
 } from '../core/network-buffers';
+import { logger } from './logger';
+
+const log = logger.child('network');
 
 // ============================================
 // Types
@@ -171,7 +174,7 @@ export class NetworkManager {
     chrome.debugger.onDetach.addListener((source, reason) => {
       const tabId = source.tabId!;
       this.debuggerAttached.set(tabId, false);
-      console.log(`[NetworkManager] Debugger detached from tab ${tabId}: ${reason}`);
+      log.debug('Debugger detached', { tabId, reason });
 
       // Notify UI
       this.sendMessage({
@@ -233,11 +236,11 @@ export class NetworkManager {
         });
       }
 
-      console.log(`[NetworkManager] Debugger attached to tab ${tabId}`);
+      log.debug('Debugger attached', { tabId });
       this.sendMessage({ type: 'NETWORK_DEBUGGER_ATTACHED', tabId });
       return true;
     } catch (e) {
-      console.error(`[NetworkManager] Failed to attach debugger to tab ${tabId}:`, e);
+      log.error('Failed to attach debugger', { tabId, error: String(e) });
       this.debuggerAttached.set(tabId, false);
       this.sendMessage({ type: 'NETWORK_DEBUGGER_DETACHED', tabId, reason: String(e) });
       return false;
@@ -250,9 +253,9 @@ export class NetworkManager {
     try {
       await chrome.debugger.detach({ tabId });
       this.debuggerAttached.set(tabId, false);
-      console.log(`[NetworkManager] Debugger detached from tab ${tabId}`);
+      log.debug('Debugger detached', { tabId });
     } catch (e) {
-      console.warn(`[NetworkManager] Failed to detach debugger from tab ${tabId}:`, e);
+      log.warn('Failed to detach debugger', { tabId, error: String(e) });
     }
   }
 
@@ -801,7 +804,7 @@ export class NetworkManager {
           sendResponse({ success: false, error: 'Unknown action' });
       }
     } catch (error) {
-      console.error('[NetworkManager] Error handling message:', error);
+      log.error('Error handling message', { type: message.type, error: String(error) });
       sendResponse({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
