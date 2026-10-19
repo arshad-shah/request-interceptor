@@ -2,7 +2,6 @@ import { chromeApi } from "@/lib/chrome-api";
 import { useAppStore } from "@/stores/app-store";
 import React from 'react';
 import Toggle from "@/components/ui/Toggle";
-import BrandMark from "@/components/common/BrandMark";
 import { Settings } from "lucide-react";
 import SlideOver from "@/components/ui/SlideOver";
 import SettingsPanel from "@/components/settings/SettingsPanel";
@@ -28,20 +27,13 @@ const Header: React.FC = () => {
 
   return (
     <>
-    <header className="flex items-center justify-between px-4 py-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
-      <div className="flex items-center gap-3">
-        <BrandMark size={32} className="rounded-[var(--radius-md)]" />
-        <div>
-          <h1 className="text-[15px] font-bold tracking-tight text-[var(--text-primary)]">
-            Request Interceptor
-          </h1>
-          <p className="text-[11px] text-[var(--text-tertiary)]">
-            {enabled ? 'Active' : 'Standby'}
-          </p>
-        </div>
+    {/* Slim control bar: interception status, settings and the master switch */}
+    <header className="flex items-center justify-between gap-3 px-3 py-1.5 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
+      <div className={`ds-status ${enabled ? '' : 'paused'}`}>
+        <span className="ds-status-dot" />
+        <span>{enabled ? 'Intercepting' : 'Paused'}</span>
       </div>
-
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <button
           type="button"
           className="ds-icon-btn sm"
@@ -49,12 +41,8 @@ const Header: React.FC = () => {
           title="Settings"
           aria-label="Settings"
         >
-          <Settings size={16} />
+          <Settings size={15} />
         </button>
-        <div className={`ds-status ${enabled ? '' : 'paused'}`}>
-          <span className="ds-status-dot" />
-          <span>{enabled ? 'Active' : 'Inactive'}</span>
-        </div>
         <Toggle
           checked={enabled}
           onChange={handleToggle}
