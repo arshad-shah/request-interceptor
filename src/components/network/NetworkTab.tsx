@@ -24,6 +24,7 @@ import {
 } from '../../stores/network-store';
 import { useAppStore } from '../../stores/app-store';
 import type { NetworkRequest, WebSocketFrame } from '../../types/network';
+import { NETWORK_PANEL_PORT } from '../../types/network';
 import type { RouteConfig, WebSocketConfig } from '../../types';
 import {
   getRequests,
@@ -135,6 +136,13 @@ export function NetworkTab() {
       ? { ...selectedRequest, wsFrames: selectedWsFrames.frames }
       : selectedRequest;
 
+  // ─── Panel lifetime ───────────────────────────────────────────────────────
+  // The background detaches the debugger once no network panel holds this port.
+  useEffect(() => {
+    const port = chrome.runtime.connect({ name: NETWORK_PANEL_PORT });
+    return () => port.disconnect();
+  }, []);
+
   // ─── Initialize on mount ───────────────────────────────────────────────────
   useEffect(() => {
     const initialize = async () => {
@@ -222,10 +230,12 @@ export function NetworkTab() {
     const interval = setInterval(async () => {
       const tabId = await getCurrentTabId();
       if (tabId && tabId !== currentTabIdRef.current) {
+        const previousTabId = currentTabIdRef.current;
         currentTabIdRef.current = tabId;
-        
-        // Only attach if recording
+
+        // Only attach if recording; release the tab we're leaving
         if (isRecording) {
+          if (previousTabId) await detachDebugger(previousTabId);
           const attached = await attachDebugger(tabId);
           setDebuggerAttached(attached);
         }

@@ -11,6 +11,7 @@ import {
   toRequestSummary,
 } from '../core/network-buffers';
 import { logger } from './logger';
+import { NETWORK_PANEL_PORT } from '../types/network';
 
 const log = logger.child('network');
 
@@ -159,6 +160,7 @@ export class NetworkManager {
     this.setupDebuggerHandlers();
     this.setupMessageHandlers();
     this.setupTabHandlers();
+    this.setupPanelConnections();
   }
 
   // ============================================
@@ -173,7 +175,8 @@ export class NetworkManager {
 
     chrome.debugger.onDetach.addListener((source, reason) => {
       const tabId = source.tabId!;
-      this.debuggerAttached.set(tabId, false);
+      // delete (not set false): onDetach also fires after tabs.onRemoved
+      this.debuggerAttached.delete(tabId);
       log.debug('Debugger detached', { tabId, reason });
 
       // Notify UI
@@ -181,6 +184,25 @@ export class NetworkManager {
         type: 'NETWORK_DEBUGGER_DETACHED',
         tabId,
         reason,
+      });
+    });
+  }
+
+  /**
+   * The network panel holds a port open while mounted. When the last panel
+   * closes, detach so tabs aren't left with a debugger infobar and capture.
+   */
+  private setupPanelConnections(): void {
+    let openPanels = 0;
+    chrome.runtime.onConnect.addListener((port) => {
+      if (port.name !== NETWORK_PANEL_PORT) return;
+      openPanels++;
+      port.onDisconnect.addListener(() => {
+        openPanels--;
+        if (openPanels > 0) return;
+        for (const [tabId, attached] of this.debuggerAttached) {
+          if (attached) void this.detachDebugger(tabId);
+        }
       });
     });
   }
@@ -464,17 +486,18 @@ export class NetworkManager {
   private handleLoadingFailed(tabId: number, params: any): void {
     const { requestId, timestamp, errorText, canceled } = params;
 
-    const requestMap = this.tabRequests.get(tabId);
-    const request = requestMap?.get(requestId);
+    const request = this.tabRequests.get(tabId)?.get(requestId);
+    // Late failures for requests cleared by a navigation would create ghost rows
+    if (!request) return;
 
-    const duration = request ? timestamp * 1000 - request.startTime : 0;
+    const duration = timestamp * 1000 - request.startTime;
 
     this.upsertRequest(tabId, requestId, {
       status: 'error',
       error: canceled ? 'Request canceled' : errorText,
       duration,
       timing: {
-        ...request?.timing,
+        ...request.timing,
         responseEnd: timestamp * 1000,
       },
     });
@@ -653,7 +676,11 @@ export class NetworkManager {
   private getRequestsArray(tabId: number): NetworkRequest[] {
     const requestMap = this.tabRequests.get(tabId);
     if (!requestMap) return [];
-    return Array.from(requestMap.values()).sort((a, b) => a.startTime - b.startTime);
+    // Extra-info events can arrive for requests whose main event never does
+    // (e.g. after a navigation cleared the map); skip those partial entries.
+    return Array.from(requestMap.values())
+      .filter((request) => request.url && request.startTime)
+      .sort((a, b) => a.startTime - b.startTime);
   }
 
   /** Request list for the UI: bodies and WebSocket frames are fetched on demand. */
