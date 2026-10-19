@@ -12,17 +12,45 @@
 export type ToastKind = 'success' | 'info' | 'warn' | 'error';
 
 export interface ToastOptions {
-  /** ms before auto-dismiss. Default 3000. Pass 0 to disable. */
+  /** ms before auto-dismiss. Defaults to the configured duration. Pass 0 to disable. */
   duration?: number;
   /** Optional sub-line (smaller, dimmer). */
   detail?: string;
+  /** Which rule fired; toasts for events turned off in settings are skipped. */
+  event?: ToastEvent;
+}
+
+export interface ToastConfig {
+  enabled: boolean;
+  events: Record<ToastEvent, boolean>;
+  position: ToastPosition;
+  durationMs: number;
+  maxVisible: number;
 }
 
 const HOST_ID = '__request-interceptor-toast-host__';
-const MAX_VISIBLE = 5;
-const DEFAULT_DURATION = 3000;
+
+let config: ToastConfig = { ...DEFAULT_SETTINGS.notifications, enabled: DEFAULT_SETTINGS.notifications.pageToasts };
+
+/** Apply notification settings (sent from the content script). */
+export function configureToasts(next: ToastConfig): void {
+  config = next;
+  if (host) applyPosition(host);
+}
+
+let host: HTMLElement | null = null;
+
+function applyPosition(el: HTMLElement): void {
+  const [vertical, horizontal] = config.position.split('-');
+  el.style.cssText =
+    `position:fixed;${vertical}:0;${horizontal}:0;z-index:2147483647;pointer-events:none;`;
+  el.dataset.position = config.position;
+  stack?.classList.toggle('bottom', vertical === 'bottom');
+  stack?.classList.toggle('left', horizontal === 'left');
+}
 
 import { ENABLED_PALETTE } from '../../brand/mark';
+import { DEFAULT_SETTINGS, type ToastEvent, type ToastPosition } from '../settings';
 
 /** Accent color and status glyph path (24×24 viewBox, stroked) per kind. */
 const KIND_STYLES: Record<ToastKind, { accent: string; path: string }> = {
@@ -71,10 +99,8 @@ function ensureRoot(): ShadowRoot | null {
   const root = document.documentElement || document.body;
   if (!root) return null;
 
-  const host = document.createElement('div');
+  host = document.createElement('div');
   host.id = HOST_ID;
-  host.style.cssText =
-    'position:fixed;top:0;right:0;z-index:2147483647;pointer-events:none;';
   root.appendChild(host);
 
   shadowRoot = host.attachShadow({ mode: 'closed' });
@@ -88,6 +114,10 @@ function ensureRoot(): ShadowRoot | null {
       box-sizing: border-box;
     }
     .stack * { box-sizing: border-box; }
+    .stack.bottom { flex-direction: column-reverse; }
+    .stack.left .toast { animation-name: slide-in-left; }
+    .stack.left .toast.leaving { animation-name: slide-out-left; }
+    .stack.left .toast:hover { transform: translateX(2px); }
     .toast {
       pointer-events: auto;
       display: grid;
@@ -148,12 +178,21 @@ function ensureRoot(): ShadowRoot | null {
       from { transform: translateX(0);    opacity: 1; }
       to   { transform: translateX(120%); opacity: 0; }
     }
+    @keyframes slide-in-left {
+      from { transform: translateX(-120%); opacity: 0; }
+      to   { transform: translateX(0);     opacity: 1; }
+    }
+    @keyframes slide-out-left {
+      from { transform: translateX(0);     opacity: 1; }
+      to   { transform: translateX(-120%); opacity: 0; }
+    }
   `;
   shadowRoot.appendChild(style);
 
   stack = document.createElement('div');
   stack.className = 'stack';
   shadowRoot.appendChild(stack);
+  applyPosition(host);
   return shadowRoot;
 }
 
@@ -169,10 +208,11 @@ export function pageToast(
   options: ToastOptions = {},
 ): void {
   if (typeof document === 'undefined') return;
+  if (!config.enabled || (options.event && !config.events[options.event])) return;
   if (!ensureRoot() || !stack) return;
 
   // Cap visible stack — drop oldest.
-  while (stack.children.length >= MAX_VISIBLE) {
+  while (stack.children.length >= config.maxVisible) {
     stack.firstElementChild?.remove();
   }
 
@@ -213,7 +253,7 @@ export function pageToast(
   toast.addEventListener('click', () => dismiss(toast));
   stack.appendChild(toast);
 
-  const duration = options.duration ?? DEFAULT_DURATION;
+  const duration = options.duration ?? config.durationMs;
   if (duration > 0) {
     setTimeout(() => dismiss(toast), duration);
   }

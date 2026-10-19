@@ -8,16 +8,20 @@ import { logger } from './lib/logger';
 import { StateStore } from './sw/state';
 import { EventBuffer } from './sw/events';
 import { registerStorageHandlers } from './sw/storage';
+import { SettingsStore } from './sw/settings';
 
 const log = logger.child('background');
 
 const state = new StateStore();
+const settings = new SettingsStore();
 const router = new MessageRouter({
-  ready: state.ready,
+  ready: Promise.all([state.ready, settings.ready]),
   onError: (type, error) => log.warn('Request failed', { type, error: String(error) }),
 });
 
 state.register(router);
+settings.register(router);
+settings.subscribe((s) => networkManager.configure(s.network));
 new EventBuffer().register(router);
 registerStorageHandlers(router);
 networkManager.register(router);

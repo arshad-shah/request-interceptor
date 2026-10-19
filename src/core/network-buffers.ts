@@ -35,7 +35,16 @@ export class BodyCache {
   private entries = new Map<string, CachedBody>();
   private total = 0;
 
-  constructor(private readonly limits: { maxTotalChars: number; maxEntryChars: number }) {}
+  constructor(private limits: { maxTotalChars: number; maxEntryChars: number }) {}
+
+  /** Change the total budget, evicting least recently used entries if now over it. */
+  setMaxTotalChars(maxTotalChars: number): void {
+    this.limits = { ...this.limits, maxTotalChars };
+    for (const [key] of this.entries) {
+      if (this.total <= maxTotalChars) break;
+      this.delete(key);
+    }
+  }
 
   get totalChars(): number {
     return this.total;

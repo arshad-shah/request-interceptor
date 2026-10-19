@@ -57,7 +57,7 @@ export function setupFetchInterceptor(
         return new Promise((_resolve, reject) => {
           setTimeout(() => {
             log(`Blocked fetch request: ${method} ${url}`);
-            pageToast(`Blocked ${method}`, 'error', { detail: shortUrl(url) });
+            pageToast(`Blocked ${method}`, 'error', { detail: shortUrl(url), event: 'block' });
             reject(new TypeError('Request blocked by Request Interceptor'));
           }, interceptConfig.delay || 0);
         });
@@ -66,7 +66,7 @@ export function setupFetchInterceptor(
       if (mode === 'redirect') {
         const redirectUrl = interceptConfig.redirectUrl || url;
         log(`Redirecting fetch request: ${url} → ${redirectUrl}`);
-        pageToast(`Redirected ${method}`, 'warn', { detail: `${shortUrl(url)} → ${shortUrl(redirectUrl)}` });
+        pageToast(`Redirected ${method}`, 'warn', { detail: `${shortUrl(url)} → ${shortUrl(redirectUrl)}`, event: 'redirect' });
         const finalUrl = applyQueryParamRules(redirectUrl, interceptConfig.queryParamRules || [], window.location.origin);
         const initPromise = buildForwardInit(resource, options, interceptConfig, log, { overrideBody: false });
 
@@ -79,7 +79,7 @@ export function setupFetchInterceptor(
         return new Promise(resolve => {
           setTimeout(() => {
             const response = createMockResponse(interceptConfig.response, interceptConfig, log);
-            pageToast(`Mocked ${method}`, 'success', { detail: shortUrl(url) });
+            pageToast(`Mocked ${method}`, 'success', { detail: shortUrl(url), event: 'mock' });
             resolve(response);
           }, interceptConfig.delay || 0);
         });
@@ -102,7 +102,7 @@ export function setupFetchInterceptor(
       if (interceptConfig.responseHeaders && Object.keys(interceptConfig.responseHeaders).length > 0) {
         return realRequestPromise.then((response: Response) => {
           log(`✓ Modifying response headers for: ${method} ${url}`);
-          pageToast(`Modified headers ${method}`, 'info', { detail: shortUrl(url) });
+          pageToast(`Modified headers ${method}`, 'info', { detail: shortUrl(url), event: 'headers' });
           return modifyResponseHeaders(response, interceptConfig, log);
         });
       }

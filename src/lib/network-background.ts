@@ -29,14 +29,10 @@ import type {
 // Constants
 // ============================================
 
-const MAX_REQUESTS = 500;
-/** Total response-body characters kept across all tabs (~32M chars). */
-const MAX_BODY_CACHE_CHARS = 32 * 1024 * 1024;
 /** Bodies above this are truncated in the cache. */
 const MAX_BODY_CHARS = 2 * 1024 * 1024;
 /** Responses at or below this encoded size are fetched eagerly. */
 const PREFETCH_BODY_MAX_BYTES = 512 * 1024;
-const MAX_WS_FRAMES = 500;
 const MAX_WS_FRAME_CHARS = 64 * 1024;
 
 const RESOURCE_TYPES: Record<string, string> = {
@@ -60,8 +56,10 @@ const RESOURCE_TYPES: Record<string, string> = {
 
 export class NetworkManager {
   private tabRequests: Map<number, Map<string, NetworkRequest>> = new Map();
+  // Limits come from user settings (see configure); defaults match DEFAULT_SETTINGS
+  private limits = { maxRequests: 500, webSocketFrames: 500 };
   private requestBodies = new BodyCache({
-    maxTotalChars: MAX_BODY_CACHE_CHARS,
+    maxTotalChars: 32 * 1024 * 1024,
     maxEntryChars: MAX_BODY_CHARS,
   });
   private debuggerAttached: Map<number, boolean> = new Map();
@@ -72,6 +70,12 @@ export class NetworkManager {
     disableCache: false,
     showWaterfall: true,
   };
+
+  /** Apply capture limits from settings. */
+  configure(network: { maxRequests: number; bodyCacheMB: number; webSocketFrames: number }): void {
+    this.limits = { maxRequests: network.maxRequests, webSocketFrames: network.webSocketFrames };
+    this.requestBodies.setMaxTotalChars(network.bodyCacheMB * 1024 * 1024);
+  }
 
   constructor() {
     this.setupDebuggerHandlers();
@@ -508,7 +512,7 @@ export class NetworkManager {
         length: payloadLength,
         mask: response?.mask,
       },
-      { maxFrames: MAX_WS_FRAMES, maxPayloadChars: MAX_WS_FRAME_CHARS }
+      { maxFrames: this.limits.webSocketFrames, maxPayloadChars: MAX_WS_FRAME_CHARS }
     );
 
     const updates: Partial<NetworkRequest> = {
@@ -565,8 +569,9 @@ export class NetworkManager {
     requestMap.set(requestId, updated);
 
     // Limit stored requests
-    if (requestMap.size > MAX_REQUESTS) {
-      const oldest = Array.from(requestMap.keys())[0];
+    // Map iteration is insertion order: drop the oldest beyond the limit
+    for (const oldest of requestMap.keys()) {
+      if (requestMap.size <= this.limits.maxRequests) break;
       requestMap.delete(oldest);
       this.requestBodies.delete(bodyKey(tabId, oldest));
     }

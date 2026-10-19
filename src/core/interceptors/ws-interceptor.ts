@@ -119,16 +119,16 @@ export function processMessage(
               processedMessage = replaced;
             }
             log(`WebSocket ${direction} message replaced: ${rule.description || 'No description'}`);
-            pageToast(`WS ${direction} replaced`, 'info', { detail: rule.description });
+            pageToast(`WS ${direction} replaced`, 'info', { detail: rule.description, event: 'websocket' });
             break;
           case 'block':
             log(`WebSocket ${direction} message blocked: ${rule.description || 'No description'}`);
-            pageToast(`WS ${direction} blocked`, 'error', { detail: rule.description });
+            pageToast(`WS ${direction} blocked`, 'error', { detail: rule.description, event: 'websocket' });
             return { result: null, blocked: true };
           case 'inject':
             injectedMessage = rule.replacement;
             log(`WebSocket ${direction} message injection triggered: ${rule.description || 'No description'}`);
-            pageToast(`WS ${direction} injected`, 'info', { detail: rule.description });
+            pageToast(`WS ${direction} injected`, 'info', { detail: rule.description, event: 'websocket' });
             break;
         }
       }

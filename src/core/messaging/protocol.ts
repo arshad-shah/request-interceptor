@@ -9,6 +9,7 @@ import type { RouteConfig, WebSocketConfig, InjectionConfig } from '@/types';
 import type { CapturedEvent } from '@/types/events';
 import type { CookieItem, IndexedDBInfo } from '@/types/storage';
 import type { NetworkRequest, NetworkSettings, ResponseBody, ReplayResult } from '@/types/network';
+import type { DeepPartial, Settings } from '@/core/settings';
 
 export type AnyRouteConfig = RouteConfig | WebSocketConfig | InjectionConfig;
 export type Routes = Record<string, AnyRouteConfig>;
@@ -50,6 +51,12 @@ export interface Requests {
   EXPORT_ROUTES: Req<void, unknown>;
   SET_EVENT_MONITOR: Req<{ enabled: boolean }, void>;
 
+  // Settings
+  GET_SETTINGS: Req<void, Settings>;
+  UPDATE_SETTINGS: Req<{ patch: DeepPartial<Settings> }, Settings>;
+  IMPORT_SETTINGS: Req<{ settings: unknown }, Settings>;
+  RESET_SETTINGS: Req<void, Settings>;
+
   // Event monitor
   EVENT_CAPTURED: Req<{ event: CapturedEvent; tabUrl: string }, void>;
   GET_EVENTS: Req<{ tabId: number }, CapturedEvent[]>;
@@ -80,6 +87,7 @@ export interface Events {
   /** Interception toggled, or routes changed. Sent to extension UIs and tabs. */
   STATE_CHANGED: { enabled: boolean; routes: Routes };
   EVENT_MONITOR_CHANGED: { enabled: boolean };
+  SETTINGS_CHANGED: Settings;
   EVENT_RECORDED: { tabId: number; event: CapturedEvent };
   NETWORK_REQUESTS_UPDATED: { tabId: number; requests: NetworkRequest[] };
   NETWORK_DEBUGGER_ATTACHED: { tabId: number };
@@ -113,6 +121,7 @@ export const DEFAULT_REQUEST_TIMEOUT = 15_000;
 const EVENT_TYPES: ReadonlySet<string> = new Set<EventType>([
   'STATE_CHANGED',
   'EVENT_MONITOR_CHANGED',
+  'SETTINGS_CHANGED',
   'EVENT_RECORDED',
   'NETWORK_REQUESTS_UPDATED',
   'NETWORK_DEBUGGER_ATTACHED',

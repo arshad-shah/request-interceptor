@@ -6,6 +6,7 @@ import { setupXHRInterceptor } from './core/interceptors/xhr-interceptor';
 import { setupWebSocketInterceptor } from './core/interceptors/ws-interceptor';
 import { parseRouteKeyInline, parseWebSocketKeyInline } from './core/interceptors/interceptor-helpers';
 import { serializeEventData } from './core/event-serialization';
+import { configureToasts } from './core/notifications/page-toast';
 
 (function() {
   // Store original methods
@@ -23,23 +24,17 @@ import { serializeEventData } from './core/event-serialization';
   let interceptedWebSockets: Record<string, any> = {};
   const activeWebSockets: Map<WebSocket, any> = new Map();
 
+  // Console logging is opt-in (Settings → Diagnostics); errors are always shown.
+  let consoleLogs = false;
+
   function log(message: string, level: 'info' | 'warn' | 'error' = 'info') {
-    const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] [Request Interceptor] ${message}`;
-
-    switch (level) {
-      case 'warn': console.warn(logMessage); break;
-      case 'error': console.error(logMessage); break;
-      default: console.log(logMessage);
-    }
-
-    window.postMessage({
-      type: 'REQUEST_INTERCEPTOR_LOG',
-      message,
-      level,
-      timestamp
-    }, '*');
+    if (!consoleLogs && level !== 'error') return;
+    const line = `[Request Interceptor] ${message}`;
+    if (level === 'error') console.error(line);
+    else if (level === 'warn') console.warn(line);
+    else console.log(line);
   }
+
 
   // State accessors for interceptor modules
   const fetchState = {
@@ -139,6 +134,10 @@ import { serializeEventData } from './core/event-serialization';
 
   // Listen for commands from the content script
   window.addEventListener('message', (event) => {
+    // Only the content script in this same window may send commands; otherwise
+    // any (cross-origin) iframe could post routes and hijack this page's requests.
+    if (event.source !== window) return;
+    if (window.location.origin !== 'null' && event.origin !== window.location.origin) return;
     if (event.data && event.data.type === 'REQUEST_INTERCEPTOR_COMMAND') {
       const { command, routes } = event.data;
 
@@ -150,11 +149,14 @@ import { serializeEventData } from './core/event-serialization';
         case 'destroy': RequestInterceptor.destroy(); break;
         case 'enableEventMonitor': eventMonitorActive = true; log('EventBus monitor enabled'); break;
         case 'disableEventMonitor': eventMonitorActive = false; log('EventBus monitor disabled'); break;
+        case 'updateSettings':
+          consoleLogs = !!event.data.consoleLogs;
+          if (event.data.toasts) configureToasts(event.data.toasts);
+          break;
       }
     }
   });
 
-  console.log('[Request Interceptor] Complete script injected with HTTP, Headers-Only, and WebSocket support');
 
   // ================================================
   // EventBus Monitor — intercepts CustomEvent, postMessage, EventEmitter patterns
@@ -210,7 +212,7 @@ import { serializeEventData } from './core/event-serialization';
   // Patch postMessage for cross-frame communication interception
   (window as any).postMessage = function(message: any, optionsOrOrigin?: any, transfer?: any) {
     if (EVT_DEBUG) console.warn('[EVT-1] injected:dispatch', { trigger: 'postMessage', type: message?.type, active: eventMonitorActive });
-    if (eventMonitorActive && message && message.type !== EVENTBUS_CHANNEL && message.type !== 'REQUEST_INTERCEPTOR_COMMAND' && message.type !== 'REQUEST_INTERCEPTOR_LOG') {
+    if (eventMonitorActive && message && message.type !== EVENTBUS_CHANNEL && message.type !== 'REQUEST_INTERCEPTOR_COMMAND') {
       const target = typeof optionsOrOrigin === 'string' ? optionsOrOrigin : (optionsOrOrigin?.targetOrigin || '*');
       sendEventToExtension({
         id: generateEventId(),

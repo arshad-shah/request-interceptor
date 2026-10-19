@@ -19,6 +19,7 @@ Manifest V3 · React 18 · TypeScript · Zustand · TailwindCSS 4 · [ExtForge](
 - **Network panel** — Tail captured requests with filters and per-request inspection.
 - **Storage inspector** — Browse and edit `localStorage`, `sessionStorage`, cookies, and IndexedDB.
 - **Templates** — Save common route configs and apply them with one click.
+- **Settings** — Choose which on-page notifications appear and where, which sites the extension runs on (allow/deny lists, plus a per-site switch in the popup), capture limits and page logging. Stored locally; export/import/reset.
 - **Chrome and Edge** — Builds for both Chromium browsers from a single source. Firefox and Safari aren't supported: the Network tab depends on the `chrome.debugger` API.
 
 ## Install
@@ -45,6 +46,10 @@ Then load the unpacked extension:
 5. Save frequently-used configurations as **Templates**.
 
 A demo page at [`test-page.html`](test-page.html) and a sample config at [`test-routes.json`](test-routes.json) are included for trying it out.
+
+## Privacy and security
+
+Interception runs in the page, so on sites where it is active the page can read the enabled HTTP/WebSocket routes it is given (including any header values you configure). Nothing is sent while interception is off or on excluded sites; injection scripts never leave the content script. Use **Settings → Sites** to keep sensitive sites (banking, email) out entirely. Commands are only accepted from the page's own window, so third-party iframes cannot inject routes.
 
 ## Development
 
