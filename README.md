@@ -1,3 +1,5 @@
+<p align="center"><img src="icons/icon.svg" width="96" height="96" alt="Request Interceptor logo"></p>
+
 # Request Interceptor
 
 [![CI](https://github.com/arshad-shah/request-interceptor/actions/workflows/ci.yml/badge.svg)](https://github.com/arshad-shah/request-interceptor/actions/workflows/ci.yml)

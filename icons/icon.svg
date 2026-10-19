@@ -1,39 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Request Interceptor">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="ri-bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#312e81"/>
       <stop offset="1" stop-color="#1e1b4b"/>
     </linearGradient>
-    <linearGradient id="stroke" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="ri-stroke" gradientUnits="userSpaceOnUse" x1="16" y1="30" x2="84" y2="92">
       <stop offset="0" stop-color="#a5b4fc"/>
       <stop offset="1" stop-color="#6366f1"/>
     </linearGradient>
-    <radialGradient id="pin" cx="0.5" cy="0.5" r="0.5">
+    <radialGradient id="ri-pin" cx="0.5" cy="0.5" r="0.5">
       <stop offset="0" stop-color="#67e8f9"/>
       <stop offset="1" stop-color="#06b6d4"/>
     </radialGradient>
   </defs>
-
-  <!-- Rounded square background -->
-  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
-
-  <!-- Subtle inner stroke for depth -->
+  <rect width="128" height="128" rx="28" fill="url(#ri-bg)"/>
   <rect x="0.5" y="0.5" width="127" height="127" rx="27.5" fill="none" stroke="#ffffff" stroke-opacity="0.06"/>
-
-  <!-- Route / interception path: enters from left, intercepted, redirects upward and exits top -->
-  <g fill="none" stroke="url(#stroke)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Horizontal request segment -->
+  <g fill="none" stroke="url(#ri-stroke)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
     <path d="M22 80 H64"/>
-    <!-- Vertical response segment with arrowhead at top -->
     <path d="M64 80 V36"/>
     <path d="M52 48 L64 36 L76 48"/>
   </g>
-
-  <!-- Origin endpoint marker (request source) -->
-  <circle cx="22" cy="80" r="9" fill="url(#stroke)"/>
+  <circle cx="22" cy="80" r="9" fill="url(#ri-stroke)"/>
   <circle cx="22" cy="80" r="4" fill="#1e1b4b"/>
-
-  <!-- Interception pin at the bend — the heart of the icon -->
-  <circle cx="64" cy="80" r="14" fill="url(#pin)"/>
+  <circle cx="64" cy="80" r="14" fill="url(#ri-pin)"/>
   <circle cx="64" cy="80" r="5" fill="#0e7490"/>
 </svg>

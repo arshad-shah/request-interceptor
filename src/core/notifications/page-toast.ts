@@ -22,12 +22,46 @@ const HOST_ID = '__request-interceptor-toast-host__';
 const MAX_VISIBLE = 5;
 const DEFAULT_DURATION = 3000;
 
-const KIND_COLORS: Record<ToastKind, { accent: string; icon: string }> = {
-  success: { accent: '#10b981', icon: '✓' },
-  info:    { accent: '#38bdf8', icon: 'ℹ' },
-  warn:    { accent: '#f59e0b', icon: '↻' },
-  error:   { accent: '#f87171', icon: '✕' },
+import { ENABLED_PALETTE } from '../../brand/mark';
+
+/** Accent color and status glyph path (24×24 viewBox, stroked) per kind. */
+const KIND_STYLES: Record<ToastKind, { accent: string; path: string }> = {
+  success: { accent: '#10b981', path: 'M5 12.5l4.5 4.5L19 7.5' },
+  info:    { accent: '#38bdf8', path: 'M12 11v6M12 7.5v.01' },
+  warn:    { accent: '#f59e0b', path: 'M4 12a8 8 0 0 1 14-5.3M20 4v4h-4M20 12a8 8 0 0 1-14 5.3M4 20v-4h4' },
+  error:   { accent: '#f87171', path: 'M7 7l10 10M17 7L7 17' },
 };
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/**
+ * Build SVG with DOM APIs, not innerHTML: pages that enforce Trusted Types
+ * reject string-to-markup sinks, and toasts must work on every page.
+ */
+function svgEl(tag: string, attrs: Record<string, string | number>, children: Element[] = []): SVGElement {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [name, value] of Object.entries(attrs)) el.setAttribute(name, String(value));
+  for (const child of children) el.appendChild(child);
+  return el;
+}
+
+function statusIcon(path: string): SVGElement {
+  return svgEl('svg', { viewBox: '0 0 24 24', width: 14, height: 14, 'aria-hidden': 'true' }, [
+    svgEl('path', { d: path, fill: 'none', stroke: 'currentColor', 'stroke-width': 2.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
+  ]);
+}
+
+/** Compact, flat-colored version of the brand mark (see src/brand/mark.ts). */
+function brandMark(size: number): SVGElement {
+  const p = ENABLED_PALETTE;
+  return svgEl('svg', { viewBox: '0 0 128 128', width: size, height: size, 'aria-hidden': 'true' }, [
+    svgEl('rect', { width: 128, height: 128, rx: 28, fill: p.bgFrom }),
+    svgEl('path', { d: 'M22 80 H64 V36 M52 48 L64 36 L76 48', fill: 'none', stroke: p.strokeFrom, 'stroke-width': 12, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
+    svgEl('circle', { cx: 22, cy: 80, r: 9, fill: p.strokeFrom }),
+    svgEl('circle', { cx: 64, cy: 80, r: 14, fill: p.pinFrom }),
+    svgEl('circle', { cx: 64, cy: 80, r: 5, fill: p.pinCore }),
+  ]);
+}
 
 let shadowRoot: ShadowRoot | null = null;
 let stack: HTMLElement | null = null;
@@ -80,11 +114,14 @@ function ensureRoot(): ShadowRoot | null {
       border-radius: 50%;
       background: var(--accent, #38bdf8);
       color: #0f172a;
-      font-weight: 700;
-      font-size: 13px;
-      line-height: 1;
       flex-shrink: 0;
     }
+    .toast .brand {
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 2px;
+      color: #94a3b8; font-size: 11px; font-weight: 500; letter-spacing: 0.02em;
+    }
+    .toast .brand svg { border-radius: 3px; }
     .toast .body {
       grid-column: 2;
       min-width: 0;
@@ -139,18 +176,25 @@ export function pageToast(
     stack.firstElementChild?.remove();
   }
 
-  const colors = KIND_COLORS[kind];
+  const style = KIND_STYLES[kind];
   const toast = document.createElement('div');
   toast.className = 'toast';
-  toast.style.setProperty('--accent', colors.accent);
+  toast.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+  toast.style.setProperty('--accent', style.accent);
 
   const icon = document.createElement('div');
   icon.className = 'icon';
-  icon.textContent = colors.icon;
+  icon.appendChild(statusIcon(style.path));
   toast.appendChild(icon);
 
   const body = document.createElement('div');
   body.className = 'body';
+
+  const brand = document.createElement('div');
+  brand.className = 'brand';
+  brand.appendChild(brandMark(12));
+  brand.appendChild(document.createTextNode('Request Interceptor'));
+  body.appendChild(brand);
 
   const msg = document.createElement('div');
   msg.className = 'msg';
