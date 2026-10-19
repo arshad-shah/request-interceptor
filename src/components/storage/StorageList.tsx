@@ -11,15 +11,15 @@ interface StorageListProps {
 }
 
 function detectValueType(value: string): string {
+  // Booleans and numbers are valid JSON too, so classify them first
+  if (value === 'true' || value === 'false') return 'boolean';
+  if (!isNaN(Number(value)) && value.trim() !== '') return 'number';
   try {
     JSON.parse(value);
     return 'json';
   } catch {
-    // not json
+    return 'string';
   }
-  if (value === 'true' || value === 'false') return 'boolean';
-  if (!isNaN(Number(value)) && value.trim() !== '') return 'number';
-  return 'string';
 }
 
 function truncate(str: string, max: number): string {
@@ -39,9 +39,11 @@ const StorageListItem: React.FC<{
   isCookie: boolean;
   cookie?: CookieItem;
   size?: number;
+  /** IndexedDB databases can be deleted but not edited as key/value pairs */
+  editable: boolean;
   onEdit: (key: string, value: string) => void;
   onDelete: (key: string) => void;
-}> = ({ itemKey, value, vType, isCookie, cookie, size, onEdit, onDelete }) => {
+}> = ({ itemKey, value, vType, isCookie, cookie, size, editable, onEdit, onDelete }) => {
   const [expanded, setExpanded] = useState(false);
   const isJson = vType === 'json';
 
@@ -98,13 +100,15 @@ const StorageListItem: React.FC<{
 
         {/* Actions */}
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <button
-            className="ds-icon-btn sm"
-            onClick={() => onEdit(itemKey, value)}
-            title="Edit"
-          >
-            <Edit size={12} />
-          </button>
+          {editable && (
+            <button
+              className="ds-icon-btn sm"
+              onClick={() => onEdit(itemKey, value)}
+              title="Edit"
+            >
+              <Edit size={12} />
+            </button>
+          )}
           <button
             className="ds-icon-btn sm danger"
             onClick={() => onDelete(itemKey)}
@@ -165,6 +169,7 @@ const StorageList: React.FC<StorageListProps> = ({ items, storageType, onEdit, o
             isCookie={isCookie}
             cookie={isCookie ? item as CookieItem : undefined}
             size={!isCookie ? (item as StorageItem).key.length + value.length : undefined}
+            editable={storageType !== 'indexedDB'}
             onEdit={onEdit}
             onDelete={onDelete}
           />
