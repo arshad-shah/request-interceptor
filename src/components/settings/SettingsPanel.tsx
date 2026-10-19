@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, Globe, Activity, Wrench, Download, Upload, RotateCcw } from 'lucide-react';
+import { Bell, Globe, Activity, Wrench, Download, Upload, RotateCcw, X } from 'lucide-react';
 import Toggle from '@/components/ui/Toggle';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import NumberStepper from '@/components/ui/NumberStepper';
+import Textarea from '@/components/ui/TextArea';
 import { useSettings } from '@/hooks/useSettings';
 import { downloadFile } from '@/lib/chrome-api';
 import { LIMITS, TOAST_EVENTS, type Settings, type ToastEvent } from '@/core/settings';
@@ -43,39 +45,6 @@ const Row: React.FC<{ label: string; hint?: string; children: React.ReactNode }>
   </div>
 );
 
-/** Number input that commits a clamped value on blur/Enter. */
-const NumberField: React.FC<{
-  value: number;
-  range: readonly [number, number];
-  unit?: string;
-  label: string;
-  onCommit: (value: number) => void;
-}> = ({ value, range, unit, label, onCommit }) => {
-  const [draft, setDraft] = useState(String(value));
-  useEffect(() => setDraft(String(value)), [value]);
-  const commit = () => {
-    const n = Number(draft);
-    if (Number.isFinite(n) && n !== value) onCommit(Math.min(range[1], Math.max(range[0], Math.round(n))));
-    else setDraft(String(value));
-  };
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <input
-        type="number"
-        aria-label={label}
-        className="ds-input w-24 text-right text-[12px] py-1"
-        min={range[0]}
-        max={range[1]}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => e.key === 'Enter' && commit()}
-      />
-      {unit && <span className="text-[11px] text-[var(--text-tertiary)]">{unit}</span>}
-    </span>
-  );
-};
-
 /** One pattern per line; saved on blur. */
 const PatternList: React.FC<{ label: string; value: string[]; placeholder: string; onCommit: (v: string[]) => void }> = ({
   label,
@@ -86,17 +55,18 @@ const PatternList: React.FC<{ label: string; value: string[]; placeholder: strin
   const [draft, setDraft] = useState(value.join('\n'));
   useEffect(() => setDraft(value.join('\n')), [value]);
   return (
-    <label className="block">
-      <span className="text-[12px] text-[var(--text-primary)]">{label}</span>
-      <textarea
-        aria-label={label}
-        className="ds-input mt-1 w-full font-mono text-[12px] min-h-[72px]"
-        placeholder={placeholder}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => onCommit(draft.split('\n').map((l) => l.trim()).filter(Boolean))}
-      />
-    </label>
+    <Textarea
+      label={label}
+      aria-label={label}
+      size="sm"
+      rows={3}
+      fullWidth
+      className="font-mono"
+      placeholder={placeholder}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => onCommit(draft.split('\n').map((l) => l.trim()).filter(Boolean))}
+    />
   );
 };
 
@@ -125,13 +95,13 @@ const SettingsPanel: React.FC = () => {
       {error && (
         <div role="alert" className="px-3 py-2 text-[12px] rounded-[var(--radius-md)] bg-[rgba(244,63,94,0.1)] border border-[rgba(244,63,94,0.3)] text-[var(--accent-rose)] flex justify-between gap-2">
           <span>{error}</span>
-          <button onClick={clearError} aria-label="Dismiss error">✕</button>
+          <button onClick={clearError} aria-label="Dismiss error"><X size={12} /></button>
         </div>
       )}
 
       <Section icon={<Bell size={14} />} title="Notifications" description="On-page toasts when a rule fires.">
         <Row label="Show on-page notifications">
-          <Toggle checked={n.pageToasts} onChange={(v) => update({ notifications: { pageToasts: v } })} label="Show on-page notifications" />
+          <Toggle size="sm" checked={n.pageToasts} onChange={(v) => update({ notifications: { pageToasts: v } })} label="Show on-page notifications" />
         </Row>
         {TOAST_EVENTS.map((event) => (
           <Row key={event} label={EVENT_LABELS[event]}>
@@ -159,10 +129,10 @@ const SettingsPanel: React.FC = () => {
           />
         </Row>
         <Row label="Duration" hint="How long each notification stays visible">
-          <NumberField label="Notification duration" value={n.durationMs / 1000} unit="s" range={[LIMITS.durationMs[0] / 1000, LIMITS.durationMs[1] / 1000]} onCommit={(s) => update({ notifications: { durationMs: s * 1000 } })} />
+          <NumberStepper label="Notification duration" disabled={!n.pageToasts} value={n.durationMs / 1000} unit="s" min={LIMITS.durationMs[0] / 1000} max={LIMITS.durationMs[1] / 1000} onChange={(s) => update({ notifications: { durationMs: s * 1000 } })} />
         </Row>
         <Row label="Maximum visible">
-          <NumberField label="Maximum visible notifications" value={n.maxVisible} range={LIMITS.maxVisible} onCommit={(v) => update({ notifications: { maxVisible: v } })} />
+          <NumberStepper label="Maximum visible notifications" disabled={!n.pageToasts} value={n.maxVisible} min={LIMITS.maxVisible[0]} max={LIMITS.maxVisible[1]} onChange={(v) => update({ notifications: { maxVisible: v } })} />
         </Row>
       </Section>
 
@@ -190,13 +160,13 @@ const SettingsPanel: React.FC = () => {
 
       <Section icon={<Activity size={14} />} title="Network capture" description="Limits that keep memory use bounded while recording.">
         <Row label="Requests kept per tab">
-          <NumberField label="Requests kept per tab" value={settings.network.maxRequests} range={LIMITS.maxRequests} onCommit={(v) => update({ network: { maxRequests: v } })} />
+          <NumberStepper label="Requests kept per tab" value={settings.network.maxRequests} step={100} min={LIMITS.maxRequests[0]} max={LIMITS.maxRequests[1]} onChange={(v) => update({ network: { maxRequests: v } })} />
         </Row>
         <Row label="Response body cache">
-          <NumberField label="Response body cache size" value={settings.network.bodyCacheMB} unit="MB" range={LIMITS.bodyCacheMB} onCommit={(v) => update({ network: { bodyCacheMB: v } })} />
+          <NumberStepper label="Response body cache size" value={settings.network.bodyCacheMB} unit="MB" step={4} min={LIMITS.bodyCacheMB[0]} max={LIMITS.bodyCacheMB[1]} onChange={(v) => update({ network: { bodyCacheMB: v } })} />
         </Row>
         <Row label="WebSocket frames per socket">
-          <NumberField label="WebSocket frames per socket" value={settings.network.webSocketFrames} range={LIMITS.webSocketFrames} onCommit={(v) => update({ network: { webSocketFrames: v } })} />
+          <NumberStepper label="WebSocket frames per socket" value={settings.network.webSocketFrames} step={50} min={LIMITS.webSocketFrames[0]} max={LIMITS.webSocketFrames[1]} onChange={(v) => update({ network: { webSocketFrames: v } })} />
         </Row>
       </Section>
 

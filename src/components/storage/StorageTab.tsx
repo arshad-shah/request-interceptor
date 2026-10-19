@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState, useMemo } from 'react';
-import { RefreshCw, Download, Upload, Plus, Trash2, Search, Database } from 'lucide-react';
+import { RefreshCw, Download, Upload, Plus, Trash2, Search, Database, X } from 'lucide-react';
 import { useStorageStore } from '@/stores/storage-store';
 import { StorageType, StorageItem, CookieItem } from '@/types/storage';
 import { request } from '@/lib/messaging';
@@ -246,7 +246,7 @@ const StorageTab: React.FC = () => {
       {error && (
         <div role="alert" className="mx-2 mt-2 px-3 py-2 text-[12px] rounded-[var(--radius-md)] bg-[rgba(244,63,94,0.1)] border border-[rgba(244,63,94,0.3)] text-[var(--accent-rose)] flex items-start justify-between gap-2">
           <span>{error}</span>
-          <button className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]" onClick={() => setError(null)} aria-label="Dismiss error">✕</button>
+          <button className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]" onClick={() => setError(null)} aria-label="Dismiss error"><X size={12} /></button>
         </div>
       )}
 

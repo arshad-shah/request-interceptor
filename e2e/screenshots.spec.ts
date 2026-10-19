@@ -10,6 +10,9 @@ test('capture settings panel and popup', async ({ context, extensionId }, testIn
   await panel.waitForTimeout(400);
   await panel.screenshot({ path: testInfo.outputPath('settings.png') });
 
+  await panel.getByRole('heading', { name: 'Network capture' }).scrollIntoViewIfNeeded();
+  await panel.screenshot({ path: testInfo.outputPath('settings-lower.png') });
+
   const popup = await context.newPage();
   await popup.setViewportSize({ width: 340, height: 560 });
   await popup.goto(`chrome-extension://${extensionId}/ui/popup/index.html`);

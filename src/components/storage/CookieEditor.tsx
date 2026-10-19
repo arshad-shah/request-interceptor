@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { CodeEditor } from '@/components/common/code-editor';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
+import Toggle from '@/components/ui/Toggle';
+import NumberStepper from '@/components/ui/NumberStepper';
 
 interface CookieEditorProps {
   initialCookie?: {
@@ -32,8 +35,16 @@ const CookieEditor: React.FC<CookieEditorProps> = ({
   const [domain, setDomain] = useState(initialCookie?.domain || '');
   const [path, setPath] = useState(initialCookie?.path || '/');
   const [secure, setSecure] = useState(initialCookie?.secure || false);
+  const [httpOnly, setHttpOnly] = useState(initialCookie?.httpOnly || false);
   const [sameSite, setSameSite] = useState(initialCookie?.sameSite || 'lax');
-  const [expirationDays, setExpirationDays] = useState('30');
+  // Keep an edited cookie's remaining lifetime; 0 = session cookie
+  const [expirationDays, setExpirationDays] = useState(() =>
+    initialCookie
+      ? initialCookie.expirationDate
+        ? Math.max(1, Math.ceil((initialCookie.expirationDate - Date.now() / 1000) / 86400))
+        : 0
+      : 30
+  );
 
   useEffect(() => {
     if (!domain && url) {
@@ -45,18 +56,20 @@ const CookieEditor: React.FC<CookieEditorProps> = ({
 
   const handleSave = () => {
     if (!name.trim()) return;
+    // Domain cookies are stored as ".example.com"; the URL needs a real host
+    const host = domain.replace(/^\./, '');
     const cookie: Record<string, unknown> = {
-      url: `${secure ? 'https' : 'http'}://${domain}${path}`,
+      url: `${secure ? 'https' : 'http'}://${host}${path.startsWith('/') ? path : `/${path}`}`,
       name: name.trim(),
       value,
       domain,
       path,
       secure,
+      httpOnly,
       sameSite,
     };
-    const days = parseInt(expirationDays);
-    if (!isNaN(days) && days > 0) {
-      cookie.expirationDate = Math.floor(Date.now() / 1000) + days * 86400;
+    if (expirationDays > 0) {
+      cookie.expirationDate = Math.floor(Date.now() / 1000) + expirationDays * 86400;
     }
     onSave(cookie);
   };
@@ -104,30 +117,37 @@ const CookieEditor: React.FC<CookieEditorProps> = ({
               value={path}
               onChange={(e) => setPath(e.target.value)}
             />
-            <div className="flex flex-col gap-1.5">
-              <label className="ds-label font-medium text-[10px]">SameSite</label>
-              <select
-                className="ds-select sm"
-                value={sameSite}
-                onChange={(e) => setSameSite(e.target.value)}
-              >
-                <option value="lax">Lax</option>
-                <option value="strict">Strict</option>
-                <option value="no_restriction">None</option>
-              </select>
-            </div>
-            <Input
-              label="Expires (days)"
+            <Select
+              label="SameSite"
               size="sm"
-              type="number"
-              value={expirationDays}
-              onChange={(e) => setExpirationDays(e.target.value)}
+              value={sameSite}
+              onChange={setSameSite}
+              options={[
+                { value: 'lax', label: 'Lax' },
+                { value: 'strict', label: 'Strict' },
+                { value: 'no_restriction', label: 'None' },
+              ]}
             />
+            <div className="flex flex-col gap-1.5">
+              <span className="ds-label font-medium text-[10px]">Expires</span>
+              <NumberStepper
+                label="Expires in days (0 for a session cookie)"
+                value={expirationDays}
+                min={0}
+                max={3650}
+                unit={expirationDays === 0 ? 'session' : 'days'}
+                onChange={setExpirationDays}
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)] cursor-pointer">
-              <input type="checkbox" checked={secure} onChange={e => setSecure(e.target.checked)} className="accent-[var(--accent-indigo)]" />
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">
+              <Toggle size="sm" checked={secure} onChange={setSecure} label="Secure" />
               Secure
+            </label>
+            <label className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">
+              <Toggle size="sm" checked={httpOnly} onChange={setHttpOnly} label="HttpOnly" />
+              HttpOnly
             </label>
           </div>
         </div>
