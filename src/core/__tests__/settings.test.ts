@@ -56,6 +56,23 @@ describe('site rules', () => {
     expect(siteMatches('https://bank.com/public', 'https://bank.com/admin')).toBe(false);
   });
 
+  it('keeps wildcards inside the URL part they appear in', () => {
+    expect(siteMatches('https://evil.com/?.bank.com/', 'https://*.bank.com/*')).toBe(false);
+    expect(siteMatches('https://evil.com/x.bank.com/', 'https://*.bank.com/*')).toBe(false);
+    expect(siteMatches('https://app.bank.com/home', 'https://*.bank.com/*')).toBe(true);
+    expect(siteMatches('http://app.bank.com/home', 'https://*.bank.com/*')).toBe(false);
+    expect(siteMatches('https://bank.com/a/b/c', 'https://bank.com/a/*/c')).toBe(true);
+    expect(siteMatches('https://staging-1.example.com/', 'https://staging-*.example.com')).toBe(true);
+    expect(siteMatches('https://staging-1.evil.com/.example.com', 'https://staging-*.example.com')).toBe(false);
+  });
+
+  it('compares effective ports', () => {
+    expect(siteMatches('https://bank.com/', 'bank.com:443')).toBe(true);
+    expect(siteMatches('http://bank.com/', 'bank.com:80')).toBe(true);
+    expect(siteMatches('https://bank.com:8443/', 'bank.com:443')).toBe(false);
+    expect(siteMatches('https://bank.com/', 'https://bank.com:443/')).toBe(true);
+  });
+
   it('normalizes case, trailing dots and ports', () => {
     expect(siteMatches('https://BANK.com./', 'bank.com')).toBe(true);
     expect(siteMatches('https://bank.com/', 'Bank.COM')).toBe(true);

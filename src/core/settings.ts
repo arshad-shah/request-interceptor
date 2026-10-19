@@ -154,25 +154,41 @@ export function siteMatches(pageUrl: string, rawPattern: string): boolean {
   }
 
   if (pattern.includes('://')) {
-    if (pattern.includes('*')) {
-      const source = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&').replace(/\*/g, '.*');
-      return new RegExp(`^${source}$`, 'i').test(page.href);
-    }
-    try {
-      const target = new URL(pattern);
-      return page.origin === target.origin && page.pathname.startsWith(target.pathname);
-    } catch {
-      return false;
-    }
+    // Match scheme, host, port and path separately so a wildcard in one part
+    // can never consume another (e.g. `*` in the host never spans `/`).
+    const parts = /^([a-z][a-z0-9+.-]*|\*):\/\/([^/:?#]+)(?::(\d+|\*))?(\/[^?#]*)?$/i.exec(pattern);
+    if (!parts) return false;
+    const [, scheme, hostPattern, port, path = '/'] = parts;
+    if (scheme !== '*' && `${scheme.toLowerCase()}:` !== page.protocol) return false;
+    if (!hostMatches(normalizeHost(page.hostname), hostPattern)) return false;
+    if (port && port !== '*' && effectivePort(page) !== port) return false;
+    if (!path.includes('*')) return page.pathname.startsWith(path);
+    return wildcardRegex(path, '.*').test(page.pathname);
   }
 
   // host, *.host or host:port
   const match = /^(\*\.)?([a-z0-9.-]+)(?::(\d+))?$/i.exec(pattern);
   if (!match) return false;
-  const host = normalizeHost(page.hostname);
-  const target = normalizeHost(match[2]);
-  if (match[3] && page.port !== match[3]) return false;
-  return host === target || host.endsWith(`.${target}`);
+  if (match[3] && effectivePort(page) !== match[3]) return false;
+  return hostMatches(normalizeHost(page.hostname), `${match[1] ?? ''}${match[2]}`);
+}
+
+/** The page's port, including the scheme default (the URL API reports '' for it). */
+function effectivePort(url: URL): string {
+  return url.port || (url.protocol === 'https:' ? '443' : url.protocol === 'http:' ? '80' : '');
+}
+
+function wildcardRegex(pattern: string, star: string): RegExp {
+  const source = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&').replace(/\*/g, star);
+  return new RegExp(`^${source}$`, 'i');
+}
+
+/** `example.com` and `*.example.com` cover the host and its subdomains; other `*` match within labels only. */
+function hostMatches(host: string, rawPattern: string): boolean {
+  const pattern = normalizeHost(rawPattern);
+  const bare = pattern.replace(/^\*\./, '');
+  if (!bare.includes('*')) return host === bare || host.endsWith(`.${bare}`);
+  return wildcardRegex(pattern, '[^.]*').test(host);
 }
 
 /** Whether interception should run on this page. */
