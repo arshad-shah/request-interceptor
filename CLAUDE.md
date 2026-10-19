@@ -10,7 +10,7 @@ Chrome extension (Manifest V3) — **Request Interceptor** — a developer toolk
 
 ```bash
 pnpm dev              # ExtForge dev server with HMR
-pnpm build            # ExtForge build → dist/<browser>/ for chrome, firefox, safari, edge
+pnpm build            # ExtForge build → dist/<browser>/ for chrome and edge
 pnpm type-check       # Type check only (no emit)
 pnpm lint             # ESLint (zero warnings allowed)
 pnpm test             # Vitest watch mode
@@ -18,7 +18,7 @@ pnpm test:run         # Vitest single run
 pnpm test:coverage    # Vitest with coverage
 ```
 
-Load the `dist/chrome/` folder as an unpacked extension in `chrome://extensions` (or `dist/firefox/` etc. for other browsers).
+Load the `dist/chrome/` folder as an unpacked extension in `chrome://extensions` (or `dist/edge/` in `edge://extensions`). Firefox/Safari are intentionally unsupported (`chrome.debugger`).
 
 ## Architecture
 
