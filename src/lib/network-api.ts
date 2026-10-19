@@ -12,6 +12,7 @@ import type {
   QueryParam,
   TimingPhase,
 } from '../types/network';
+import { NETWORK_PANEL_PORT } from '../types/network';
 
 // ============================================
 // Chrome Message Helpers
@@ -556,5 +557,28 @@ export function requestToRoute(request: NetworkRequest): {
     statusCode: request.statusCode || 200,
     headers: request.responseHeaders || [],
     body: undefined, // Will be populated with response body if available
+  };
+}
+
+/**
+ * Hold the network-panel port open for the lifetime of the extension UI. The
+ * background detaches the debugger once no panel is connected. Reconnects if
+ * the service worker restarts (which drops the port).
+ */
+export function connectNetworkPanel(): () => void {
+  let port: chrome.runtime.Port | null = null;
+  let closed = false;
+  const connect = () => {
+    if (closed) return;
+    port = chrome.runtime.connect({ name: NETWORK_PANEL_PORT });
+    port.onDisconnect.addListener(() => {
+      port = null;
+      if (!closed) setTimeout(connect, 250);
+    });
+  };
+  connect();
+  return () => {
+    closed = true;
+    port?.disconnect();
   };
 }

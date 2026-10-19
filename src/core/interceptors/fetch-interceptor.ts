@@ -6,7 +6,7 @@
 import {
   shouldIntercept,
   createMockResponse,
-  modifyRequestHeaders,
+  buildForwardInit,
   modifyResponseHeaders,
   type LogFn
 } from './interceptor-helpers';
@@ -67,20 +67,12 @@ export function setupFetchInterceptor(
         const redirectUrl = interceptConfig.redirectUrl || url;
         log(`Redirecting fetch request: ${url} → ${redirectUrl}`);
         pageToast(`Redirected ${method}`, 'warn', { detail: `${shortUrl(url)} → ${shortUrl(redirectUrl)}` });
-        const modifiedOptions = { ...options };
-
         const finalUrl = applyQueryParamRules(redirectUrl, interceptConfig.queryParamRules || [], window.location.origin);
+        const initPromise = buildForwardInit(resource, options, interceptConfig, log, { overrideBody: false });
 
-        if (interceptConfig.requestHeaders || interceptConfig.removeRequestHeaders) {
-          const originalHeaders = new Headers(options.headers);
-          modifiedOptions.headers = modifyRequestHeaders(originalHeaders, interceptConfig, log);
-        }
-
-        return new Promise(resolve => {
-          setTimeout(() => {
-            resolve(originalFetch.call(this, finalUrl, modifiedOptions));
-          }, interceptConfig.delay || 0);
-        }).then((r: any) => r);
+        return new Promise<void>(resolve => {
+          setTimeout(resolve, interceptConfig.delay || 0);
+        }).then(async () => originalFetch.call(this, finalUrl, await initPromise));
       }
 
       if (mode === 'mock') {
@@ -94,24 +86,18 @@ export function setupFetchInterceptor(
       }
 
       // mode === 'passthrough'
-      const modifiedOptions = { ...options };
-
-      let modifiedUrl: string | RequestInfo | URL = resource;
+      let modifiedUrl = url;
       if (interceptConfig.queryParamRules && interceptConfig.queryParamRules.length > 0) {
         modifiedUrl = applyQueryParamRules(url, interceptConfig.queryParamRules, window.location.origin);
       }
 
-      if (interceptConfig.requestHeaders || interceptConfig.removeRequestHeaders) {
-        const originalHeaders = new Headers(options.headers);
-        modifiedOptions.headers = modifyRequestHeaders(originalHeaders, interceptConfig, log);
-      }
-
       if (interceptConfig.requestBody && interceptConfig.requestBody.trim()) {
-        modifiedOptions.body = interceptConfig.requestBody;
         log(`Overriding request body for: ${method} ${url}`);
       }
 
-      const realRequestPromise = originalFetch.call(this, modifiedUrl, modifiedOptions);
+      const realRequestPromise = buildForwardInit(resource, options, interceptConfig, log, {
+        overrideBody: true,
+      }).then((init) => originalFetch.call(this, modifiedUrl, init));
 
       if (interceptConfig.responseHeaders && Object.keys(interceptConfig.responseHeaders).length > 0) {
         return realRequestPromise.then((response: Response) => {

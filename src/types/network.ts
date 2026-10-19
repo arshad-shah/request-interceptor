@@ -462,3 +462,6 @@ export const STATUS_TEXTS: Record<number, string> = {
   502: 'Bad Gateway',
   503: 'Service Unavailable',
 };
+
+/** Port name the network panel holds open while mounted (see NetworkManager). */
+export const NETWORK_PANEL_PORT = 'network-panel';

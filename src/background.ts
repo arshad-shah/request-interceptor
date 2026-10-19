@@ -6,8 +6,11 @@ import { validateHttpConfig, validateWebSocketConfig, validateInjectionConfig } 
 import { migrateRoutes } from './core/route-migration';
 import { exportRoutes } from './core/route-export';
 import { findConflictingRoutes } from './core/route-conflicts';
+import { logger } from './lib/logger';
 
-console.log('[Background] Network manager initialized:', !!networkManager);
+const log = logger.child('background');
+
+log.debug('Network manager initialized', { ready: !!networkManager });
 
 // ---- Events storage (per tab, in-memory) ----
 const MAX_EVENTS = 1000;
@@ -31,8 +34,11 @@ class StateManager {
     eventMonitorEnabled: false,
   };
 
+  /** Resolves once persisted state is loaded; messages wait on it after a service-worker restart. */
+  private ready: Promise<void>;
+
   constructor() {
-    this.loadState();
+    this.ready = this.loadState();
     this.setupMessageHandlers();
     this.setupTabHandlers();
   }
@@ -48,29 +54,29 @@ class StateManager {
       if (changed) {
         this.state.routes = routes;
         this.saveState();
-        console.log('[Background] Migrated routes');
+        log.info('Migrated routes');
       }
 
       this.updateIcon();
-      console.log('[Background] State loaded:', this.state);
+      log.debug('State loaded', { enabled: this.state.enabled, routes: Object.keys(this.state.routes).length });
     } catch (error) {
-      console.error('[Background] Error loading state:', error);
+      log.error('Error loading state', { error: String(error) });
     }
   }
 
   async saveState(): Promise<void> {
     try {
       await chrome.storage.local.set(this.state);
-      console.log('[Background] State saved:', this.state);
+      log.debug('State saved', { enabled: this.state.enabled, routes: Object.keys(this.state.routes).length });
     } catch (error) {
-      console.error('[Background] Error saving state:', error);
+      log.error('Error saving state', { error: String(error) });
     }
   }
 
   updateIcon(): void {
     const iconPath = { '16': 'icons/icon-16.png', '48': 'icons/icon-48.png', '128': 'icons/icon-128.png' };
     chrome.action.setIcon({ path: iconPath }).catch((err: unknown) => {
-      console.warn('[Background] setIcon failed:', err);
+      log.warn('setIcon failed', { error: String(err) });
     });
   }
 
@@ -79,7 +85,7 @@ class StateManager {
       tabs.forEach(tab => {
         if (tab.id && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
           chrome.tabs.sendMessage(tab.id, message).catch(() => {
-            console.log(`[Background] Could not send message to tab ${tab.id}`);
+            log.debug('Could not send message to tab', { tabId: tab.id });
           });
         }
       });
@@ -89,10 +95,10 @@ class StateManager {
   notifyExtensionUIs(message: ChromeMessage): void {
     try {
       chrome.runtime.sendMessage(message).catch(() => {
-        console.log('[Background] Could not send message to extension UIs (may be closed)');
+        log.debug('Could not send message to extension UIs (may be closed)');
       });
     } catch (error) {
-      console.log('[Background] Error sending message to extension UIs:', error);
+      log.debug('Error sending message to extension UIs', { error: String(error) });
     }
   }
 
@@ -103,6 +109,14 @@ class StateManager {
 
   setupMessageHandlers(): void {
     chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendResponse) => {
+      // NETWORK_* messages belong to NetworkManager; answering them here would win the
+      // response race with "Unknown type" before its async handlers reply.
+      if (typeof message.type === 'string' && message.type.startsWith('NETWORK_')) return false;
+      // Fire-and-forget: no response is sent, so don't hold the channel open.
+      if (message.type === 'EVENT_CAPTURED') {
+        this.handleTypedMessage(message, sender, sendResponse);
+        return false;
+      }
       this.handleMessage(message, sender, sendResponse);
       return true;
     });
@@ -116,7 +130,7 @@ class StateManager {
           enabled: this.state.enabled,
           routes: this.state.routes
         }).catch(() => {
-          console.log(`[Background] Could not send initial state to tab ${tabId}`);
+          log.debug('Could not send initial state to tab', { tabId });
         });
         if (this.state.eventMonitorEnabled) {
           chrome.tabs.sendMessage(tabId, {
@@ -134,7 +148,8 @@ class StateManager {
     sendResponse: (response: any) => void
   ): Promise<void> {
     try {
-      console.log('[Background] Received message:', message.action || message.type, message);
+      await this.ready;
+      log.trace('Received message', { kind: message.action || message.type });
 
       // Handle type-based messages (events + storage)
       if (message.type) {
@@ -188,11 +203,11 @@ class StateManager {
           break;
         }
         default:
-          console.warn('[Background] Unknown action:', message.action);
+          log.warn('Unknown action', { action: message.action });
           sendResponse({ success: false, error: 'Unknown action' });
       }
     } catch (error) {
-      console.error('[Background] Error handling message:', error);
+      log.error('Error handling message', { error: String(error) });
       sendResponse({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -319,7 +334,7 @@ class StateManager {
   }
 
   async toggleEnabled(enabled: boolean): Promise<void> {
-    console.log('[Background] Toggling enabled:', enabled);
+    log.debug('Toggling enabled', { enabled });
     this.state.enabled = enabled;
     await this.saveState();
     this.updateIcon();
@@ -332,7 +347,7 @@ class StateManager {
   }
 
   async addRoute(route: string, config: any, name?: string): Promise<boolean> {
-    console.log('[Background] Adding route:', route, config);
+    log.debug('Adding route', { route });
 
     // Validate
     let validation;
@@ -380,7 +395,7 @@ class StateManager {
       const conflicts = findConflictingRoutes(route, this.state.routes, isUpdate);
       for (const key of conflicts) {
         (this.state.routes[key] as any).enabled = false;
-        console.log('[Background] Disabled conflicting route:', key);
+        log.debug('Disabled conflicting route', { route: key });
       }
     }
 
@@ -397,7 +412,7 @@ class StateManager {
   }
 
   async removeRoute(route: string): Promise<void> {
-    console.log('[Background] Removing route:', route);
+    log.debug('Removing route', { route });
 
     if (this.state.routes[route]) {
       delete this.state.routes[route];
@@ -409,12 +424,12 @@ class StateManager {
         enabled: this.state.enabled
       });
     } else {
-      console.warn('[Background] Route not found for removal:', route);
+      log.warn('Route not found for removal', { route });
     }
   }
 
   async toggleRoute(route: string, enabled: boolean): Promise<void> {
-    console.log('[Background] Toggling route:', route, enabled);
+    log.debug('Toggling route', { route, enabled });
 
     if (this.state.routes[route]) {
       // Resolve conflicts when enabling
@@ -422,7 +437,7 @@ class StateManager {
         const conflicts = findConflictingRoutes(route, this.state.routes, false);
         for (const key of conflicts) {
           (this.state.routes[key] as any).enabled = false;
-          console.log('[Background] Disabled conflicting route:', key);
+          log.debug('Disabled conflicting route', { route: key });
         }
       }
 
@@ -435,12 +450,12 @@ class StateManager {
         enabled: this.state.enabled
       });
     } else {
-      console.warn('[Background] Route not found for toggle:', route);
+      log.warn('Route not found for toggle', { route });
     }
   }
 
   async clearRoutes(): Promise<void> {
-    console.log('[Background] Clearing all routes');
+    log.debug('Clearing all routes');
     this.state.routes = {};
     await this.saveState();
 
@@ -452,7 +467,7 @@ class StateManager {
   }
 
   async openSidePanel(): Promise<void> {
-    console.log('[Background] Opening side panel');
+    log.debug('Opening side panel');
     try {
       // extforge-ignore-compat: chrome.sidePanel — runtime-guarded; Firefox/Safari fall through to error branch
       if (chrome.sidePanel) {
@@ -467,7 +482,7 @@ class StateManager {
         throw new Error('Side panel API not available');
       }
     } catch (error) {
-      console.error('[Background] Error opening side panel:', error);
+      log.error('Error opening side panel', { error: String(error) });
       throw error;
     }
   }
@@ -480,11 +495,11 @@ chrome.tabs.onUpdated.addListener((tid, changeInfo) => {
 });
 
 // Initialize
-console.log('[Background] Initializing Request Interceptor');
+log.debug('Initializing Request Interceptor');
 const stateManager = new StateManager();
 
 chrome.runtime.onInstalled.addListener((details) => {
-  console.log('[Background] Extension installed/updated:', details.reason);
+  log.info('Extension installed/updated', { reason: details.reason });
 
   if (details.reason === 'install') {
     chrome.storage.local.set({ enabled: false, routes: {} });
@@ -494,7 +509,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  console.log('[Background] Extension started');
+  log.debug('Extension started');
 });
 
 (globalThis as any).__stateManager = stateManager;

@@ -23,7 +23,7 @@ import {
   useDebuggerAttached,
 } from '../../stores/network-store';
 import { useAppStore } from '../../stores/app-store';
-import type { NetworkRequest } from '../../types/network';
+import type { NetworkRequest, WebSocketFrame } from '../../types/network';
 import type { RouteConfig, WebSocketConfig } from '../../types';
 import {
   getRequests,
@@ -35,6 +35,8 @@ import {
   addNetworkMessageListener,
   getCurrentTabId,
   getDebuggerStatus,
+  getRequestDetails,
+  getResponseBody,
 } from '../../lib/network-api';
 import NetworkStats from './NetworkStats';
 import NetworkFilters from './NetworkFilters';
@@ -54,6 +56,8 @@ type PanelPosition = 'bottom' | 'right';
 const MIN_PANEL_SIZE = 150;
 const DEFAULT_PANEL_SIZE_BOTTOM = 280;
 const DEFAULT_PANEL_SIZE_RIGHT = 380;
+/** Minimum interval between WebSocket frame refreshes for the selected socket. */
+const WS_FRAMES_REFRESH_MS = 500;
 
 // ============================================================================
 // Main Component
@@ -88,6 +92,48 @@ export function NetworkTab() {
   // Track current tab ID
   const currentTabIdRef = useRef<number | null>(null);
   const isInitializedRef = useRef(false);
+
+  // List updates omit WebSocket frames; load them for the selected socket only.
+  const [selectedWsFrames, setSelectedWsFrames] = useState<{
+    requestId: string;
+    frames: WebSocketFrame[];
+  } | null>(null);
+  const wsFramesFetchRef = useRef<{ requestId: string; at: number } | null>(null);
+  const selectedId = selectedRequest?.requestId;
+  const selectedIsWebSocket = selectedRequest?.type === 'websocket';
+  const selectedFrameCount =
+    (selectedRequest?.wsFramesSent || 0) + (selectedRequest?.wsFramesReceived || 0);
+
+  useEffect(() => {
+    if (!selectedId || !selectedIsWebSocket) {
+      setSelectedWsFrames(null);
+      return;
+    }
+    let cancelled = false;
+    const last = wsFramesFetchRef.current;
+    const wait =
+      last?.requestId === selectedId
+        ? Math.max(0, WS_FRAMES_REFRESH_MS - (Date.now() - last.at))
+        : 0;
+    const timer = setTimeout(async () => {
+      const tabId = currentTabIdRef.current;
+      if (!tabId) return;
+      wsFramesFetchRef.current = { requestId: selectedId, at: Date.now() };
+      const { request } = await getRequestDetails(tabId, selectedId);
+      if (!cancelled) {
+        setSelectedWsFrames({ requestId: selectedId, frames: request?.wsFrames || [] });
+      }
+    }, wait);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectedId, selectedIsWebSocket, selectedFrameCount]);
+
+  const detailsRequest =
+    selectedRequest && selectedWsFrames?.requestId === selectedRequest.requestId
+      ? { ...selectedRequest, wsFrames: selectedWsFrames.frames }
+      : selectedRequest;
 
   // ─── Initialize on mount ───────────────────────────────────────────────────
   useEffect(() => {
@@ -176,10 +222,12 @@ export function NetworkTab() {
     const interval = setInterval(async () => {
       const tabId = await getCurrentTabId();
       if (tabId && tabId !== currentTabIdRef.current) {
+        const previousTabId = currentTabIdRef.current;
         currentTabIdRef.current = tabId;
-        
-        // Only attach if recording
+
+        // Only attach if recording; release the tab we're leaving
         if (isRecording) {
+          if (previousTabId) await detachDebugger(previousTabId);
           const attached = await attachDebugger(tabId);
           setDebuggerAttached(attached);
         }
@@ -304,7 +352,9 @@ export function NetworkTab() {
         await addRoute(routeKey, newRoute);
       } else {
         // Create HTTP config
-        const responseContent = request.responseBody?.body || '';
+        const tabId = currentTabIdRef.current;
+        const body = tabId ? await getResponseBody(tabId, request.requestId) : null;
+        const responseContent = body && !body.base64Encoded ? body.body : '';
         const detectedContentType = request.mimeType || request.contentType || 'application/json';
 
         const newRoute: RouteConfig = {
@@ -461,7 +511,7 @@ export function NetworkTab() {
         </div>
 
         {/* ─── Resize Handle + Details Panel ──────────────────────────────── */}
-        {hasSelection && (
+        {hasSelection && detailsRequest && (
           <>
             {/* Resize Handle */}
             <div
@@ -522,7 +572,7 @@ export function NetworkTab() {
               }}
             >
               <NetworkRequestDetails
-                request={selectedRequest}
+                request={detailsRequest}
                 responseBody={responseBody}
                 onClose={handleCloseDetails}
                 onLoadResponseBody={setResponseBody}
