@@ -222,9 +222,53 @@ export function modifyRequestHeaders(headers: Headers, config: any, log: LogFn):
   return modifiedHeaders;
 }
 
+/**
+ * Build the init for forwarding a page fetch, preserving everything the page
+ * set on a `Request` object (method, headers, body, credentials, signal…)
+ * plus `options`, then applying the route's header and body changes.
+ */
+export async function buildForwardInit(
+  resource: RequestInfo | URL,
+  options: RequestInit,
+  config: any,
+  log: LogFn,
+  { overrideBody }: { overrideBody: boolean }
+): Promise<RequestInit> {
+  const base = new Request(resource as RequestInfo, options);
+  const init: RequestInit = {
+    method: base.method,
+    headers: base.headers,
+    credentials: base.credentials,
+    cache: base.cache,
+    redirect: base.redirect,
+    keepalive: base.keepalive,
+    referrerPolicy: base.referrerPolicy,
+    signal: options.signal ?? (resource instanceof Request ? resource.signal : undefined),
+  };
+  if (base.mode !== 'navigate') init.mode = base.mode;
+  if (base.integrity) init.integrity = base.integrity;
+
+  if (config.requestHeaders || config.removeRequestHeaders) {
+    init.headers = modifyRequestHeaders(base.headers, config, log);
+  }
+
+  if (overrideBody && config.requestBody && config.requestBody.trim()) {
+    init.body = config.requestBody;
+  } else if (base.method !== 'GET' && base.method !== 'HEAD' && base.body !== null) {
+    init.body = await base.arrayBuffer();
+  }
+  return init;
+}
+
 /** Apply response header modifications to a real response */
 export function modifyResponseHeaders(response: Response, config: any, log: LogFn): Response {
   if (!config.responseHeaders || Object.keys(config.responseHeaders).length === 0) {
+    return response;
+  }
+
+  // Opaque (no-cors) and network-error responses have status 0, which
+  // `new Response` rejects; their headers can't be read or changed anyway.
+  if (response.type === 'opaque' || response.status < 200 || response.status > 599) {
     return response;
   }
 
