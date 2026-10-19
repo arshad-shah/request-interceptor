@@ -3,6 +3,14 @@
  * Handles network monitoring via Chrome Debugger API
  */
 
+import {
+  BodyCache,
+  appendFrame,
+  bodyKey,
+  shouldPrefetchBody,
+  toRequestSummary,
+} from '../core/network-buffers';
+
 // ============================================
 // Types
 // ============================================
@@ -86,6 +94,7 @@ interface WebSocketFrame {
   data: string;
   length: number;
   mask?: boolean;
+  truncated?: boolean;
 }
 
 interface NetworkSettings {
@@ -100,6 +109,14 @@ interface NetworkSettings {
 // ============================================
 
 const MAX_REQUESTS = 500;
+/** Total response-body characters kept across all tabs (~32M chars). */
+const MAX_BODY_CACHE_CHARS = 32 * 1024 * 1024;
+/** Bodies above this are truncated in the cache. */
+const MAX_BODY_CHARS = 2 * 1024 * 1024;
+/** Responses at or below this encoded size are fetched eagerly. */
+const PREFETCH_BODY_MAX_BYTES = 512 * 1024;
+const MAX_WS_FRAMES = 500;
+const MAX_WS_FRAME_CHARS = 64 * 1024;
 
 const RESOURCE_TYPES: Record<string, string> = {
   Document: 'document',
@@ -122,7 +139,10 @@ const RESOURCE_TYPES: Record<string, string> = {
 
 export class NetworkManager {
   private tabRequests: Map<number, Map<string, NetworkRequest>> = new Map();
-  private requestBodies: Map<string, ResponseBody> = new Map();
+  private requestBodies = new BodyCache({
+    maxTotalChars: MAX_BODY_CACHE_CHARS,
+    maxEntryChars: MAX_BODY_CHARS,
+  });
   private debuggerAttached: Map<number, boolean> = new Map();
   private pendingBroadcasts: Map<number, ReturnType<typeof setTimeout>> = new Map();
   private settings: NetworkSettings = {
@@ -179,6 +199,7 @@ export class NetworkManager {
 
     chrome.tabs.onRemoved.addListener((tabId) => {
       this.tabRequests.delete(tabId);
+      this.requestBodies.deleteTab(tabId);
       this.debuggerAttached.delete(tabId);
       const pending = this.pendingBroadcasts.get(tabId);
       if (pending) {
@@ -428,8 +449,12 @@ export class NetworkManager {
         },
       });
 
-      // Fetch response body in background
-      this.fetchResponseBody(tabId, requestId, request.mimeType);
+      // Eagerly fetch small API/document bodies before Chrome evicts them from the
+      // debugger buffer; everything else is fetched on demand.
+      const finished = { ...request, encodedSize: encodedDataLength || request.encodedSize };
+      if (shouldPrefetchBody(finished, PREFETCH_BODY_MAX_BYTES)) {
+        this.fetchResponseBody(tabId, requestId, request.mimeType);
+      }
     }
   }
 
@@ -518,76 +543,54 @@ export class NetworkManager {
   }
 
   private handleWebSocketFrameSent(tabId: number, params: any): void {
-    const { requestId, timestamp, response } = params;
-    const requestMap = this.tabRequests.get(tabId);
-    const request = requestMap?.get(requestId);
-    
-    if (request) {
-      // Track frame count and data
-      const frames = (request as any).wsFramesSent || 0;
-      const totalSize = (request as any).wsSentSize || 0;
-      const payloadData = response?.payloadData || '';
-      const payloadLength = payloadData.length;
-      
-      // Get existing frames or create new array
-      const existingFrames: WebSocketFrame[] = (request as any).wsFrames || [];
-      
-      // Add new frame (limit to last 500 frames to prevent memory issues)
-      const newFrame: WebSocketFrame = {
-        type: 'sent',
-        timestamp: timestamp * 1000,
-        opcode: response?.opcode || 1,
-        data: payloadData,
-        length: payloadLength,
-        mask: response?.mask,
-      };
-      
-      const wsFrames = [...existingFrames, newFrame];
-      
-      this.upsertRequest(tabId, requestId, {
-        wsFramesSent: frames + 1,
-        wsSentSize: totalSize + payloadLength,
-        wsFrames,
-        duration: timestamp * 1000 - request.startTime,
-      } as any);
-    }
+    this.handleWebSocketFrame(tabId, 'sent', params);
   }
 
   private handleWebSocketFrameReceived(tabId: number, params: any): void {
+    this.handleWebSocketFrame(tabId, 'received', params);
+  }
+
+  private handleWebSocketFrame(
+    tabId: number,
+    direction: 'sent' | 'received',
+    params: any
+  ): void {
     const { requestId, timestamp, response } = params;
-    const requestMap = this.tabRequests.get(tabId);
-    const request = requestMap?.get(requestId);
-    
-    if (request) {
-      // Track frame count and data
-      const frames = (request as any).wsFramesReceived || 0;
-      const totalSize = (request as any).wsReceivedSize || 0;
-      const payloadData = response?.payloadData || '';
-      const payloadLength = payloadData.length;
-      
-      // Get existing frames or create new array
-      const existingFrames: WebSocketFrame[] = (request as any).wsFrames || [];
-      
-      // Add new frame (limit to last 500 frames to prevent memory issues)
-      const newFrame: WebSocketFrame = {
-        type: 'received',
+    const request = this.tabRequests.get(tabId)?.get(requestId);
+    if (!request) return;
+
+    const payloadData: string = response?.payloadData || '';
+    const payloadLength = payloadData.length;
+
+    // Frames are appended in place and bounded, so a busy socket neither grows
+    // without limit nor copies its whole history on every frame.
+    const wsFrames = request.wsFrames || [];
+    appendFrame(
+      wsFrames,
+      {
+        type: direction,
         timestamp: timestamp * 1000,
         opcode: response?.opcode || 1,
         data: payloadData,
         length: payloadLength,
         mask: response?.mask,
-      };
-      
-      const wsFrames = [...existingFrames, newFrame];
-      
-      this.upsertRequest(tabId, requestId, {
-        wsFramesReceived: frames + 1,
-        wsReceivedSize: totalSize + payloadLength,
-        wsFrames,
-        size: totalSize + payloadLength,
-        duration: timestamp * 1000 - request.startTime,
-      } as any);
+      },
+      { maxFrames: MAX_WS_FRAMES, maxPayloadChars: MAX_WS_FRAME_CHARS }
+    );
+
+    const updates: Partial<NetworkRequest> = {
+      wsFrames,
+      duration: timestamp * 1000 - request.startTime,
+    };
+    if (direction === 'sent') {
+      updates.wsFramesSent = (request.wsFramesSent || 0) + 1;
+      updates.wsSentSize = (request.wsSentSize || 0) + payloadLength;
+    } else {
+      updates.wsFramesReceived = (request.wsFramesReceived || 0) + 1;
+      updates.wsReceivedSize = (request.wsReceivedSize || 0) + payloadLength;
+      updates.size = updates.wsReceivedSize;
     }
+    this.upsertRequest(tabId, requestId, updates);
   }
 
   private handleWebSocketClosed(tabId: number, params: any): void {
@@ -632,20 +635,15 @@ export class NetworkManager {
     if (requestMap.size > MAX_REQUESTS) {
       const oldest = Array.from(requestMap.keys())[0];
       requestMap.delete(oldest);
-      this.requestBodies.delete(oldest);
+      this.requestBodies.delete(bodyKey(tabId, oldest));
     }
 
     this.debouncedBroadcast(tabId);
   }
 
   private clearTabRequests(tabId: number): void {
-    const requestMap = this.tabRequests.get(tabId);
-    if (requestMap) {
-      for (const reqId of requestMap.keys()) {
-        this.requestBodies.delete(reqId);
-      }
-      requestMap.clear();
-    }
+    this.tabRequests.get(tabId)?.clear();
+    this.requestBodies.deleteTab(tabId);
     this.broadcastUpdate(tabId);
   }
 
@@ -653,6 +651,13 @@ export class NetworkManager {
     const requestMap = this.tabRequests.get(tabId);
     if (!requestMap) return [];
     return Array.from(requestMap.values()).sort((a, b) => a.startTime - b.startTime);
+  }
+
+  /** Request list for the UI: bodies and WebSocket frames are fetched on demand. */
+  private getRequestSummaries(tabId: number): NetworkRequest[] {
+    return this.getRequestsArray(tabId).map(
+      (request) => toRequestSummary(request) as NetworkRequest
+    );
   }
 
   // ============================================
@@ -663,8 +668,8 @@ export class NetworkManager {
     tabId: number,
     requestId: string,
     mimeType?: string
-  ): Promise<void> {
-    if (!this.debuggerAttached.get(tabId)) return;
+  ): Promise<ResponseBody | undefined> {
+    if (!this.debuggerAttached.get(tabId)) return undefined;
 
     try {
       const result = await chrome.debugger.sendCommand(
@@ -673,21 +678,19 @@ export class NetworkManager {
         { requestId }
       ) as { body: string; base64Encoded: boolean };
 
-      if (result) {
-        const body: ResponseBody = {
+      // The request may have been cleared or evicted while the body was loading
+      if (result && this.tabRequests.get(tabId)?.has(requestId)) {
+        // Stored once, in the bounded cache; never embedded in the request object
+        return this.requestBodies.set(bodyKey(tabId, requestId), {
           body: result.body,
           base64Encoded: result.base64Encoded,
           mimeType,
-        };
-
-        // Store the full body
-        this.requestBodies.set(requestId, body);
-        // Also store in the request object itself
-        this.upsertRequest(tabId, requestId, { responseBody: body });
+        });
       }
     } catch {
       // Body might not be available for some requests
     }
+    return undefined;
   }
 
   // ============================================
@@ -713,7 +716,7 @@ export class NetworkManager {
     this.sendMessage({
       type: 'NETWORK_REQUESTS_UPDATED',
       tabId,
-      requests: this.getRequestsArray(tabId),
+      requests: this.getRequestSummaries(tabId),
     });
   }
 
@@ -736,7 +739,7 @@ export class NetworkManager {
       switch (message.type) {
         case 'NETWORK_GET_REQUESTS':
           sendResponse({
-            requests: this.getRequestsArray(message.tabId),
+            requests: this.getRequestSummaries(message.tabId),
             settings: this.settings,
             attached: this.debuggerAttached.get(message.tabId) || false,
           });
@@ -768,7 +771,7 @@ export class NetworkManager {
           break;
 
         case 'NETWORK_EXPORT_HAR': {
-          const har = this.generateHAR(message.tabId);
+          const har = await this.generateHAR(message.tabId);
           sendResponse({ har });
           break;
         }
@@ -806,16 +809,19 @@ export class NetworkManager {
     }
   }
 
+  private async getOrFetchBody(tabId: number, requestId: string): Promise<ResponseBody | undefined> {
+    const cached = this.requestBodies.get(bodyKey(tabId, requestId));
+    if (cached) return cached;
+    const request = this.tabRequests.get(tabId)?.get(requestId);
+    if (!request) return undefined;
+    return this.fetchResponseBody(tabId, requestId, request.mimeType);
+  }
+
   private async handleGetRequestDetails(message: any, sendResponse: (r: any) => void): Promise<void> {
-    const requestMap = this.tabRequests.get(message.tabId);
-    const request = requestMap?.get(message.requestId);
-
-    let responseBody = this.requestBodies.get(message.requestId);
-
-    if (!responseBody && request && this.debuggerAttached.get(message.tabId)) {
-      await this.fetchResponseBody(message.tabId, message.requestId, request.mimeType);
-      responseBody = this.requestBodies.get(message.requestId);
-    }
+    const request = this.tabRequests.get(message.tabId)?.get(message.requestId);
+    const responseBody = request
+      ? await this.getOrFetchBody(message.tabId, message.requestId)
+      : undefined;
 
     sendResponse({
       request: request || null,
@@ -824,18 +830,7 @@ export class NetworkManager {
   }
 
   private async handleGetResponseBody(message: any, sendResponse: (r: any) => void): Promise<void> {
-    let responseBody = this.requestBodies.get(message.requestId);
-
-    if (!responseBody && this.debuggerAttached.get(message.tabId)) {
-      const requestMap = this.tabRequests.get(message.tabId);
-      const request = requestMap?.get(message.requestId);
-
-      if (request) {
-        await this.fetchResponseBody(message.tabId, message.requestId, request.mimeType);
-        responseBody = this.requestBodies.get(message.requestId);
-      }
-    }
-
+    const responseBody = await this.getOrFetchBody(message.tabId, message.requestId);
     sendResponse({ responseBody: responseBody || null });
   }
 
@@ -857,8 +852,13 @@ export class NetworkManager {
   // HAR Export
   // ============================================
 
-  private generateHAR(tabId: number): string {
+  private async generateHAR(tabId: number): Promise<string> {
     const requests = this.getRequestsArray(tabId);
+    const bodies = new Map<string, ResponseBody | undefined>();
+    for (const req of requests) {
+      if (req.type === 'websocket') continue;
+      bodies.set(req.requestId, await this.getOrFetchBody(tabId, req.requestId));
+    }
 
     const har = {
       log: {
@@ -868,7 +868,7 @@ export class NetworkManager {
         pages: [],
         entries: requests.map((req) => {
           const timing = req.timing || {};
-          const body = this.requestBodies.get(req.requestId);
+          const body = bodies.get(req.requestId);
 
           return {
             startedDateTime: new Date(req.startTime).toISOString(),
