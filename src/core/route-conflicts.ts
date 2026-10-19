@@ -16,7 +16,7 @@ import { isWebSocketRoute, isInjectionRoute } from './route-keys';
  */
 export function findConflictingRoutes(
   routeKey: string,
-  existingRoutes: Record<string, any>,
+  existingRoutes: Record<string, unknown>,
   isUpdate: boolean
 ): string[] {
   if (isWebSocketRoute(routeKey) || isInjectionRoute(routeKey)) {

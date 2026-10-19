@@ -12,6 +12,7 @@ import {
   WebSocketConfig,
   InjectionConfig,
   InterceptionMode,
+  HttpMethod,
 } from '@/types';
 
 export interface RouteInfo {
@@ -87,7 +88,7 @@ export function useRouteInfo(
       ? 'Script/CSS injection'
       : isWebSocket
       ? 'WebSocket message interception'
-      : getRouteDescription(method as any, url);
+      : getRouteDescription(method as HttpMethod, url);
 
     const timestamp = config.timestamp ? new Date(config.timestamp).toLocaleDateString() : 'N/A';
 

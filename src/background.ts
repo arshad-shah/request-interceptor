@@ -3,7 +3,7 @@
  * background module.
  */
 import { MessageRouter } from './core/messaging/router';
-import { networkManager } from './lib/network-background';
+import { networkManager } from './sw/network/manager';
 import { logger } from './lib/logger';
 import { StateStore } from './sw/state';
 import { EventBuffer } from './sw/events';

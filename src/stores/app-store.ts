@@ -49,14 +49,16 @@ interface AppStore extends AppState {
   getRoutesByType: (type: 'http' | 'websocket' | 'injection' | 'all') => Record<string, RouteConfig | WebSocketConfig | InjectionConfig>;
 }
 
-function shallowEqualConfig(a: any, b: any): boolean {
+function shallowEqualConfig(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
-  const ak = Object.keys(a);
-  const bk = Object.keys(b);
+  const ra = a as Record<string, unknown>;
+  const rb = b as Record<string, unknown>;
+  const ak = Object.keys(ra);
+  const bk = Object.keys(rb);
   if (ak.length !== bk.length) return false;
   for (const k of ak) {
-    if (a[k] !== b[k]) return false;
+    if (ra[k] !== rb[k]) return false;
   }
   return true;
 }
@@ -108,7 +110,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       if (
         existing &&
         (existing.enabled ?? true) === normalizedEnabled &&
-        shallowEqualConfig(existing, incoming)
+        shallowEqualConfig(existing, { ...incoming, enabled: normalizedEnabled })
       ) {
         next[key] = existing;
         continue;

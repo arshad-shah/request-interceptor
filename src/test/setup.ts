@@ -6,7 +6,7 @@ vi.mock('framer-motion', async () => {
   const React = await import('react');
 
   const createMotionComponent = (tag: string) =>
-    React.forwardRef(({ children, ...props }: any, ref: any) => {
+    React.forwardRef<Element, Record<string, unknown> & { children?: React.ReactNode }>(({ children, ...props }, ref) => {
       // Remove motion-specific props to avoid React warnings
       const {
         animate: _animate,
@@ -27,7 +27,7 @@ vi.mock('framer-motion', async () => {
         ...domProps
       } = props;
       
-      return React.createElement(tag, { ref, ...domProps }, children);
+      return React.createElement(tag, { ref, ...domProps } as React.Attributes, children as React.ReactNode);
     });
   
   return {
@@ -54,7 +54,7 @@ vi.mock('framer-motion', async () => {
       main: createMotionComponent('main'),
       aside: createMotionComponent('aside')
     },
-    AnimatePresence: ({ children }: any) => children
+    AnimatePresence: ({ children }: { children?: React.ReactNode }) => children
   };
 });
 

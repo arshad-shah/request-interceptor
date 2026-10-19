@@ -1,26 +1,36 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { request, onEvent, MessageError } from '../messaging';
 
-type Responder = (message: any, callback: (response?: unknown) => void) => void;
+type Responder = (message: unknown, callback: (response?: unknown) => void) => void;
+type Listener = (m: unknown) => void;
+
+interface FakeRuntime {
+  id: string | undefined;
+  lastError: { message: string } | undefined;
+  sendMessage: ReturnType<typeof vi.fn>;
+  onMessage: { addListener: (l: Listener) => void; removeListener: (l: Listener) => void };
+}
+
+const globalWithChrome = globalThis as { chrome?: unknown };
 
 function installChrome(responder: Responder) {
-  const listeners = new Set<(m: unknown) => void>();
-  const runtime: any = {
+  const listeners = new Set<Listener>();
+  const runtime: FakeRuntime = {
     id: 'ext',
     lastError: undefined,
-    sendMessage: vi.fn((message: any, callback: (r?: unknown) => void) => responder(message, callback)),
+    sendMessage: vi.fn((message: unknown, callback: (r?: unknown) => void) => responder(message, callback)),
     onMessage: {
-      addListener: (l: any) => listeners.add(l),
-      removeListener: (l: any) => listeners.delete(l),
+      addListener: (l) => listeners.add(l),
+      removeListener: (l) => listeners.delete(l),
     },
   };
-  (globalThis as any).chrome = { runtime };
+  globalWithChrome.chrome = { runtime };
   return { runtime, dispatch: (m: unknown) => listeners.forEach((l) => l(m)) };
 }
 
 describe('request', () => {
   afterEach(() => {
-    delete (globalThis as any).chrome;
+    delete globalWithChrome.chrome;
     vi.useRealTimers();
   });
 

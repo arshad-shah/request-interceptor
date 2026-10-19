@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Settings2, Code, FileText, Globe } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
-import {
-  chromeApi,
-  parseRouteKey,
-  createRouteKey,
-  createInjectionKey,
-  validateJson,
-  formatJson,
-} from '@/lib/chrome-api';
-import { parseWebSocketKey, parseInjectionKey } from '@/lib/utils';
-import { HttpMethod, RouteFormData, InterceptionMode } from '@/types';
+import { chromeApi } from '@/lib/chrome-api';
+import { RouteFormData } from '@/types';
 import { defaultFormData } from '@/constants/route-form';
+import {
+  buildRouteFromForm,
+  routeSavedMessage,
+  routeToFormData,
+  validateRouteForm,
+  type FieldChangeHandler,
+  type RouteFormErrors,
+} from './route-form-logic';
 import FormSection from './sections/FormSection';
 import BasicInfoSection from './sections/BasicInfoSection';
 import InterceptionModeSection from './sections/InterceptionModeSection';
@@ -31,10 +31,11 @@ const AddRouteForm: React.FC = () => {
     addNotification,
     addRoute,
     updateRoute,
+    removeRoute,
   } = useAppStore();
 
   const [formData, setFormData] = useState<RouteFormData>(defaultFormData);
-  const [errors, setErrors] = useState<Partial<Record<keyof RouteFormData, string>>>({});
+  const [errors, setErrors] = useState<RouteFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isEditing = editingRoute != null;
@@ -61,145 +62,16 @@ const AddRouteForm: React.FC = () => {
   // Load route data when editing
   useEffect(() => {
     if (editingRoute && routes[editingRoute]) {
-      const routeConfig = routes[editingRoute];
-
-      if (editingRoute.startsWith('WS:')) {
-        const { url, name } = parseWebSocketKey(editingRoute);
-        setFormData({
-          ...defaultFormData,
-          routeType: 'websocket',
-          name: name || '',
-          url,
-          delay: (routeConfig as any).delay || 0,
-          incomingRules: (routeConfig as any).incomingRules || [],
-          outgoingRules: (routeConfig as any).outgoingRules || [],
-        });
-      } else if (editingRoute.startsWith('INJ:')) {
-        const { urlPattern, name } = parseInjectionKey(editingRoute);
-        setFormData({
-          ...defaultFormData,
-          routeType: 'injection',
-          name: name || '',
-          url: urlPattern,
-          scripts: (routeConfig as any).scripts || [],
-          stylesheets: (routeConfig as any).stylesheets || [],
-          injectAt: (routeConfig as any).injectAt || 'document_end',
-        });
-      } else {
-        const { method, url, name } = parseRouteKey(editingRoute);
-        const rc = routeConfig as any;
-        const mode: InterceptionMode =
-          rc.interceptionMode || (rc.headersOnly ? 'passthrough' : 'mock');
-        setFormData({
-          ...defaultFormData,
-          routeType: 'http',
-          name: name || '',
-          url,
-          method: method as HttpMethod,
-          status: rc.status,
-          delay: rc.delay ?? 0,
-          contentType: rc.contentType,
-          response:
-            typeof rc.response === 'object'
-              ? formatJson(rc.response)
-              : String(rc.response ?? ''),
-          responseHeaders: rc.responseHeaders || {},
-          requestHeaders: rc.requestHeaders || {},
-          removeRequestHeaders: rc.removeRequestHeaders || [],
-          headersOnly: rc.headersOnly || false,
-          interceptionMode: mode,
-          redirectUrl: rc.redirectUrl || '',
-          requestBody: rc.requestBody || '',
-          queryParamRules: rc.queryParamRules || [],
-          graphqlOperationName: rc.graphqlOperationName || '',
-        });
-      }
+      setFormData(routeToFormData(editingRoute, routes[editingRoute]));
     } else {
       setFormData(defaultFormData);
     }
   }, [editingRoute, routes]);
 
-  const validateForm = (): boolean => {
-    const newErrors: Partial<Record<keyof RouteFormData, string>> = {};
-
-    if (!formData.url.trim()) {
-      newErrors.url = 'URL is required';
-    }
-
-    if (formData.delay < 0) {
-      newErrors.delay = 'Delay must be 0 or greater';
-    }
-
-    if (formData.routeType === 'http') {
-      if (formData.status < 100 || formData.status > 599) {
-        newErrors.status = 'Status code must be between 100 and 599';
-      }
-
-      switch (formData.interceptionMode) {
-        case 'mock':
-          if (!formData.response.trim()) {
-            newErrors.response = 'Response is required for mock mode';
-          } else if (formData.contentType === 'application/json') {
-            const jsonValidation = validateJson(formData.response);
-            if (!jsonValidation.isValid) {
-              newErrors.response = jsonValidation.error;
-            }
-          }
-          break;
-        case 'passthrough': {
-          const hasResponseHeaders = Object.keys(formData.responseHeaders).length > 0;
-          const hasRequestHeaders = Object.keys(formData.requestHeaders).length > 0;
-          const hasRemoveHeaders = formData.removeRequestHeaders.length > 0;
-          const hasRequestBody = formData.requestBody.trim().length > 0;
-          const hasQueryParams = formData.queryParamRules.length > 0;
-
-          if (
-            !hasResponseHeaders &&
-            !hasRequestHeaders &&
-            !hasRemoveHeaders &&
-            !hasRequestBody &&
-            !hasQueryParams
-          ) {
-            newErrors.responseHeaders =
-              'At least one modification is required for passthrough mode';
-          }
-          break;
-        }
-        case 'block':
-          break;
-        case 'redirect':
-          if (!formData.redirectUrl.trim()) {
-            newErrors.redirectUrl = 'Redirect URL is required';
-          }
-          break;
-      }
-    } else if (formData.routeType === 'websocket') {
-      const hasIncomingRules = formData.incomingRules.some(
-        (rule) => rule.enabled && rule.match.trim()
-      );
-      const hasOutgoingRules = formData.outgoingRules.some(
-        (rule) => rule.enabled && rule.match.trim()
-      );
-
-      if (!hasIncomingRules && !hasOutgoingRules) {
-        newErrors.incomingRules =
-          'At least one message rule is required for WebSocket interception';
-      }
-    } else if (formData.routeType === 'injection') {
-      const hasScripts = formData.scripts.some((s) => s.trim());
-      const hasStylesheets = formData.stylesheets.some((s) => s.trim());
-
-      if (!hasScripts && !hasStylesheets) {
-        (newErrors as any).scripts = 'At least one script or stylesheet is required';
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSubmit = async () => {
-    if (!validateForm()) {
+    const newErrors = validateRouteForm(formData);
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
       addNotification({
         title: 'Validation Error',
         message: 'Please fix the form errors before submitting',
@@ -212,72 +84,13 @@ const AddRouteForm: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      let routeKey: string;
-      let routeConfig: any;
-
-      if (formData.routeType === 'websocket') {
-        routeKey = formData.name
-          ? `WS:${formData.url}|${formData.name}`
-          : `WS:${formData.url}`;
-        routeConfig = {
-          enabled: true,
-          timestamp: Date.now(),
-          name: formData.name,
-          incomingRules: formData.incomingRules,
-          outgoingRules: formData.outgoingRules,
-          delay: formData.delay,
-        };
-      } else if (formData.routeType === 'injection') {
-        routeKey = createInjectionKey(formData.url, formData.name);
-        routeConfig = {
-          enabled: true,
-          timestamp: Date.now(),
-          name: formData.name,
-          scripts: formData.scripts.filter((s) => s.trim()),
-          stylesheets: formData.stylesheets.filter((s) => s.trim()),
-          injectAt: formData.injectAt,
-          urlPattern: formData.url,
-        };
-      } else {
-        routeKey = createRouteKey(formData.method, formData.url, formData.name);
-
-        let responseBody: any;
-        if (formData.interceptionMode === 'mock') {
-          if (formData.contentType === 'application/json') {
-            const jsonValidation = validateJson(formData.response);
-            responseBody = jsonValidation.parsed;
-          } else {
-            responseBody = formData.response;
-          }
-        } else {
-          responseBody = formData.response.trim() || null;
-        }
-
-        routeConfig = {
-          status: formData.status,
-          delay: formData.delay,
-          response: responseBody,
-          contentType: formData.contentType,
-          enabled: true,
-          timestamp: Date.now(),
-          name: formData.name,
-          responseHeaders: formData.responseHeaders,
-          requestHeaders: formData.requestHeaders,
-          removeRequestHeaders: formData.removeRequestHeaders,
-          headersOnly: formData.interceptionMode === 'passthrough',
-          interceptionMode: formData.interceptionMode,
-          redirectUrl: formData.redirectUrl,
-          requestBody: formData.requestBody,
-          queryParamRules: formData.queryParamRules,
-          graphqlOperationName: formData.graphqlOperationName,
-        };
-      }
-
+      const { routeKey, routeConfig } = buildRouteFromForm(formData);
       const keyChanged = isEditing && editingRoute !== routeKey;
 
       if (isEditing && keyChanged) {
         await chromeApi.removeRoute(editingRoute!);
         await chromeApi.addRoute(routeKey, routeConfig, formData.name);
+        removeRoute(editingRoute!);
         updateRoute(routeKey, routeConfig);
       } else {
         const targetKey = isEditing ? editingRoute! : routeKey;
@@ -290,21 +103,9 @@ const AddRouteForm: React.FC = () => {
         }
       }
 
-      const typeText =
-        formData.routeType === 'websocket'
-          ? ' WebSocket'
-          : formData.routeType === 'injection'
-          ? ' Injection'
-          : '';
-      const modeText =
-        formData.routeType === 'http' ? ` (${formData.interceptionMode})` : '';
-
       addNotification({
         title: 'Success',
-        message:
-          (isEditing ? 'Route updated successfully' : 'Route added successfully') +
-          typeText +
-          modeText,
+        message: routeSavedMessage(formData, isEditing),
         type: 'success',
         timestamp: Date.now(),
       });
@@ -330,7 +131,7 @@ const AddRouteForm: React.FC = () => {
     closeForm();
   };
 
-  const handleFieldChange = (field: keyof RouteFormData, value: any) => {
+  const handleFieldChange: FieldChangeHandler = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));

@@ -102,3 +102,6 @@ ehthumbs.db
 Thumbs.db
 test-results/
 playwright-report/
+
+# Agent worktrees
+.claude/worktrees/

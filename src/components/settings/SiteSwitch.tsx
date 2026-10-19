@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Toggle from '@/components/ui/Toggle';
 import { useSettings } from '@/hooks/useSettings';
-import { isSiteEnabled } from '@/core/settings';
+import { isSiteEnabled, siteMatches } from '@/core/settings';
 
 /** "Run on this site" switch for the active tab; adds/removes its host on the deny list. */
 const SiteSwitch: React.FC = () => {
@@ -26,6 +26,9 @@ const SiteSwitch: React.FC = () => {
   const enabled = isSiteEnabled(url.href, settings);
   const host = url.hostname;
   const allowlistMode = settings.sites.mode === 'allowlist';
+  // Broader deny rules (parent domain, wildcard, regex) are the user's own;
+  // don't silently delete them — point at them instead.
+  const blockingRules = settings.sites.denylist.filter((p) => p !== host && siteMatches(url.href, p));
 
   const onChange = (on: boolean) => {
     const { denylist, allowlist } = settings.sites;
@@ -46,9 +49,20 @@ const SiteSwitch: React.FC = () => {
       <div className="min-w-0">
         <div className="text-[12px] font-medium text-[var(--text-secondary)]">Run on this site</div>
         <div className="text-[11px] text-[var(--text-tertiary)] truncate" title={host}>{host}</div>
+        {blockingRules.length > 0 && (
+          <div className="text-[11px] text-[var(--accent-amber)]">
+            Blocked by “{blockingRules[0]}” in Settings → Sites
+          </div>
+        )}
         {error && <div role="alert" className="text-[11px] text-[var(--accent-rose)]">{error}</div>}
       </div>
-      <Toggle size="sm" checked={enabled} onChange={onChange} label={`Run on ${host}`} />
+      <Toggle
+        size="sm"
+        checked={enabled}
+        disabled={blockingRules.length > 0}
+        onChange={onChange}
+        label={`Run on ${host}`}
+      />
     </div>
   );
 };

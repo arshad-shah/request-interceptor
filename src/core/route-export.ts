@@ -7,7 +7,7 @@ import { isWebSocketRoute, isInjectionRoute, parseRouteKey, parseWebSocketKey, p
 
 export interface ExportedRoute {
   routeType: 'http' | 'websocket' | 'injection';
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -22,9 +22,9 @@ export function exportRoutes(routes: Record<string, RouteConfig | WebSocketConfi
         return {
           routeType: 'websocket' as const,
           url,
-          name: parsedName || (config as any).name || '',
-          enabled: (config as any).enabled !== false,
-          delay: (config as any).delay || 0,
+          name: parsedName || config.name || '',
+          enabled: config.enabled !== false,
+          delay: wsConfig.delay || 0,
           incomingRules: wsConfig.incomingRules || [],
           outgoingRules: wsConfig.outgoingRules || []
         };
@@ -34,7 +34,7 @@ export function exportRoutes(routes: Record<string, RouteConfig | WebSocketConfi
         return {
           routeType: 'injection' as const,
           urlPattern,
-          name: parsedName || (config as any).name || '',
+          name: parsedName || config.name || '',
           enabled: injConfig.enabled !== false,
           scripts: injConfig.scripts || [],
           stylesheets: injConfig.stylesheets || [],
@@ -47,12 +47,12 @@ export function exportRoutes(routes: Record<string, RouteConfig | WebSocketConfi
           routeType: 'http' as const,
           method,
           url,
-          name: parsedName || (config as any).name || '',
+          name: parsedName || config.name || '',
           status: httpConfig.status || 200,
-          delay: (config as any).delay || 0,
+          delay: httpConfig.delay || 0,
           contentType: httpConfig.contentType,
           response: httpConfig.response,
-          enabled: (config as any).enabled !== false,
+          enabled: config.enabled !== false,
           responseHeaders: httpConfig.responseHeaders || {},
           requestHeaders: httpConfig.requestHeaders || {},
           removeRequestHeaders: httpConfig.removeRequestHeaders || [],

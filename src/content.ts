@@ -3,7 +3,8 @@
 // then relays messages between page ↔ background ↔ sidepanel.
 
 import { pageUrlMatches } from './core/url-matching';
-import { isEventMessage, type Events } from './core/messaging/protocol';
+import { isEventMessage, type AnyRouteConfig, type Events, type Routes } from './core/messaging/protocol';
+import type { InjectionConfig } from './types';
 import { request } from './lib/messaging';
 import { isSiteEnabled, type Settings } from './core/settings';
 
@@ -16,7 +17,7 @@ const injectedElements: Map<string, HTMLElement[]> = new Map();
 const injectedSignatures: Map<string, string> = new Map();
 
 let injectedScriptReady = false;
-let pendingCommands: Array<{ command: string; extra?: Record<string, any> }> = [];
+let pendingCommands: Array<{ command: string; extra?: Record<string, unknown> }> = [];
 
 // ── Injection route helpers ──────────────────────────────────────────────────
 
@@ -29,11 +30,11 @@ function cleanupInjection(routeKey: string) {
   injectedSignatures.delete(routeKey);
 }
 
-function injectionSignature(config: any): string {
+function injectionSignature(config: Partial<InjectionConfig>): string {
   return JSON.stringify([config.scripts || [], config.stylesheets || []]);
 }
 
-function injectRoute(key: string, config: any) {
+function injectRoute(key: string, config: Partial<InjectionConfig>) {
   const elements: HTMLElement[] = [];
   if (config.scripts && Array.isArray(config.scripts)) {
     config.scripts.forEach((code: string) => {
@@ -61,12 +62,13 @@ function injectRoute(key: string, config: any) {
   injectedSignatures.set(key, injectionSignature(config));
 }
 
-function processInjectionRoutes(routes: Record<string, any>, enabled: boolean) {
+function processInjectionRoutes(routes: Routes, enabled: boolean) {
   const pageUrl = window.location.href;
-  const wanted = new Map<string, any>();
+  const wanted = new Map<string, InjectionConfig>();
   if (enabled) {
-    Object.entries(routes).forEach(([key, config]) => {
-      if (!key.startsWith('INJ:') || !config.enabled) return;
+    Object.entries(routes).forEach(([key, routeConfig]) => {
+      if (!key.startsWith('INJ:') || !routeConfig.enabled) return;
+      const config = routeConfig as InjectionConfig;
       const urlPattern = config.urlPattern || key.substring(4).split('|')[0];
       if (pageUrlMatches(pageUrl, urlPattern)) wanted.set(key, config);
     });
@@ -91,7 +93,7 @@ function postToPage(message: Record<string, unknown>) {
   window.postMessage(message, origin && origin !== 'null' ? origin : '*');
 }
 
-function sendCommand(command: string, extra?: Record<string, any>) {
+function sendCommand(command: string, extra?: Record<string, unknown>) {
   if (!injectedScriptReady) {
     pendingCommands.push({ command, extra });
     return;
@@ -130,7 +132,7 @@ injectPageScript();
 
 // `settings` stays null until loaded: until then the site counts as excluded
 // (fail closed), so an early state broadcast can't activate a denied site.
-let latest: { enabled: boolean; routes: Record<string, any>; monitor: boolean; settings: Settings | null } = {
+let latest: { enabled: boolean; routes: Routes; monitor: boolean; settings: Settings | null } = {
   enabled: false,
   routes: {},
   monitor: false,
@@ -143,7 +145,7 @@ let latest: { enabled: boolean; routes: Record<string, any>; monitor: boolean; s
  * or the site is excluded, and only enabled HTTP/WebSocket routes otherwise
  * (injection routes stay in the content script).
  */
-function pageRoutes(routes: Record<string, any>): Record<string, any> {
+function pageRoutes(routes: Routes): Record<string, AnyRouteConfig> {
   return Object.fromEntries(
     Object.entries(routes).filter(([key, config]) => !key.startsWith('INJ:') && config?.enabled !== false)
   );

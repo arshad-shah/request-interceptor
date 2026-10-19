@@ -2,7 +2,7 @@
  * Route configuration validation logic.
  */
 
-import type { InterceptionMode } from '@/types';
+import type { InjectionConfig, InterceptionMode, RouteConfig, WebSocketConfig, WebSocketRule } from '@/types';
 
 export interface ValidationResult {
   valid: boolean;
@@ -10,7 +10,7 @@ export interface ValidationResult {
 }
 
 /** Validate an HTTP route configuration */
-export function validateHttpConfig(config: any): ValidationResult {
+export function validateHttpConfig(config: Partial<RouteConfig>): ValidationResult {
   const mode: InterceptionMode = config.interceptionMode || (config.headersOnly ? 'passthrough' : 'mock');
 
   switch (mode) {
@@ -48,12 +48,18 @@ export function validateHttpConfig(config: any): ValidationResult {
 }
 
 /** Validate a WebSocket route configuration */
-export function validateWebSocketConfig(config: any): ValidationResult {
+/** WebSocket config as received from the UI or an import, before rule defaults are filled in. */
+type WebSocketConfigInput = Omit<Partial<WebSocketConfig>, 'incomingRules' | 'outgoingRules'> & {
+  incomingRules?: Partial<WebSocketRule>[];
+  outgoingRules?: Partial<WebSocketRule>[];
+};
+
+export function validateWebSocketConfig(config: WebSocketConfigInput): ValidationResult {
   if (!config.incomingRules && !config.outgoingRules) {
     return { valid: false, error: 'WebSocket route must have at least one rule set' };
   }
 
-  const validateRules = (rules: any[], ruleType: string): ValidationResult => {
+  const validateRules = (rules: Partial<WebSocketRule>[], ruleType: string): ValidationResult => {
     if (!Array.isArray(rules)) return { valid: false, error: `${ruleType} must be an array` };
 
     for (let i = 0; i < rules.length; i++) {
@@ -88,7 +94,7 @@ export function validateWebSocketConfig(config: any): ValidationResult {
 }
 
 /** Validate an injection route configuration */
-export function validateInjectionConfig(config: any): ValidationResult {
+export function validateInjectionConfig(config: Partial<InjectionConfig>): ValidationResult {
   if (!config.urlPattern || !config.urlPattern.trim()) {
     return { valid: false, error: 'Injection route must have a URL pattern' };
   }

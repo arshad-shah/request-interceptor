@@ -40,7 +40,7 @@ const RouteItem: React.FC<RouteItemProps> = ({
   const showResponsePreview =
     info.isHttp &&
     info.interceptionMode !== 'block' &&
-    (!info.isHeadersOnly || (info.httpConfig.response && String(info.httpConfig.response).trim()));
+    (!info.isHeadersOnly || (!!info.httpConfig.response && String(info.httpConfig.response).trim() !== ''));
 
   return (
     <div

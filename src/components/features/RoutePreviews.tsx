@@ -3,11 +3,12 @@ import { X, Import } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import RoutePreview from './RoutePreview';
+import type { PreviewRoute } from './template-import';
 
 interface RoutePreviewsProps {
-    parsedRoutes: any[];
+    parsedRoutes: PreviewRoute[];
     setShowPreview: (show: boolean) => void;
-    setParsedRoutes: (routes: any[]) => void;
+    setParsedRoutes: (routes: PreviewRoute[]) => void;
     handleImportRoutes: () => void;
     isImporting: boolean;
 }

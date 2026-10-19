@@ -32,7 +32,7 @@ export interface WebSocketRule {
 export interface RouteConfig {
   status: number;
   delay: number;
-  response: any;
+  response: unknown;
   contentType: string;
   enabled: boolean;
   timestamp: number;
@@ -100,7 +100,7 @@ export interface TemplateRoute {
   name?: string;
   contentType: string;
   enabled?: boolean;
-  response: any;
+  response: unknown;
   responseHeaders?: HeaderConfig;
   requestHeaders?: HeaderConfig;
   removeRequestHeaders?: string[];

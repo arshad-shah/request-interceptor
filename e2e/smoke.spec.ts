@@ -65,7 +65,7 @@ test('network capture answers async requests and keeps bodies out of list update
 
   const findCaptured = async () => {
     const { requests } = await request(extPage, 'NETWORK_GET_REQUESTS', { tabId });
-    return requests.find((r: any) => r.url.endsWith('/api/captured'));
+    return requests.find((r) => r.url.endsWith('/api/captured'));
   };
   await expect.poll(async () => (await findCaptured())?.status).toBe('complete');
   const captured = await findCaptured();
@@ -76,7 +76,7 @@ test('network capture answers async requests and keeps bodies out of list update
   const responseBody = await request(extPage, 'NETWORK_GET_RESPONSE_BODY', { tabId, requestId });
   expect(JSON.parse(responseBody.body).real).toBe(true);
 
-  const har = await request<string>(extPage, 'NETWORK_EXPORT_HAR', { tabId });
+  const har = await request(extPage, 'NETWORK_EXPORT_HAR', { tabId });
   expect(JSON.parse(har).log.entries.length).toBeGreaterThan(0);
 
   await request(extPage, 'NETWORK_DETACH_DEBUGGER', { tabId });
