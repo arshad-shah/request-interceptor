@@ -31,6 +31,7 @@ const AddRouteForm: React.FC = () => {
     addNotification,
     addRoute,
     updateRoute,
+    removeRoute,
   } = useAppStore();
 
   const [formData, setFormData] = useState<RouteFormData>(defaultFormData);
@@ -89,6 +90,7 @@ const AddRouteForm: React.FC = () => {
       if (isEditing && keyChanged) {
         await chromeApi.removeRoute(editingRoute!);
         await chromeApi.addRoute(routeKey, routeConfig, formData.name);
+        removeRoute(editingRoute!);
         updateRoute(routeKey, routeConfig);
       } else {
         const targetKey = isEditing ? editingRoute! : routeKey;
