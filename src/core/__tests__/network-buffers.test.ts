@@ -54,6 +54,15 @@ describe('BodyCache', () => {
     expect(cache.totalChars).toBe(2);
   });
 
+  it('shrinking the budget evicts least recently used entries', () => {
+    const cache = new BodyCache({ maxTotalChars: 100, maxEntryChars: 100 });
+    cache.set('a', { body: '12345', base64Encoded: false });
+    cache.set('b', { body: '12345', base64Encoded: false });
+    cache.setMaxTotalChars(6);
+    expect(cache.has('a')).toBe(false);
+    expect(cache.has('b')).toBe(true);
+  });
+
   it('deletes all entries for a tab', () => {
     const cache = new BodyCache({ maxTotalChars: 100, maxEntryChars: 100 });
     cache.set(bodyKey(1, 'x'), { body: 'a', base64Encoded: false });

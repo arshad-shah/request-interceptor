@@ -5,6 +5,7 @@
 import { pageUrlMatches } from './core/url-matching';
 import { isEventMessage, type Events } from './core/messaging/protocol';
 import { request } from './lib/messaging';
+import { isSiteEnabled, type Settings } from './core/settings';
 
 const SCRIPT_ID = 'request-interceptor-injected';
 
@@ -84,18 +85,24 @@ function processInjectionRoutes(routes: Record<string, any>, enabled: boolean) {
 
 // ── Send command to injected script ──────────────────────────────────────────
 
+/** Post to this window only (opaque origins such as file:// need '*'). */
+function postToPage(message: Record<string, unknown>) {
+  const origin = window.location.origin;
+  window.postMessage(message, origin && origin !== 'null' ? origin : '*');
+}
+
 function sendCommand(command: string, extra?: Record<string, any>) {
   if (!injectedScriptReady) {
     pendingCommands.push({ command, extra });
     return;
   }
-  window.postMessage({ type: 'REQUEST_INTERCEPTOR_COMMAND', command, ...extra }, '*');
+  postToPage({ type: 'REQUEST_INTERCEPTOR_COMMAND', command, ...extra });
 }
 
 function flushPendingCommands() {
   injectedScriptReady = true;
   for (const { command, extra } of pendingCommands) {
-    window.postMessage({ type: 'REQUEST_INTERCEPTOR_COMMAND', command, ...extra }, '*');
+    postToPage({ type: 'REQUEST_INTERCEPTOR_COMMAND', command, ...extra });
   }
   pendingCommands = [];
 }
@@ -119,20 +126,55 @@ function injectPageScript() {
 // Inject immediately — don't wait for getState
 injectPageScript();
 
-// ── Get initial state from background ────────────────────────────────────────
+// ── State and settings from background ───────────────────────────────────────
 
-/** Push interception state into the page script and apply injection routes. */
-function applyState(enabled: boolean, routes: Record<string, any>) {
-  // updateRoutes re-initializes (and activates) the page interceptors; follow with the real state
-  sendCommand('updateRoutes', { routes });
-  sendCommand(enabled ? 'enable' : 'disable');
-  processInjectionRoutes(routes, enabled);
+// `settings` stays null until loaded: until then the site counts as excluded
+// (fail closed), so an early state broadcast can't activate a denied site.
+let latest: { enabled: boolean; routes: Record<string, any>; monitor: boolean; settings: Settings | null } = {
+  enabled: false,
+  routes: {},
+  monitor: false,
+  settings: null,
+};
+
+/**
+ * The page script can only intercept with the routes it is given, and the page
+ * can read whatever we post to it. So post nothing while interception is off
+ * or the site is excluded, and only enabled HTTP/WebSocket routes otherwise
+ * (injection routes stay in the content script).
+ */
+function pageRoutes(routes: Record<string, any>): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(routes).filter(([key, config]) => !key.startsWith('INJ:') && config?.enabled !== false)
+  );
 }
 
-request('GET_STATE')
-  .then((state) => {
-    applyState(state.enabled, state.routes);
-    if (state.eventMonitorEnabled) sendCommand('enableEventMonitor');
+function apply(next: Partial<typeof latest>) {
+  latest = { ...latest, ...next };
+  const { enabled, routes, monitor, settings } = latest;
+  const active = !!settings && enabled && isSiteEnabled(window.location.href, settings);
+
+  if (settings) {
+    sendCommand('updateSettings', {
+      consoleLogs: settings.diagnostics.pageConsoleLogs,
+      toasts: { ...settings.notifications, enabled: settings.notifications.pageToasts },
+    });
+  }
+  if (active) {
+    // updateRoutes re-initializes (and activates) the page interceptors
+    sendCommand('updateRoutes', { routes: pageRoutes(routes) });
+    sendCommand('enable');
+  } else {
+    sendCommand('updateRoutes', { routes: {} });
+    sendCommand('disable');
+  }
+  sendCommand(active && monitor ? 'enableEventMonitor' : 'disableEventMonitor');
+  processInjectionRoutes(routes, active);
+}
+
+Promise.all([request('GET_STATE'), request('GET_SETTINGS')])
+  .then(([state, settings]) => {
+    apply({ enabled: state.enabled, routes: state.routes, monitor: state.eventMonitorEnabled, settings });
   })
   .catch(() => {
     /* extension context unavailable (reloaded); the page keeps working untouched */
@@ -144,9 +186,11 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
   if (!isEventMessage(message)) return false;
   if (message.type === 'STATE_CHANGED') {
     const { enabled, routes } = message.payload as Events['STATE_CHANGED'];
-    applyState(enabled, routes);
+    apply({ enabled, routes });
   } else if (message.type === 'EVENT_MONITOR_CHANGED') {
-    sendCommand((message.payload as Events['EVENT_MONITOR_CHANGED']).enabled ? 'enableEventMonitor' : 'disableEventMonitor');
+    apply({ monitor: (message.payload as Events['EVENT_MONITOR_CHANGED']).enabled });
+  } else if (message.type === 'SETTINGS_CHANGED') {
+    apply({ settings: message.payload as Settings });
   }
   return false;
 });
@@ -155,11 +199,6 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
 
 window.addEventListener('message', (event) => {
   if (!event.data || event.source !== window) return;
-
-  // Request Interceptor logs
-  if (event.data.type === 'REQUEST_INTERCEPTOR_LOG') {
-    console.log(`[Request Interceptor] ${event.data.message}`);
-  }
 
   // EventBus Monitor events → forward to background
   if (event.data.type === 'eventbus-monitor-channel') {

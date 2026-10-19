@@ -5,6 +5,11 @@ interface Props {
   /** Human-readable label for which surface crashed (e.g. "Side Panel"). */
   scope: string;
   children: React.ReactNode;
+  /**
+   * 'page' (default) fills the surface (popup, side panel).
+   * 'inline' replaces just one tab or panel, leaving the rest of the UI usable.
+   */
+  variant?: 'page' | 'inline';
 }
 
 interface State {
@@ -33,9 +38,37 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     else location.reload();
   };
 
+  copyDetails = (): void => {
+    const { error, info } = this.state;
+    const text = [
+      `Request Interceptor ${chrome?.runtime?.getManifest?.().version ?? ''} — ${this.props.scope}`,
+      `${error?.name}: ${error?.message}`,
+      error?.stack ?? '',
+      info?.componentStack ?? '',
+    ].join('\n');
+    navigator.clipboard?.writeText(text).catch(() => {});
+  };
+
   render(): React.ReactNode {
     const { error, info } = this.state;
     if (!error) return this.props.children;
+
+    if (this.props.variant === 'inline') {
+      return (
+        <div
+          role="alert"
+          className="m-3 p-4 rounded-[var(--radius-lg)] border border-[rgba(244,63,94,0.3)] bg-[rgba(244,63,94,0.08)] text-[13px]"
+        >
+          <div className="font-semibold text-[var(--accent-rose)]">{this.props.scope} hit an error</div>
+          <p className="mt-1 text-[12px] text-[var(--text-secondary)] font-mono break-words">{error.message}</p>
+          <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">The rest of the extension keeps working.</p>
+          <div className="mt-3 flex gap-2">
+            <button className="ds-btn sm" onClick={this.reset}>Try again</button>
+            <button className="ds-btn ghost sm" onClick={this.copyDetails}>Copy details</button>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div

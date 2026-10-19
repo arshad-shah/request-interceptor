@@ -4,6 +4,7 @@ import BrandMark from '@/components/common/BrandMark';
 import { useAppStore } from '@/stores/app-store';
 import { chromeApi } from '@/lib/chrome-api';
 import { useBackgroundState } from '@/hooks/useBackgroundState';
+import SiteSwitch from '@/components/settings/SiteSwitch';
 // Import custom UI components
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -76,7 +77,7 @@ const Popup: React.FC = () => {
             <BrandMark size={40} className="rounded-[var(--radius-md)] shadow-sm" />
             <div className="text-center">
               <h1 className="text-lg font-bold text-white">Request Interceptor</h1>
-              <p className="text-xs text-white/70">Chrome Extension</p>
+              <p className="text-xs text-white/70">Mock, block and inspect requests</p>
             </div>
           </div>
         </div>
@@ -95,8 +96,10 @@ const Popup: React.FC = () => {
                 checked={enabled}
                 onChange={handleToggle}
                 size="md"
+                label="Toggle request interception"
               />
             </div>
+            <SiteSwitch />
           </Card.Body>
         </Card>
 

@@ -3,9 +3,14 @@ import { useAppStore } from "@/stores/app-store";
 import React from 'react';
 import Toggle from "@/components/ui/Toggle";
 import BrandMark from "@/components/common/BrandMark";
+import { Settings } from "lucide-react";
+import SlideOver from "@/components/ui/SlideOver";
+import SettingsPanel from "@/components/settings/SettingsPanel";
+import ErrorBoundary from "@/components/common/ErrorBoundary";
 
 const Header: React.FC = () => {
   const { enabled, setEnabled, addNotification } = useAppStore();
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   const handleToggle = async (isEnabled: boolean) => {
     try {
@@ -22,6 +27,7 @@ const Header: React.FC = () => {
   };
 
   return (
+    <>
     <header className="flex items-center justify-between px-4 py-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
       <div className="flex items-center gap-3">
         <BrandMark size={32} className="rounded-[var(--radius-md)]" />
@@ -36,6 +42,15 @@ const Header: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          className="ds-icon-btn sm"
+          onClick={() => setSettingsOpen(true)}
+          title="Settings"
+          aria-label="Settings"
+        >
+          <Settings size={16} />
+        </button>
         <div className={`ds-status ${enabled ? '' : 'paused'}`}>
           <span className="ds-status-dot" />
           <span>{enabled ? 'Active' : 'Inactive'}</span>
@@ -48,6 +63,12 @@ const Header: React.FC = () => {
         />
       </div>
     </header>
+    <SlideOver isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} title="Settings" subtitle="Saved on this device">
+      <ErrorBoundary scope="Settings" variant="inline">
+        <SettingsPanel />
+      </ErrorBoundary>
+    </SlideOver>
+    </>
   );
 };
 
