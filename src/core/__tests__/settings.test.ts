@@ -47,6 +47,24 @@ describe('site rules', () => {
     expect(siteMatches('https://x.test/api', '/\\.test\\//')).toBe(true);
   });
 
+  it('never matches patterns as substrings of the URL', () => {
+    expect(siteMatches('https://evil.com/?next=https://bank.com', 'https://bank.com')).toBe(false);
+    expect(siteMatches('https://bank.com.evil.com/', 'https://bank.com')).toBe(false);
+    expect(siteMatches('https://evil.com/bank.com', 'bank.com')).toBe(false);
+    expect(siteMatches('https://bank.com/account', 'https://bank.com')).toBe(true);
+    expect(siteMatches('https://bank.com/admin/x', 'https://bank.com/admin')).toBe(true);
+    expect(siteMatches('https://bank.com/public', 'https://bank.com/admin')).toBe(false);
+  });
+
+  it('normalizes case, trailing dots and ports', () => {
+    expect(siteMatches('https://BANK.com./', 'bank.com')).toBe(true);
+    expect(siteMatches('https://bank.com/', 'Bank.COM')).toBe(true);
+    expect(siteMatches('http://localhost:3000/', 'localhost:3000')).toBe(true);
+    expect(siteMatches('http://localhost:4000/', 'localhost:3000')).toBe(false);
+    expect(siteMatches('http://localhost:4000/', 'localhost')).toBe(true);
+    expect(siteMatches('https://a.b/', 'not a pattern!')).toBe(false);
+  });
+
   it('applies deny list over everything and allow-list mode', () => {
     const deny = mergeSettings(DEFAULT_SETTINGS, { sites: { denylist: ['bank.com'] } });
     expect(isSiteEnabled('https://bank.com/login', deny)).toBe(false);

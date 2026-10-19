@@ -4,7 +4,6 @@
  * or missing falls back to defaults so a corrupt value can never break the
  * extension.
  */
-import { pageUrlMatches } from './url-matching';
 
 export const SETTINGS_VERSION = 1;
 
@@ -124,21 +123,56 @@ export function mergeSettings(current: Settings, patch: DeepPartial<Settings>): 
   return normalizeSettings(merge(current, patch));
 }
 
+const normalizeHost = (host: string) => host.toLowerCase().replace(/\.$/, '');
+
 /**
- * A site pattern matches a page URL when it is a host (`example.com` also
- * covers subdomains), a URL prefix/wildcard, or a /regex/ — the same
- * syntax as route URL patterns.
+ * Whether a site pattern matches a page URL. Patterns are matched against the
+ * parsed URL, never as substrings of it:
+ *   example.com / *.example.com   host and its subdomains (any port)
+ *   localhost:3000                host and port
+ *   https://example.com/admin     same origin, path prefix
+ *   https://*.example.com/*       wildcard over the full URL (anchored)
+ *   /regex/flags                  regular expression over the full URL
  */
-export function siteMatches(pageUrl: string, pattern: string): boolean {
-  let host = '';
+export function siteMatches(pageUrl: string, rawPattern: string): boolean {
+  let page: URL;
   try {
-    host = new URL(pageUrl).hostname;
+    page = new URL(pageUrl);
   } catch {
     return false;
   }
-  const bare = pattern.replace(/^\*\./, '');
-  if (/^[a-z0-9.-]+$/i.test(bare)) return host === bare || host.endsWith(`.${bare}`);
-  return pageUrlMatches(pageUrl, pattern);
+  const pattern = rawPattern.trim();
+  if (!pattern) return false;
+
+  if (pattern.startsWith('/') && pattern.lastIndexOf('/') > 0) {
+    const lastSlash = pattern.lastIndexOf('/');
+    try {
+      return new RegExp(pattern.slice(1, lastSlash), pattern.slice(lastSlash + 1)).test(page.href);
+    } catch {
+      return false;
+    }
+  }
+
+  if (pattern.includes('://')) {
+    if (pattern.includes('*')) {
+      const source = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&').replace(/\*/g, '.*');
+      return new RegExp(`^${source}$`, 'i').test(page.href);
+    }
+    try {
+      const target = new URL(pattern);
+      return page.origin === target.origin && page.pathname.startsWith(target.pathname);
+    } catch {
+      return false;
+    }
+  }
+
+  // host, *.host or host:port
+  const match = /^(\*\.)?([a-z0-9.-]+)(?::(\d+))?$/i.exec(pattern);
+  if (!match) return false;
+  const host = normalizeHost(page.hostname);
+  const target = normalizeHost(match[2]);
+  if (match[3] && page.port !== match[3]) return false;
+  return host === target || host.endsWith(`.${target}`);
 }
 
 /** Whether interception should run on this page. */

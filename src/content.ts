@@ -5,7 +5,7 @@
 import { pageUrlMatches } from './core/url-matching';
 import { isEventMessage, type Events } from './core/messaging/protocol';
 import { request } from './lib/messaging';
-import { DEFAULT_SETTINGS, isSiteEnabled, type Settings } from './core/settings';
+import { isSiteEnabled, type Settings } from './core/settings';
 
 const SCRIPT_ID = 'request-interceptor-injected';
 
@@ -128,11 +128,13 @@ injectPageScript();
 
 // ── State and settings from background ───────────────────────────────────────
 
-let latest: { enabled: boolean; routes: Record<string, any>; monitor: boolean; settings: Settings } = {
+// `settings` stays null until loaded: until then the site counts as excluded
+// (fail closed), so an early state broadcast can't activate a denied site.
+let latest: { enabled: boolean; routes: Record<string, any>; monitor: boolean; settings: Settings | null } = {
   enabled: false,
   routes: {},
   monitor: false,
-  settings: DEFAULT_SETTINGS,
+  settings: null,
 };
 
 /**
@@ -150,12 +152,14 @@ function pageRoutes(routes: Record<string, any>): Record<string, any> {
 function apply(next: Partial<typeof latest>) {
   latest = { ...latest, ...next };
   const { enabled, routes, monitor, settings } = latest;
-  const active = enabled && isSiteEnabled(window.location.href, settings);
+  const active = !!settings && enabled && isSiteEnabled(window.location.href, settings);
 
-  sendCommand('updateSettings', {
-    consoleLogs: settings.diagnostics.pageConsoleLogs,
-    toasts: { ...settings.notifications, enabled: settings.notifications.pageToasts },
-  });
+  if (settings) {
+    sendCommand('updateSettings', {
+      consoleLogs: settings.diagnostics.pageConsoleLogs,
+      toasts: { ...settings.notifications, enabled: settings.notifications.pageToasts },
+    });
+  }
   if (active) {
     // updateRoutes re-initializes (and activates) the page interceptors
     sendCommand('updateRoutes', { routes: pageRoutes(routes) });
