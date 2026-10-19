@@ -6,8 +6,11 @@ import { pageUrlMatches } from './core/url-matching';
 
 const SCRIPT_ID = 'request-interceptor-injected';
 
-// Track injected DOM elements for cleanup
+// Track injected DOM elements for cleanup, and what each route injected, so a
+// route is only re-injected when its own content changes (a removed <script>
+// can't be un-run; re-adding it would run the user's code again).
 const injectedElements: Map<string, HTMLElement[]> = new Map();
+const injectedSignatures: Map<string, string> = new Map();
 
 // Track state locally
 let isEnabled = false;
@@ -23,46 +26,61 @@ function cleanupInjection(routeKey: string) {
     elements.forEach(el => el.remove());
     injectedElements.delete(routeKey);
   }
+  injectedSignatures.delete(routeKey);
+}
+
+function injectionSignature(config: any): string {
+  return JSON.stringify([config.scripts || [], config.stylesheets || []]);
+}
+
+function injectRoute(key: string, config: any) {
+  const elements: HTMLElement[] = [];
+  if (config.scripts && Array.isArray(config.scripts)) {
+    config.scripts.forEach((code: string) => {
+      if (!code.trim()) return;
+      const s = document.createElement('script');
+      s.textContent = code;
+      s.setAttribute('data-injected-by', 'request-interceptor');
+      s.setAttribute('data-route-key', key);
+      (document.head || document.documentElement).appendChild(s);
+      elements.push(s);
+    });
+  }
+  if (config.stylesheets && Array.isArray(config.stylesheets)) {
+    config.stylesheets.forEach((css: string) => {
+      if (!css.trim()) return;
+      const s = document.createElement('style');
+      s.textContent = css;
+      s.setAttribute('data-injected-by', 'request-interceptor');
+      s.setAttribute('data-route-key', key);
+      (document.head || document.documentElement).appendChild(s);
+      elements.push(s);
+    });
+  }
+  if (elements.length > 0) injectedElements.set(key, elements);
+  injectedSignatures.set(key, injectionSignature(config));
 }
 
 function processInjectionRoutes(routes: Record<string, any>, enabled: boolean) {
-  for (const key of injectedElements.keys()) {
-    cleanupInjection(key);
-  }
-  if (!enabled) return;
-
   const pageUrl = window.location.href;
-  Object.entries(routes).forEach(([key, config]) => {
-    if (!key.startsWith('INJ:')) return;
-    if (!config.enabled) return;
-    const urlPattern = config.urlPattern || key.substring(4).split('|')[0];
-    if (!pageUrlMatches(pageUrl, urlPattern)) return;
+  const wanted = new Map<string, any>();
+  if (enabled) {
+    Object.entries(routes).forEach(([key, config]) => {
+      if (!key.startsWith('INJ:') || !config.enabled) return;
+      const urlPattern = config.urlPattern || key.substring(4).split('|')[0];
+      if (pageUrlMatches(pageUrl, urlPattern)) wanted.set(key, config);
+    });
+  }
 
-    const elements: HTMLElement[] = [];
-    if (config.scripts && Array.isArray(config.scripts)) {
-      config.scripts.forEach((code: string) => {
-        if (!code.trim()) return;
-        const s = document.createElement('script');
-        s.textContent = code;
-        s.setAttribute('data-injected-by', 'request-interceptor');
-        s.setAttribute('data-route-key', key);
-        (document.head || document.documentElement).appendChild(s);
-        elements.push(s);
-      });
+  for (const key of [...injectedSignatures.keys()]) {
+    const config = wanted.get(key);
+    if (!config || injectionSignature(config) !== injectedSignatures.get(key)) {
+      cleanupInjection(key);
     }
-    if (config.stylesheets && Array.isArray(config.stylesheets)) {
-      config.stylesheets.forEach((css: string) => {
-        if (!css.trim()) return;
-        const s = document.createElement('style');
-        s.textContent = css;
-        s.setAttribute('data-injected-by', 'request-interceptor');
-        s.setAttribute('data-route-key', key);
-        (document.head || document.documentElement).appendChild(s);
-        elements.push(s);
-      });
-    }
-    if (elements.length > 0) injectedElements.set(key, elements);
-  });
+  }
+  for (const [key, config] of wanted) {
+    if (!injectedSignatures.has(key)) injectRoute(key, config);
+  }
 }
 
 // ── Send command to injected script ──────────────────────────────────────────
