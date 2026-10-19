@@ -64,7 +64,7 @@ const Popup: React.FC = () => {
       // Get the current window first
       const currentWindow = await chrome.windows.getCurrent();
 
-      // extforge-ignore-compat: chrome.sidePanel — runtime-guarded; Firefox/Safari fall through to the new-tab fallback below
+      // chrome.sidePanel is runtime-guarded; older Chromium falls through to the new-tab fallback below
       if (currentWindow?.id && chrome.sidePanel) {
         // extforge-ignore-compat: chrome.sidePanel.open — only reached when sidePanel API is present
         await chrome.sidePanel.open({ windowId: currentWindow.id });

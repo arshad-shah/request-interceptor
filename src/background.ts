@@ -469,7 +469,7 @@ class StateManager {
   async openSidePanel(): Promise<void> {
     log.debug('Opening side panel');
     try {
-      // extforge-ignore-compat: chrome.sidePanel — runtime-guarded; Firefox/Safari fall through to error branch
+      // chrome.sidePanel is runtime-guarded; older Chromium falls through to the error branch
       if (chrome.sidePanel) {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab.id) {

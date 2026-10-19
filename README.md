@@ -17,7 +17,7 @@ Manifest V3 · React 18 · TypeScript · Zustand · TailwindCSS 4 · [ExtForge](
 - **Network panel** — Tail captured requests with filters and per-request inspection.
 - **Storage inspector** — Browse and edit `localStorage`, `sessionStorage`, cookies, and IndexedDB.
 - **Templates** — Save common route configs and apply them with one click.
-- **Cross-browser** — Builds for Chrome, Firefox, Safari, and Edge from a single source.
+- **Chrome and Edge** — Builds for both Chromium browsers from a single source. Firefox and Safari aren't supported: the Network tab depends on the `chrome.debugger` API.
 
 ## Install
 
@@ -32,9 +32,7 @@ pnpm build
 
 Then load the unpacked extension:
 
-- **Chrome / Edge** — `chrome://extensions` → enable Developer Mode → "Load unpacked" → select `dist/chrome/` (or `dist/edge/`).
-- **Firefox** — `about:debugging#/runtime/this-firefox` → "Load Temporary Add-on…" → select `dist/firefox/manifest.json`.
-- **Safari** — Convert `dist/safari/` via `xcrun safari-web-extension-converter` and run from Xcode.
+- **Chrome / Edge** — `chrome://extensions` (or `edge://extensions`) → enable Developer Mode → "Load unpacked" → select `dist/chrome/` (or `dist/edge/`).
 
 ## Usage
 
