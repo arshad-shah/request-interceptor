@@ -71,7 +71,7 @@ export const truncateText = (text: string, maxLength: number): string => {
 };
 
 // Format response for preview display
-export const formatResponsePreview = (response: any): string => {
+export const formatResponsePreview = (response: unknown): string => {
   let text: string;
   
   if (typeof response === 'object') {
@@ -89,13 +89,13 @@ export const generateId = (): string => {
 };
 
 // Debounce function
-export const debounce = <T extends (...args: any[]) => void>(
-  func: T,
+export const debounce = <A extends unknown[]>(
+  func: (...args: A) => void,
   delay: number
-): ((...args: Parameters<T>) => void) => {
+): ((...args: A) => void) => {
   let timeoutId: ReturnType<typeof setTimeout>;
   
-  return (...args: Parameters<T>) => {
+  return (...args: A) => {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => func(...args), delay);
   };
