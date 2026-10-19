@@ -187,11 +187,13 @@ import { serializeEventData } from './core/event-serialization';
   // Patch dispatchEvent for CustomEvent interception
   EventTarget.prototype.dispatchEvent = function(event: Event) {
     if (EVT_DEBUG) console.warn('[EVT-1] injected:dispatch', { trigger: 'dispatchEvent', type: event.type, active: eventMonitorActive });
-    if (event instanceof CustomEvent ||
+    // Check the monitor first: serializing data and capturing a stack is costly
+    // and runs for every event on every page.
+    if (eventMonitorActive && (event instanceof CustomEvent ||
         (event.type && !event.type.startsWith('mouse') && !event.type.startsWith('key') &&
          !event.type.startsWith('pointer') && !event.type.startsWith('focus') &&
          !event.type.startsWith('blur') && !event.type.startsWith('scroll') &&
-         !event.type.startsWith('touch'))) {
+         !event.type.startsWith('touch')))) {
       sendEventToExtension({
         id: generateEventId(),
         timestamp: Date.now(),
@@ -208,7 +210,7 @@ import { serializeEventData } from './core/event-serialization';
   // Patch postMessage for cross-frame communication interception
   (window as any).postMessage = function(message: any, optionsOrOrigin?: any, transfer?: any) {
     if (EVT_DEBUG) console.warn('[EVT-1] injected:dispatch', { trigger: 'postMessage', type: message?.type, active: eventMonitorActive });
-    if (message && message.type !== EVENTBUS_CHANNEL && message.type !== 'REQUEST_INTERCEPTOR_COMMAND' && message.type !== 'REQUEST_INTERCEPTOR_LOG') {
+    if (eventMonitorActive && message && message.type !== EVENTBUS_CHANNEL && message.type !== 'REQUEST_INTERCEPTOR_COMMAND' && message.type !== 'REQUEST_INTERCEPTOR_LOG') {
       const target = typeof optionsOrOrigin === 'string' ? optionsOrOrigin : (optionsOrOrigin?.targetOrigin || '*');
       sendEventToExtension({
         id: generateEventId(),
@@ -234,7 +236,7 @@ import { serializeEventData } from './core/event-serialization';
         const original = obj[method];
         obj[method] = function(eventName: string, ...args: any[]) {
           if (EVT_DEBUG) console.warn('[EVT-1] injected:dispatch', { trigger: 'EventEmitter', type: eventName, active: eventMonitorActive });
-          sendEventToExtension({
+          if (eventMonitorActive) sendEventToExtension({
             id: generateEventId(),
             timestamp: Date.now(),
             category: 'EventEmitter',

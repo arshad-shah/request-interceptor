@@ -39,26 +39,35 @@ const EventsTab: React.FC = () => {
     }
   }, [enabled, eventMonitorEnabled, handleToggleMonitor]);
 
-  // Load events from background on mount
+  // Load events for the active tab, and reload when the active tab changes
   useEffect(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tabId = tabs[0]?.id;
-      if (!tabId) return;
-      chrome.runtime.sendMessage({ type: 'GET_EVENTS', tabId }, (response) => {
-        if (response?.events) {
-          storeActions().setEvents(response.events);
-        }
-      });
-    });
+    let currentTabId: number | undefined;
 
-    // Listen for new events from background
-    const listener = (message: { type: string; event?: any }) => {
-      if (message.type === 'NEW_EVENT' && message.event) {
+    const loadForActiveTab = () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs[0]?.id;
+        if (!tabId || tabId === currentTabId) return;
+        currentTabId = tabId;
+        chrome.runtime.sendMessage({ type: 'GET_EVENTS', tabId }, (response) => {
+          if (tabId !== currentTabId) return;
+          storeActions().setEvents(response?.events || []);
+        });
+      });
+    };
+    loadForActiveTab();
+
+    // Listen for new events from background (only for the tab being shown)
+    const listener = (message: { type: string; tabId?: number; event?: any }) => {
+      if (message.type === 'NEW_EVENT' && message.event && message.tabId === currentTabId) {
         storeActions().addEvent(message.event);
       }
     };
     chrome.runtime.onMessage.addListener(listener);
-    return () => chrome.runtime.onMessage.removeListener(listener);
+    chrome.tabs.onActivated.addListener(loadForActiveTab);
+    return () => {
+      chrome.runtime.onMessage.removeListener(listener);
+      chrome.tabs.onActivated.removeListener(loadForActiveTab);
+    };
   }, []);
 
   // Auto-scroll
