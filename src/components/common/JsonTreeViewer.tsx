@@ -26,7 +26,6 @@ import {
   Search,
   ExternalLink,
   Check,
-  X,
   FileJson,
   Hash,
   Type,

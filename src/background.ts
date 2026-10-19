@@ -39,7 +39,7 @@ class StateManager {
 
   async loadState(): Promise<void> {
     try {
-      const storedState = await chrome.storage.local.get(['enabled', 'routes', 'eventMonitorEnabled']);
+      const storedState = await chrome.storage.local.get(['enabled', 'routes', 'eventMonitorEnabled']) as Partial<AppState>;
       this.state.enabled = storedState.enabled || false;
       this.state.routes = storedState.routes || {};
       this.state.eventMonitorEnabled = storedState.eventMonitorEnabled || false;
@@ -454,10 +454,11 @@ class StateManager {
   async openSidePanel(): Promise<void> {
     console.log('[Background] Opening side panel');
     try {
+      // extforge-ignore-compat: chrome.sidePanel — runtime-guarded; Firefox/Safari fall through to error branch
       if (chrome.sidePanel) {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab.id) {
-          // @ts-expect-error -- sidePanel.open is not yet in the @types/chrome typings
+          // extforge-ignore-compat: chrome.sidePanel.open — only reached when sidePanel API is present
           chrome.sidePanel.open({ windowId: tab.windowId });
         } else {
           throw new Error('No active tab found');

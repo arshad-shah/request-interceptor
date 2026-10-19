@@ -91,10 +91,10 @@ const mockChrome = {
 };
 
 // @ts-expect-error -- mockChrome is a partial implementation for testing
-global.chrome = mockChrome;
+globalThis.chrome = mockChrome;
 
 // Mock console methods for cleaner test output
-global.console = {
+globalThis.console = {
   ...console,
   // Uncomment to suppress specific console methods in tests
   // log: vi.fn(),

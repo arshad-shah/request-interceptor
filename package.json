@@ -1,7 +1,44 @@
 {
   "name": "request-interceptor",
-  "version": "1.0.0",
-  "description": "Developer toolkit for intercepting API responses, monitoring events, and inspecting browser storage",
+  "version": "3.1.0",
+  "description": "Developer toolkit browser extension for intercepting API responses, monitoring events, and inspecting browser storage. Manifest V3, cross-browser.",
+  "private": true,
+  "license": "MIT",
+  "author": {
+    "name": "Arshad Shah",
+    "email": "shaharshad57@gmail.com",
+    "url": "https://github.com/arshad-shah"
+  },
+  "homepage": "https://github.com/arshad-shah/request-interceptor#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arshad-shah/request-interceptor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/arshad-shah/request-interceptor/issues"
+  },
+  "keywords": [
+    "chrome-extension",
+    "browser-extension",
+    "manifest-v3",
+    "api",
+    "mock",
+    "intercept",
+    "fetch",
+    "xhr",
+    "websocket",
+    "devtools",
+    "extforge"
+  ],
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
+  "packageManager": "pnpm@11.1.2",
+  "volta": {
+    "node": "24.15.0",
+    "pnpm": "11.1.2"
+  },
   "type": "module",
   "scripts": {
     "dev": "extforge dev",
@@ -25,11 +62,12 @@
     "zustand": "^4.5.7"
   },
   "devDependencies": {
+    "@swc/core": "^1.15.33",
     "@tailwindcss/cli": "^4.2.4",
-    "@testing-library/jest-dom": "^6.8.0",
-    "@testing-library/react": "^16.3.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/chrome": "^0.0.246",
+    "@types/chrome": "^0.1.42",
     "@types/node": "^24.3.0",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
@@ -39,19 +77,17 @@
     "eslint": "^8.57.1",
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.20",
-    "extforge": "^0.2.0",
-    "jsdom": "^26.1.0",
+    "extforge": "^0.4.0",
+    "jsdom": "^29.1.1",
+    "react-refresh": "^0.18.0",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.6"
   },
   "pnpm": {
-    "overrides": {
-      "prismjs": ">=1.30.0",
-      "esbuild": ">=0.25.0",
-      "js-yaml": ">=4.1.1"
-    },
     "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@swc/core",
       "esbuild"
     ]
   }
