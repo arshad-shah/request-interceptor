@@ -1,6 +1,6 @@
 import React from 'react';
 import Radio from '@/components/ui/Radio';
-import ReactAceEditor from '@/components/common/ReactAceEditor';
+import { CodeEditor } from '@/components/common/code-editor';
 import { RouteFormData } from '@/types';
 
 interface InjectionSectionProps {
@@ -47,7 +47,7 @@ const InjectionSection: React.FC<InjectionSectionProps> = ({
     {/* JavaScript */}
     <div className="space-y-2">
       <label className="ds-label">JavaScript to Inject</label>
-      <ReactAceEditor
+      <CodeEditor
         value={formData.scripts[0] || ''}
         onChange={(value) => onFieldChange('scripts', [value])}
         language="javascript"
@@ -62,7 +62,7 @@ const InjectionSection: React.FC<InjectionSectionProps> = ({
     {/* CSS */}
     <div className="space-y-2">
       <label className="ds-label">CSS to Inject</label>
-      <ReactAceEditor
+      <CodeEditor
         value={formData.stylesheets[0] || ''}
         onChange={(value) => onFieldChange('stylesheets', [value])}
         language="css"

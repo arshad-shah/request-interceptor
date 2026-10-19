@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { StorageType } from '@/types/storage';
-import ReactAceEditor from '@/components/common/ReactAceEditor';
+import { CodeEditor } from '@/components/common/code-editor';
 import Input from '@/components/ui/Input';
 
 interface StorageEditorProps {
@@ -73,7 +73,7 @@ const StorageEditor: React.FC<StorageEditorProps> = ({
           />
           <div>
             <label className="ds-label mb-1 block">Value</label>
-            <ReactAceEditor
+            <CodeEditor
               value={value}
               onChange={setValue}
               language={language}

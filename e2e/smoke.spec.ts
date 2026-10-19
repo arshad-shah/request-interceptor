@@ -1,8 +1,6 @@
 import { test, expect, sendMessage } from './fixtures';
 
-// Known failure: Ace tries to load `worker-json.js`, which the build never ships.
-// Fixed by replacing Ace with CodeMirror (no workers); remove `.fail` then.
-test.fail('service worker starts and side panel renders every tab without errors', async ({ context, extensionId }) => {
+test('service worker starts and side panel renders every tab without errors', async ({ context, extensionId }) => {
   const page = await context.newPage();
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
