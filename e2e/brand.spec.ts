@@ -16,10 +16,13 @@ test('branded toast appears on the page when a mock fires', async ({ context, ex
   await page.screenshot({ path: testInfo.outputPath('toast.png') });
 });
 
-test('side panel header shows the brand mark', async ({ context, extensionId }, testInfo) => {
+test('side panel opens on a slim control bar without the product name', async ({ context, extensionId }, testInfo) => {
   const page = await context.newPage();
+  await page.setViewportSize({ width: 400, height: 700 });
   await page.goto(`chrome-extension://${extensionId}/ui/sidepanel/index.html`);
-  const mark = page.getByRole('img', { name: 'Request Interceptor' }).first();
-  await expect(mark).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath('sidepanel.png'), clip: { x: 0, y: 0, width: 420, height: 120 } });
+  const bar = page.locator('header').first();
+  await expect(bar.getByRole('button', { name: 'Settings' })).toBeVisible();
+  await expect(bar.getByRole('switch', { name: 'Toggle request interception' })).toBeAttached();
+  await expect(bar.getByText('Request Interceptor')).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('sidepanel.png'), clip: { x: 0, y: 0, width: 400, height: 120 } });
 });
