@@ -47,14 +47,6 @@ export function truncateString(str: string, maxLength: number): string {
   return str.slice(0, maxLength) + '…';
 }
 
-export function escapeHtml(str: string): string {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;

@@ -1,13 +1,16 @@
 import { ExternalLink } from 'lucide-react';
 import type { TreeNode } from './types';
-import { escapeHtml, isUrl, truncateString } from './utils';
+import { isUrl, truncateString } from './utils';
 
 interface JsonValueProps {
   type: TreeNode['type'];
   value: unknown;
 }
 
-/** Syntax-highlighted primitive value; http(s) strings get an external link. */
+/**
+ * Syntax-highlighted primitive value; http(s) strings get an external link.
+ * Text is rendered as-is: React escapes it, so no manual HTML escaping.
+ */
 export function JsonValue({ type, value }: JsonValueProps) {
   switch (type) {
     case 'string': {
@@ -16,7 +19,7 @@ export function JsonValue({ type, value }: JsonValueProps) {
       if (isUrl(strVal)) {
         return (
           <span className="jt-string jt-url group/url">
-            "{escapeHtml(displayVal)}"
+            "{displayVal}"
             <a
               href={strVal}
               target="_blank"
@@ -29,7 +32,7 @@ export function JsonValue({ type, value }: JsonValueProps) {
           </span>
         );
       }
-      return <span className="jt-string">"{escapeHtml(displayVal)}"</span>;
+      return <span className="jt-string">"{displayVal}"</span>;
     }
     case 'number':
       return <span className="jt-number">{String(value)}</span>;

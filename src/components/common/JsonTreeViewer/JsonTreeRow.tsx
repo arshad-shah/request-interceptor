@@ -2,7 +2,7 @@ import { clsx } from 'clsx';
 import { Check, ChevronDown, ChevronRight, Copy } from 'lucide-react';
 import type { CopiedTarget, TreeNode } from './types';
 import { JsonValue } from './JsonValue';
-import { INDENT_WIDTH, escapeHtml, formatCount, formatPath } from './utils';
+import { INDENT_WIDTH, formatCount, formatPath } from './utils';
 
 interface JsonTreeRowProps {
   node: TreeNode;
@@ -66,7 +66,7 @@ export function JsonTreeRow({
             onMouseLeave={() => onHoverPath(null)}
             title={`Copy path: ${pathStr}`}
           >
-            {typeof key === 'string' ? `"${escapeHtml(key)}"` : key}
+            {typeof key === 'string' ? `"${key}"` : key}
           </span>
           <span className="jt-colon">: </span>
         </>

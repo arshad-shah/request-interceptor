@@ -62,7 +62,7 @@ describe('JsonTreeViewer', () => {
     expect(rowText(container)).toContain('"x": 1');
   });
 
-  it.skip('leaves embedded JSON alone when disabled', () => {
+  it('leaves embedded JSON alone when disabled', () => {
     const { container } = render(
       <JsonTreeViewer data={{ inner: '{"x":1}' }} parseEmbeddedJson={false} />
     );
@@ -70,7 +70,7 @@ describe('JsonTreeViewer', () => {
     expect(container.querySelector('.jt-string')).toHaveTextContent('"{"x":1}"');
   });
 
-  it.skip('renders special characters literally instead of as HTML entities', () => {
+  it('renders special characters literally instead of as HTML entities', () => {
     const { container } = render(<JsonTreeViewer data={{ 'a<b': 'x & "y"' }} />);
     expect(container.querySelector('.jt-key')).toHaveTextContent('"a<b"');
     expect(container.querySelector('.jt-string')).toHaveTextContent('"x & "y""');
